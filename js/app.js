@@ -195,6 +195,16 @@ async function boot() {
   if (!gyms) { gyms = { k:"gyms", v: SEED_GYMS }; await DB.put("kv", gyms); }
   S.users = users.v; S.gyms = gyms.v;
 
+  // Personal link: ?u=nina claims this phone for Nina, permanently.
+  // We persist it rather than relying on the URL sticking around, because iOS resolves an
+  // installed PWA's start_url from the manifest — the query string does NOT survive
+  // Add to Home Screen. One visit to the link is enough; it's remembered after that.
+  const qp = new URLSearchParams(location.search);
+  const linked = qp.get("u");
+  if (linked && S.users.some(u => u.id === linked)) {
+    DB.pref.set("user", linked);
+    history.replaceState(null, "", location.pathname);   // drop it so the URL stays clean
+  }
   const uid_ = DB.pref.get("user", S.users[0].id);
   S.user = S.users.find(u => u.id === uid_) || S.users[0];
   const gid = DB.pref.get("gym", S.gyms[0].gym_id);
