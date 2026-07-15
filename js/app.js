@@ -589,7 +589,11 @@ async function substitute(fromId, toId) {
 /* ============ rest timer — RP refuses to ship one; it's their #1 complaint ============ */
 function startRest(muscle) {
   const [lo, hi] = E.REST[muscle] || [60, 120];
-  S.rest = { until: Date.now() + hi * 1000, lo, hi, muscle };
+  // Midpoint of RP's published range, not the top of it — counting down from `hi` would tell
+  // you to rest 3 minutes on every chest set when their own guidance is 1-3.
+  // [PUB] Their rationale for not timing rest at all: "10 '90% recovered sets' in 45 minutes is
+  // a much more anabolic stimulus than 3 '99% recovered' sets." The timer is a nudge, not a rule.
+  S.rest = { until: Date.now() + Math.round((lo + hi) / 2) * 1000, lo, hi, muscle };
   if (S.restT) clearInterval(S.restT);
   S.restT = setInterval(() => {
     const b = $("#restb"); if (!b) return;
