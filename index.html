@@ -144,6 +144,46 @@ input{font:inherit;color:inherit}
 .sheet-ft{display:flex;justify-content:flex-end;align-items:center;gap:14px;margin-top:22px;
           position:sticky;bottom:0;background:var(--b2);padding:10px 0 0}
 
+/* ============ Today: the two clocks ============ */
+.eyebrow{font-size:.66rem;letter-spacing:.1em;opacity:.45;font-weight:700;margin-bottom:3px}
+.hd-act{display:flex;gap:6px;align-items:center;flex:none}
+.chip{display:inline-flex;align-items:center;gap:5px;background:var(--b1);border:1px solid var(--line);
+      border-radius:var(--r-btn);padding:8px 10px;font-size:.75rem;white-space:nowrap;max-width:132px}
+.chip span.t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip:active{background:var(--b2)}
+.wkstrip{display:grid;grid-template-columns:repeat(7,1fr);padding:14px 8px 12px;border-bottom:1px solid var(--line)}
+.wkd{display:flex;flex-direction:column;align-items:center;gap:8px}
+.wkl{font-size:.66rem;letter-spacing:.06em;opacity:.4;font-weight:700}
+/* 🔑 THE anti-guilt line. An untrained Monday and an untrained future Sunday are the SAME pixel.
+   There is no "missed" state, because the plan never claimed a weekday. */
+.dot{width:9px;height:9px;border-radius:50%;background:var(--bc);opacity:.16;display:block}
+.dot.on{opacity:1;background:var(--c,var(--p));box-shadow:0 0 0 3px color-mix(in srgb,var(--c,var(--p)) 22%,transparent)}
+.wkd.now .wkl{opacity:1;color:var(--bc)}
+.wkd.now .dot{box-shadow:0 0 0 2px var(--bc)}   /* today = a ring, not a demand */
+.pbar{height:5px;border-radius:3px;background:var(--b1);overflow:hidden}
+.pbar i{display:block;height:100%;background:var(--emerald);border-radius:3px;transition:width .3s}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+
+/* ============ Swap ============ */
+.swapb{border:1px solid var(--line);border-radius:var(--r-btn);padding:7px 11px;
+       font-size:.75rem;font-weight:600;opacity:.75;flex:none}
+.swapb:active{background:var(--b1);opacity:1}
+.swapb.pain{border-color:var(--erc);color:var(--erc);opacity:1}
+.pick{border:1px solid var(--line);border-radius:var(--r-btn);margin-top:8px}
+.pick[aria-pressed=true]{border-color:var(--p);background:color-mix(in srgb,var(--p) 8%,transparent)}
+.sheet-ft .btn{min-height:48px;padding:0 14px;flex:1}
+
+/* ============ Calendar ============ */
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:10px 12px 14px}
+.cald{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+      border-radius:var(--r-btn);font-size:.66rem}
+.cald.tap:active{background:var(--b1)}
+.cald .n{opacity:.45;font-family:"Martian Mono",ui-monospace,monospace}
+.cald.today .n{opacity:1;font-weight:700}
+.cald.blank{visibility:hidden}
+.calhd{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:4px 12px 0}
+.calhd div{text-align:center;font-size:.66rem;opacity:.35;font-weight:700}
+
 /* ============ Bits ============ */
 .badge{font-size:.66rem;padding:3px 7px;border-radius:var(--r-btn);font-weight:700;letter-spacing:.04em}
 .b-up{background:var(--su);color:var(--suc)} .b-mid{background:var(--b1);color:var(--bc)}

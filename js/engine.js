@@ -33,7 +33,25 @@ const CFG = {
                       // landmarks would overcount and under-prescribe. Don't flip without
                       // recalibrating the tables.
   perSessionMax: 12,  // [PUB] beyond this, systemic fatigue makes more work junk volume
-  perSessionMin: 4
+  perSessionMin: 4,
+
+  // ── SPLIT PLANNING ──
+  setsPerSessionPlan: 9,   // [PUB] "for every 8-10 direct sets per muscle per week, add another
+                           // training session." 9 = the midpoint and the exact inverse of
+                           // minFrequency(). This is the PLANNING capacity of one session;
+                           // perSessionMax (12) is the PHYSICAL ceiling. Both published, not the
+                           // same number — the gap between them is what we call "crowded".
+  sessionSetMax: 30,       // [PUB] hard sets per session. At RP's own published rest times this
+                           // lands at ~75-90 min: the 30-set ceiling and "don't train for three
+                           // hours" are the same constraint. See sessionMinutes().
+  groupsPerSession: [4, 6],// [PUB] muscle groups per session
+  splitPlanTarget: "mav"   // ⚠️ THE AMBIGUOUS CALL, surfaced not buried. Frequency is planned
+                           // against MAV/MAV*P — where an accumulation block realistically LANDS
+                           // — not MRV*P. Planning against MRV*P rejects every split at every day
+                           // count (emphasized side delts, MRV*P hi 40, would need ceil(40/9)=5
+                           // sessions to train at all). MRV is a boundary you approach in the last
+                           // week, not a number you build a calendar around. Set "mrv" to plan
+                           // against the ceiling and watch everything go red.
 };
 
 /* ================================================================
@@ -390,16 +408,342 @@ function setBadge(cur, prev, slot) {
  * Volume forces frequency; the split falls out. RP deliberately publishes NO day-by-day
  * templates and their editorial line is literally "Your Training Split Doesn't Matter."
  * ================================================================ */
-const minFrequency = weeklySets => Math.max(1, Math.ceil(weeklySets / 9));
-function splitFor(days) {
-  return ({
-    2: { name: "Full Body ×2", days: ["full", "full"] },
-    3: { name: "Full Body ×3", days: ["full", "full", "full"] },
-    4: { name: "Upper / Lower ×2", days: ["upper", "lower", "upper", "lower"] },
-    5: { name: "Upper / Lower + Arms & Delts", days: ["upper", "lower", "upper", "lower", "arms"] },
-    6: { name: "Push / Pull / Legs ×2", days: ["push", "pull", "legs", "push", "pull", "legs"] }
-  })[days] || { name: "Full Body ×3", days: ["full", "full", "full"] };
+const minFrequency = weeklySets => Math.max(1, Math.ceil(weeklySets / CFG.setsPerSessionPlan));
+
+/* ================================================================
+ * SPLITS — a catalog, not an answer.
+ *
+ * [PUB] RP's editorial line is literally "Your Training Split Doesn't Matter" and they publish no
+ * day-by-day templates. That is NOT licence to hardcode one split per day-count — it's the
+ * opposite. What matters is FREQUENCY, and frequency is forced by VOLUME. The split is just the
+ * container that either can or cannot hold the frequency your emphasis settings demand.
+ * So: catalog the containers, then let splitStatus() do the rejecting, out loud.
+ *
+ * RP's own legacy program was branded "4 Day FULL BODY" — 4 days is not upper/lower by decree.
+ * ================================================================ */
+const SPLITS = [
+  { id:"fb2", name:"Full Body ×2", days:2, pattern:["full","full"], perMuscleFreq:2, upgrade:"fb3",
+    bestFor:"2 days a week. The only split that clears RP's frequency floor at this day count." },
+  { id:"ul1", name:"Upper / Lower (1 each)", days:2, pattern:["upper","lower"], perMuscleFreq:1, upgrade:"fb2",
+    bestFor:"Nothing, honestly. Kept so the app can explain why instead of silently hiding it — "
+          + "it's the split everyone asks for at 2 days." },
+  { id:"fb3", name:"Full Body ×3", days:3, pattern:["full","full","full"], perMuscleFreq:3, upgrade:"fb4",
+    bestFor:"3 days a week. 3× on everything with zero scheduling cleverness." },
+  { id:"ul3", name:"Upper / Lower / Upper", days:3, pattern:["upper","lower","upper"], perMuscleFreq:2, upgrade:"fb3",
+    bestFor:"An upper-body specialization block with legs explicitly on Maintain. Rejects on any "
+          + "Grow or Emphasize lower-body muscle — that's the point of it." },
+  { id:"ppl1", name:"Push / Pull / Legs ×1", days:3, pattern:["push","pull","legs"], perMuscleFreq:1, upgrade:"fb3",
+    bestFor:"Nothing at 3 days. Catalogued to be rejected out loud — it's the most-requested "
+          + "3-day split and it gives every muscle 1×/week." },
+  { id:"fb4", name:"Full Body ×4", days:4, pattern:["full","full","full","full"], perMuscleFreq:4, upgrade:"ulf",
+    bestFor:"4 days when you're emphasizing 2-3 groups and want them at 3-4×. RP shipped this as a "
+          + "branded program — it isn't a beginner consolation prize." },
+  { id:"ul2", name:"Upper / Lower ×2", days:4, pattern:["upper","lower","upper","lower"], perMuscleFreq:2, upgrade:"ulf",
+    bestFor:"4 days, shorter sessions, clean heavy/light week. 2× on the big groups — plenty for "
+          + "anything on Grow, tight for a chest/back Emphasize block." },
+  { id:"ulf", name:"Upper / Lower + Full", days:5, pattern:["upper","lower","upper","lower","full"], perMuscleFreq:3, upgrade:"ppl_ul",
+    bestFor:"5 days. The full-body day buys every group a 3rd session without a 6th gym trip. "
+          + "The best answer at 5 days for almost everyone." },
+  { id:"ul_arms", name:"Upper / Lower + Arms & Delts", days:5, pattern:["upper","lower","upper","lower","arms"], perMuscleFreq:2, upgrade:"ulf",
+    bestFor:"5 days when the shortfall is specifically arms and delts — the groups RP publishes at "
+          + "3-6×/wk. Adds frequency exactly where the landmark table says it's needed." },
+  { id:"ppl_ul", name:"Push / Pull / Legs + Upper / Lower", days:5, pattern:["push","pull","legs","upper","lower"], perMuscleFreq:2, upgrade:"ppl2",
+    bestFor:"5 days, advanced, high absolute volume. Splits the week finely enough that no single "
+          + "session breaks the 30-set ceiling." },
+  { id:"ppl2", name:"Push / Pull / Legs ×2", days:6, pattern:["push","pull","legs","push","pull","legs"], perMuscleFreq:2, upgrade:null,
+    bestFor:"6 days. Only worth the 6th trip if your volume genuinely can't fit in 5 sessions under "
+          + "the 30-set cap. 6 days does NOT buy frequency over Upper/Lower — it buys shorter days." }
+];
+const splitById = id => SPLITS.find(s => s.id === id) || null;
+
+/* Which muscles a day KIND admits — not which it prescribes. `full` admits everything and lets
+   the 30-set / 4-6-group budget in assignDays() decide. That inversion is the whole answer to
+   "how does a full-body day not take three hours". */
+const DAY_MUSCLES = {
+  full:  Object.keys(LANDMARKS),
+  upper: ["chest","back","side_delt","rear_delt","front_delt","triceps","biceps","traps","forearms"],
+  lower: ["quads","hamstrings","glutes","calves","adductors","abs"],
+  push:  ["chest","front_delt","side_delt","triceps"],
+  pull:  ["back","rear_delt","biceps","traps","forearms"],
+  legs:  ["quads","hamstrings","glutes","calves","adductors","abs"],
+  arms:  ["biceps","triceps","side_delt","rear_delt","forearms","abs"]
+};
+const DAY_LABEL = { full:"Full Body", upper:"Upper", lower:"Lower", push:"Push", pull:"Pull",
+                    legs:"Legs", arms:"Arms & Delts" };
+
+/* SPREADABLE — muscles that may be appended to ANY day regardless of its kind.
+ * [PUB] Derived from the landmark table itself, not invented: these are exactly the rows whose
+ * published freq hi is 6 (biceps, side_delt, rear_delt, calves, abs, forearms — all 3-6×). RP
+ * publishes them as needing 3-6 sessions/wk; a 4-day Upper/Lower anchors them at 2. The pattern
+ * and the table contradict each other, and the table wins.
+ * This is what keeps Upper/Lower ×2 alive for Robert: his side delts are Emphasize, need 3×, and
+ * the upper days only give 2 — so side delts go on the lower days too. They aren't "upper"
+ * muscles, they're whenever muscles, and that's how everyone actually trains them.
+ * ⚠️ Nothing with a systemic-fatigue cost is in here. Quads publish at 2-5× and are deliberately
+ * NOT spreadable — a quad on an upper day is a schedule bug, not a frequency win. */
+const SPREADABLE = new Set(["side_delt","rear_delt","biceps","calves","abs","forearms"]);
+
+/**
+ * The volume this muscle carries by the LAST ACCUMULATION WEEK.
+ * ⚠️ NOT band().start. band().start is MEV — where week 1 seeds. Sizing the split off MEV means
+ * minFrequency() returns 1 for every muscle, every split validates at every day count, and the
+ * check is decorative. The split is FIXED for the whole meso; the volume is not. Plan the
+ * container for the volume that will be in it in week 4.
+ * The max() on emphasize is load-bearing: RP's quads row has MAV*P [10,18] BELOW MAV [6,14] at the
+ * low end, so a naive mavP[0] would plan an Emphasize block at LESS volume than a Grow block.
+ */
+function planVolume(muscle, emphasis) {
+  const L = landmarks(muscle);
+  if (CFG.splitPlanTarget === "mrv") return emphasis === "maintain" ? L.mv[1] : band(muscle, emphasis).ceil;
+  if (emphasis === "maintain") return L.mv[1];
+  if (emphasis === "grow")     return L.mav[1];
+  return Math.max(L.mavP[0], L.mav[1]);
 }
+
+/** The frequency to AIM for. Aspiration; splitStatus() judges what you actually got. */
+function targetFreq(muscle, emphasis) {
+  const byVolume = minFrequency(planVolume(muscle, emphasis));
+  // [PUB] the landmark table's own freq column is an independent floor. Maintain is exempt —
+  // holding chest at 4 sets does not need two gym trips.
+  const byLandmark = emphasis === "maintain" ? 1 : landmarks(muscle).freq[0];
+  return Math.max(byVolume, byLandmark);
+}
+const deliverable = freq => freq * CFG.setsPerSessionPlan;   // [PUB] planning capacity  (9/session)
+const physicalMax = freq => freq * CFG.perSessionMax;        // [PUB] physical ceiling  (12/session)
+
+/** Can this split deliver this muscle? Three verdicts, two of them straight published numbers. */
+function splitStatus(muscle, emphasis, freq) {
+  const L = landmarks(muscle), vol = planVolume(muscle, emphasis), lo = MG_LOWER(muscle);
+  if (freq < 1) {
+    // A dropped MAINTAIN muscle is not a failure — it's the setting working as designed.
+    // [APP] Maintain = "train these just enough to preserve muscle size while freeing recovery
+    // resources for other priorities." When the week has no room left, Maintain is precisely what
+    // is supposed to yield. Calling it a rejection would invalidate every honest 2-day plan
+    // (15 muscle groups do not fit in 2 sessions, and shouldn't).
+    if (emphasis === "maintain") return { status:"skipped", freq:0, vol,
+      why:`${lo} is on Maintain and didn't fit this week. That's the trade Maintain exists to make.` };
+    return { status:"reject", freq, vol, why:`${MG_LABEL[muscle]} never gets trained on this split.` };
+  }
+  // [PUB] below the published frequency floor is STRUCTURAL — no set count fixes a calendar.
+  if (emphasis !== "maintain" && freq < L.freq[0]) return { status:"reject", freq, vol,
+    why:`${freq}× a week on ${lo}. RP publishes ${lo} at ${L.freq[0]}-${L.freq[1]}× — ${freq}× is `
+      + `below the floor, and no set count fixes that.` };
+  // [PUB] per-session cap 8-12. Past 12 the split is arithmetically incapable, not just tight.
+  if (vol > physicalMax(freq)) return { status:"reject", freq, vol,
+    why:`${lo} is set to ${emphasis} — about ${vol} sets a week by the end of the block. `
+      + `${freq} session${freq>1?"s":""} means ${Math.ceil(vol/freq)} sets in one go; past 12 in a `
+      + `session it's junk volume. You'd need ${minFrequency(vol)} sessions.` };
+  if (vol > deliverable(freq)) return { status:"crowded", freq, vol, ceil: physicalMax(freq),
+    why:`${lo} wants ~${vol} sets a week and gets ${freq} session${freq>1?"s":""} — `
+      + `${Math.ceil(vol/freq)} each. Doable, but it's the top of the useful range and you'll cap `
+      + `out before the block ends. One more session on ${lo} and it's comfortable.` };
+  return { status:"ok", freq, vol, ceil: deliverable(freq),
+    why:`${lo}: ${freq}× a week, ~${Math.round(vol/freq)} sets a session. Room to ramp.` };
+}
+
+/**
+ * Assign muscles to days. PURE PLANNING — no gym, no exercises, no loads.
+ * Greedy, priority-ordered, least-loaded-bin. The bin capacity is [PUB] 30 sets / 4-6 groups, and
+ * that capacity is the ONLY thing standing between a full-body day and a three-hour day.
+ * Placing Emphasize→Grow→Maintain against a hard bin means an over-broad emphasis spread doesn't
+ * produce a bad plan — it produces a REPORTED shortfall. Tell the user; don't quietly under-train.
+ */
+function assignDays(user, split) {
+  const days = split.pattern.map((kind, i) => ({ kind, i, muscles: [], projSets: 0 }));
+  const emph = m => (user.emphasis || {})[m] || "grow";
+
+  /* TWO PASSES — most-constrained-first. This ordering is the whole correctness of the function.
+   *
+   * Pass 1 places ANCHORS (non-spreadable): they can only live on days whose kind admits them, so
+   * they have the least placement freedom and must claim their days before anything else does.
+   * Pass 2 places SPREADABLE muscles into whatever capacity is left.
+   *
+   * ⚠️ Sorting purely by (tier, targetFreq) — the obvious version — is broken, and silently:
+   * spreadable muscles have HIGH published frequency (biceps/side_delt/rear_delt/calves are all
+   * 3-6×), so they sort to the front, fan out across every day, and fill the 30-set bins. Then
+   * quads — which can ONLY go on a lower day — arrives to find both lower days full and gets
+   * rejected outright. A 4-day Upper/Lower that trains no quads, because the lateral raises got
+   * there first. Freedom to go anywhere is a reason to go LAST.
+   */
+  const byNeed = (a, b) => EMPHASIS.indexOf(emph(b)) - EMPHASIS.indexOf(emph(a))
+                        || targetFreq(b, emph(b)) - targetFreq(a, emph(a));
+  const all = Object.keys(LANDMARKS);
+  const order = all.filter(m => !SPREADABLE.has(m)).sort(byNeed)
+        .concat(all.filter(m => SPREADABLE.has(m)).sort(byNeed));
+
+  const report = [];
+  for (const m of order) {
+    const e = emph(m), vol = planVolume(m, e);
+    const want = Math.min(targetFreq(m, e), split.pattern.length);
+    // NB: NOT clamped to perSessionMin — that's an autoregulation floor (applyDelta), not a
+    // planning floor. Clamping here would prescribe 4 sets of front delts to someone who set them
+    // to Maintain (MV = 2), and Maintain would stop meaning maintain.
+    const per = Math.min(CFG.perSessionMax, Math.max(1, Math.round(vol / want)));
+    const elig = days
+      .filter(d => (DAY_MUSCLES[d.kind] || []).includes(m) || SPREADABLE.has(m))
+      .sort((a, b) => a.projSets - b.projSets || a.i - b.i);
+    const got = [];
+    for (const d of elig) {
+      if (got.length >= want) break;
+      if (d.muscles.length >= CFG.groupsPerSession[1]) continue;   // [PUB] ≤6 groups/session
+      if (d.projSets + per > CFG.sessionSetMax) continue;          // [PUB] ≤30 hard sets/session
+      d.muscles.push(m); d.projSets += per; got.push(d);
+    }
+    if (!got.length) { report.push(Object.assign({ m, emphasis:e, dropped:true }, splitStatus(m, e, 0))); continue; }
+    report.push(Object.assign({ m, emphasis:e, perSession:per }, splitStatus(m, e, got.length)));
+  }
+  return { days, muscles: report };
+}
+
+/**
+ * [PUB] "Whatever muscle group matters most gets trained first in each session, without exception."
+ * Order by EMPHASIS TIER — not by muscle size, not compound-before-isolation. ⚠️ Neither of those
+ * is an RP rule and we do not encode them.
+ * [PUB] Microcycle pulsatility — rotate WHICH muscle leads across sessions so each gets a day to
+ * be the priority.
+ * These look like they contradict and don't: they're the same rule at two granularities. Priority
+ * ranks the TIERS; pulsatility breaks ties INSIDE a tier. Rotating within-tier means a Grow muscle
+ * can never jump an Emphasize muscle, so "without exception" is never violated.
+ * Consequence for the UI: Upper A and Upper B are NOT the same workout and mustn't share a name.
+ */
+function orderDay(user, muscles, dayIndex) {
+  const rot = (a, n) => a.length ? a.slice(n % a.length).concat(a.slice(0, n % a.length)) : a;
+  const tier = t => muscles.filter(m => ((user.emphasis || {})[m] || "grow") === t);
+  return [...rot(tier("emphasize"), dayIndex), ...rot(tier("grow"), dayIndex), ...rot(tier("maintain"), dayIndex)];
+}
+
+/* [PUB] Heavy rep ranges earlier in the WEEK than light.
+ * ⚠️ This is WEEKLY, not within-session. Encoding it as "first exercise heavy, second light" (the
+ * obvious misread, and what the first seedMeso did) makes every session identically shaped and
+ * gives the WEEK no gradient at all — it implements a rule that doesn't exist.
+ * The real axis is `occ`: which session of the week this is FOR THIS MUSCLE. `k` still shifts one
+ * rung because the 2nd exercise complements the 1st by RESISTANCE PROFILE (stretch → shortened),
+ * and shortened-position work lives a bracket higher. That's a profile rule, which we have. */
+const REP_LADDER = [[5,8],[8,12],[12,20],[20,30]];
+function repRangeFor(occ, freq, k) {
+  const rung = freq <= 1 ? 1 : Math.round(occ * 2 / (freq - 1));
+  return REP_LADDER[Math.min(REP_LADDER.length - 1, rung + (k || 0))];
+}
+
+/**
+ * [PUB] REST is RP's own published per-muscle rest table. ~45s under the bar per set and ~90s of
+ * setup + warm-up per exercise are [RECON].
+ * The point: RP's 30-hard-set session ceiling and "your workout shouldn't take three hours" ARE
+ * THE SAME CONSTRAINT. 30 sets at their own rest times is ~75-90 min. They never say it out loud;
+ * it falls straight out of two tables they both published.
+ */
+function sessionMinutes(day) {
+  let sec = 0;
+  for (const g of day.muscles || []) {
+    const r = REST[g.m] || [60, 120];
+    const sets = (g.slots || []).reduce((s, x) => s + x.sets, 0);
+    sec += sets * ((r[0] + r[1]) / 2 + 45) + (g.slots || []).length * 90;
+  }
+  return Math.round(sec / 60);
+}
+
+/** Reward frequency HEADROOM on the muscles the user cares about — headroom is what a split IS.
+ *  A split with none is one you'll outgrow in week 3. */
+function scoreSplit(user, split, ev) {
+  const W = { emphasize:3, grow:1, maintain:.25 };
+  let s = 0;
+  for (const r of ev.muscles) {
+    const w = W[r.emphasis] || 1;
+    // A reject is a heavy penalty, NOT -Infinity. Returning -Infinity makes every invalid split
+    // score identically, so when NOTHING is valid there's no way to rank the least-bad one and
+    // recommendSplit() hands back null → seedMeso() throws → the user cannot create a mesocycle
+    // at all. "No" is a correct answer and an unusable one. Rank the damage instead.
+    if (r.status === "reject") { s -= w * 4; continue; }
+    if (r.status === "skipped") { s -= w * .5; continue; }   // maintain yielding: cheap, by design
+    if (r.status === "crowded") { s -= w * .5; continue; }
+    s += w * (1 + clamp((deliverable(r.freq) - r.vol) / Math.max(r.vol, 1), 0, .5));
+  }
+  s -= .05 * new Set(split.pattern).size;   // [RECON] fewer day kinds = less to remember. Small, real.
+  // [RECON] Training age is deliberately a thumb, not a scale: it already drives the split THROUGH
+  // VOLUME (advanced → higher landmarks → minFrequency forces sessions). A second pathway would
+  // double-count it. RP's one direct rule (novices shouldn't specialize) belongs on the emphasis
+  // picker, not here. Don't grow this term.
+  const age = user.trainingAge || "intermediate";
+  if (age === "novice" && split.pattern.every(d => d === "full")) s += .3;
+  if (age === "advanced" && split.days >= 5) s += .15;
+  return s;
+}
+
+/** Every split at this day count, VALID FIRST, each with a line a human can read.
+ *  Rejects STAY in the list with their reason — hiding them just sends the user to a forum to ask
+ *  why they can't do PPL on 3 days. */
+function splitsFor(days, user) {
+  const u = user || { emphasis:{} };
+  const out = SPLITS.filter(s => s.days === days).map(s => {
+    const ev = assignDays(u, s);
+    const rejects = ev.muscles.filter(r => r.status === "reject");
+    const crowded = ev.muscles.filter(r => r.status === "crowded");
+    return { split:s, plan:ev, valid: !rejects.length, rejects, crowded, score: scoreSplit(u, s, ev),
+      why: rejects.length ? rejects[0].why
+         : crowded.length ? `${s.bestFor.split(".")[0]}. Tight on ${crowded.map(r => MG_LOWER(r.m)).join(" and ")}.`
+         : s.bestFor };
+  });
+  out.sort((a, b) => (b.valid - a.valid) || (b.score - a.score));
+  return out;
+}
+
+/** The pick, the runners-up, the rejects with reasons — plus the one thing that is NOT a property
+ *  of any split: whether the emphasis spread fits the week at all. */
+function recommendSplit(user, days) {
+  const opts = splitsFor(days, user);
+  const valid = opts.filter(o => o.valid);
+  // The weekly budget is a property of DAYS, not of the split — so it can't be a filter and must
+  // not be reported per-option. [PUB] ~30 hard sets/session × N sessions is all there is.
+  // Demand counts ONLY the groups above Maintain. Summing all 15 would fire this note on every
+  // honest 2-day plan and then advise "move some to Maintain" about muscles already on Maintain.
+  // The actionable number is what you asked to GROW.
+  const above = Object.keys(LANDMARKS).filter(m => ((user.emphasis || {})[m] || "grow") !== "maintain");
+  const demand = above.reduce((t, m) => t + planVolume(m, (user.emphasis || {})[m] || "grow"), 0);
+  const budget = days * CFG.sessionSetMax;
+  const note = demand <= budget ? null
+    : `By your last hard week your emphasis settings ask for about ${demand} sets a week. ${days} `
+    + `session${days>1?"s":""} hold about ${budget}. You've got ${above.length} groups above `
+    + `Maintain — move two or three down, or add a day. Maintain isn't giving up; it's what frees `
+    + `the recovery for the groups you actually picked.`;
+  // Always return SOMETHING buildable. When nothing is valid — which happens honestly, e.g. 11
+  // groups above Maintain on 2 days a week — fall back to the least-bad split and say so loudly.
+  // A dead end here means a real person cannot start training, and "your emphasis spread doesn't
+  // fit" is a fixable problem the app should state, not a wall it should put up.
+  const best = valid[0] || opts[0] || null;
+  const forced = !valid.length && !!best;
+  return {
+    best: best && best.split, options: opts, valid, forced,
+    rejected: opts.filter(o => !o.valid),
+    // On a forced pick the rejects ARE the caps — those muscles will be under-trained, and the
+    // workout screen has to say which.
+    caps: best ? (forced ? best.rejects.concat(best.crowded) : best.crowded) : [],
+    budget: { demand, budget, over: demand > budget, note },
+    // [PUB] 2-4×/muscle/wk is optimal and near-equivalent at matched volume. So when two splits
+    // both clear the floor we are NOT claiming one grows more muscle — only that one has more
+    // room left. Say that; don't oversell it.
+    why: !best ? `No split defined for ${days} days.`
+       : forced ? `${best.split.name} — the best fit at ${days} days, but ${best.rejects.length} `
+                + `muscle${best.rejects.length>1?"s":""} can't get enough frequency. ${best.rejects[0].why}`
+       : `${best.split.name} — ${best.why}`
+  };
+}
+
+/** Why full body is right for a 2-3 day lifter. One paragraph, correct, quotable by the UI. */
+function fullBodyRationale(days) {
+  return `At ${days} days a week, any split that divides the body divides your frequency. `
+       + `Upper/Lower over ${days} days trains chest once a week — RP publishes chest at 2-4×, so `
+       + `that's below the floor before you've picked a single exercise. Full Body ×${days} hits `
+       + `everything ${days}× with the same ${days} gym trips. It isn't the beginner option; it's `
+       + `the only arithmetic that works. And it's cheap here, because at ${days} days your weekly `
+       + `volume is low enough that each muscle only needs ${days <= 2 ? "8-12" : "5-8"} sets a `
+       + `session — 5 or 6 groups, ~${days <= 2 ? 30 : 24} sets, under 90 minutes.`;
+}
+
+/** @deprecated — shim for one release. Use recommendSplit(user, days). */
+const splitFor = days => {
+  const b = recommendSplit({ emphasis:{} }, days).best || SPLITS.find(s => s.id === "fb3");
+  return { name: b.name, days: b.pattern };
+};
 
 /* ================================================================
  * EQUIPMENT RESOLUTION
@@ -713,18 +1057,234 @@ function weeklyVolume(sessions, library) {
   return out;
 }
 
+/* ================================================================
+ * PROGRESS / ANALYTICS
+ *
+ * ⚠️ THE GOVERNING FACT, and the reason a naive tracker lies here:
+ *   RP's prescription is approximately e1RM-NEUTRAL.
+ *      wk1  200×10 @2 RIR → epley 280.0
+ *      wk2  205×10 @1 RIR → epley 280.2
+ *   The added load is the TOLL for holding reps as RIR falls (see progress() + rirForWeek()).
+ *   It is NOT strength gain. Therefore:
+ *     · e1RM above its own baseline = you beat the PRESCRIPTION. Real, and rare.
+ *     · "heaviest load ever"        = true almost every session. Congratulates you for
+ *                                     following instructions. Meaningless.
+ *   Every rule below follows from that one fact.
+ * ================================================================ */
+
 /**
- * e1RM trend — the slot's real progression measure. NEVER absolute load.
- * ⚠️ off_plan (travel) sessions are EXCLUDED. Otherwise a hotel's 50lb dumbbell ceiling reads as
- * detraining, you believe it, and you deload for nothing. Single most likely way this app lies.
+ * [PUB] RP's countable working set: 5-30 reps, 0-4 RIR, 30-85% 1RM.
+ *
+ * ⚠️ The `rir <= 4` clause DOES THE DELOAD EXCLUSION FOR FREE — deloadPrescription() prescribes
+ * rir:5 and rirForWeek() returns 5 for the deload week, so the deload excludes itself. There is
+ * deliberately NO deload branch anywhere in this file. Don't add one: you'd be double-gating and
+ * the second gate would drift from the first.
+ *
+ * This matters more than it looks. Without it:
+ *      wk1              200×10 @2 RIR → epley 280.0
+ *      deload 2nd half  100× 5 @5 RIR → epley 133.3   = a reported 52% COLLAPSE
+ * ...in the exact week RP says the growth lands. The user panics and abandons either the deload
+ * or the app. It only surfaces in week 5 of a 5-week test, which is exactly how it ships.
+ * If anyone ever sets a deload RIR below 5, THIS is what breaks.
+ *
+ * It also keeps us inside Epley's usable window — past ~R=15 a straight line through a curve is
+ * fiction.
+ */
+function countableSet(set) {
+  return !!set && set.done === true && set.load > 0
+      && set.reps != null && set.reps >= 5 && set.reps <= 30
+      && set.rir != null && set.rir >= 0 && set.rir <= 4;
+}
+
+/* Machine loads are instance-scoped, free weights absolute. This MUST stay loadKey()'s rule — if
+   the trend and the load memory ever disagree about what "the same lift" is, one of them is lying
+   and you can't tell which. */
+function trendKey(set, ex) {
+  return (ex && ex.load_portability === "machine_relative" && set.instanceId)
+    ? `${set.exId}@${set.instanceId}` : set.exId;
+}
+const chrono = (a, b) => (a.date || "").localeCompare(b.date || "") || (a.week - b.week) || (a.day - b.day);
+
+/**
+ * One point per SESSION per key — the FIRST countable set, not the mean and not the max.
+ *  · mean is dragged down by fatigue sets, and THE SET COUNT IS AUTOREGULATED — it changes weekly
+ *    by design. Any count-sensitive statistic confounds "the engine added a set" with "I got
+ *    stronger". That's the tonnage mistake wearing a different hat.
+ *  · max-over-N has a max-of-N bias that grows with the set count. Same disease.
+ *  · the first set is count-invariant, fatigue-invariant, and is the set progress() actually
+ *    wrote the prescription for.
+ * Epley's ABSOLUTE value is wrong for a 20-rep accessory (120×20@2 → 208, nobody's 1RM). Survivable
+ * only because it's wrong CONSISTENTLY WITHIN A KEY and we read % change within a key. Hence the
+ * hard UI rule: never print an absolute e1RM.
+ */
+function e1rmSeries(sessions, library, key) {
+  const out = [];
+  for (const s of (sessions || []).slice().sort(chrono)) {
+    if (!s.finished || s.off_plan) continue;   // travel excluded — see the note on e1rmTrend
+    for (const set of (s.sets || [])) {
+      const ex = (library || []).find(e => e.id === set.exId);
+      if (!ex || trendKey(set, ex) !== key || !countableSet(set)) continue;
+      out.push({ at: s.date, week: s.week, day: s.day, mesoId: s.mesoId, sessionId: s.id,
+                 e: epley(set.load, set.reps, set.rir), load: set.load, reps: set.reps,
+                 rir: set.rir, exId: set.exId, sub: set.sub ? set.sub.of : null });
+      break;                                   // FIRST, not best
+    }
+  }
+  return out;
+}
+
+/** Every trend key a muscle has data for, richest first. The muscle row plots [0]. */
+function keysForMuscle(sessions, library, muscle) {
+  const seen = {};
+  for (const s of sessions || []) {
+    if (!s.finished || s.off_plan) continue;
+    for (const set of s.sets || []) {
+      if (set.muscle !== muscle || !countableSet(set)) continue;
+      const ex = (library || []).find(e => e.id === set.exId);
+      if (!ex) continue;
+      const k = trendKey(set, ex);
+      (seen[k] = seen[k] || { key:k, exId:set.exId, instanceId:set.instanceId || null, s:new Set() }).s.add(s.id);
+    }
+  }
+  return Object.values(seen).map(v => ({ key:v.key, exId:v.exId, instanceId:v.instanceId, n:v.s.size }))
+                            .sort((a, b) => b.n - a.n);
+}
+
+/** Median-of-3, NOT an EMA. The dominant noise here is the one-off session (bad sleep, no
+ *  caffeine, a misjudged RIR); median-of-3 deletes exactly that with ZERO LAG. An EMA lags, and on
+ *  a 4-6 point series the lag lands on the newest point — the one you're trying to read.
+ *  Endpoints pass through untouched: smoothing the last point would smooth the answer. */
+function smooth3(pts) {
+  if (!pts || pts.length < 3) return (pts || []).slice();
+  return pts.map((p, i) => {
+    if (i === 0 || i === pts.length - 1) return p;
+    const m = [pts[i-1].e, p.e, pts[i+1].e].sort((a, b) => a - b)[1];
+    return Object.assign({}, p, { e: m, raw: p.e });
+  });
+}
+
+const TCRIT = { 1:6.31, 2:2.92, 3:2.35, 4:2.13, 5:2.02, 6:1.94, 7:1.89, 8:1.86, 9:1.83, 10:1.81 };
+const tcrit = df => TCRIT[df] || 1.70;
+const MIN_PTS = 4;        // 3 points can't distinguish a trend from a wobble
+const MIN_RATE = 0.0025;  // 0.25%/session. Tight data makes a 0.05% drift pass a t-test —
+                          // "significant" and "meaningful" diverge. This is the practical floor.
+
+/**
+ * OLS of ln(e1RM) on session index.
+ *  · ln, not raw → the slope is a scale-free per-session GROWTH RATE. Regressing raw e1RM makes a
+ *    400lb squat's noise dwarf a 25lb lateral raise's signal, so "overall" would just be a squat
+ *    readout in a costume.
+ *  · index, not date → [APP] training days aren't tied to dates. Sessions are the real cadence.
+ * The gate is the whole point. Three ways to fail to claim a trend, and all three are FINE.
+ * An app that can never say "I don't know" is an app whose "yes" means nothing.
+ */
+function trendFit(pts) {
+  const n = (pts || []).length;
+  if (n < 2) return { n, verdict:"none", rate:0, total:0, t:0 };
+  const xs = pts.map((_, i) => i), ys = pts.map(p => Math.log(p.e));
+  const mx = xs.reduce((a,b) => a+b, 0)/n, my = ys.reduce((a,b) => a+b, 0)/n;
+  let sxx = 0, sxy = 0;
+  for (let i = 0; i < n; i++) { const dx = xs[i]-mx; sxx += dx*dx; sxy += dx*(ys[i]-my); }
+  if (!sxx) return { n, verdict:"none", rate:0, total:0, t:0 };
+  const b = sxy/sxx, a = my - b*mx;
+  let ss = 0;
+  for (let i = 0; i < n; i++) { const r = ys[i] - (a + b*xs[i]); ss += r*r; }
+  const df = n - 2;
+  const se = df > 0 ? Math.sqrt((ss/df)/sxx) : Infinity;
+  const t = (se && isFinite(se)) ? b/se : 0;
+  const rate = Math.expm1(b), total = Math.expm1(b * (n-1));
+  let verdict = "flat";
+  if (n < MIN_PTS) verdict = "building";
+  else if (Math.abs(t) >= tcrit(df) && Math.abs(rate) >= MIN_RATE) verdict = b > 0 ? "up" : "down";
+  return { n, verdict, rate, total, t, slope:b, se, first:pts[0], last:pts[n-1] };
+}
+
+/** Per-week volume. Delegates to weeklyVolume() rather than re-walking sets — countDirect is a
+ *  load-bearing rule (bench must not add to triceps) and it lives in exactly ONE place. */
+function volumeByWeek(sessions, library, mesoId, weeks) {
+  const out = {};
+  for (let w = 1; w <= weeks; w++) {
+    const v = weeklyVolume((sessions||[]).filter(s => s.mesoId === mesoId && s.week === w && s.finished), library);
+    for (const m in v) (out[m] = out[m] || new Array(weeks).fill(0))[w-1] = v[m];
+  }
+  return out;   // travel INCLUDED — a set is a set, stimulus is stimulus
+}
+
+/** Band position + where it's heading. `delta` is the engine's ALREADY-COMMITTED next-week change
+ *  (session.decision[m].delta) — a readout of a decision, not a forecast. */
+function bandState(muscle, emphasis, sets, delta) {
+  const L = landmarks(muscle), b = band(muscle, emphasis);
+  const hi = Math.max(b.ceil, L.mrv[1]);
+  const pct = v => Math.max(0, Math.min(100, v / hi * 100));
+  const zone = sets < L.mev[0] ? "lo" : sets <= L.mav[1] ? "ok" : sets <= hi ? "hi" : "ov";
+  return { sets, hi, zone, mev:L.mev[0], mav:L.mav[1], mrv:hi,
+           pMev:pct(L.mev[0]), pMav:pct(L.mav[1]), pNow:pct(sets), pNext:pct(sets + (delta||0)),
+           weeksToCeiling: delta > 0 ? Math.ceil((hi - sets) / delta) : null };
+}
+
+const PR_MARGIN = 0.015;  // 1.5%. Below that it's Epley slop + RIR drift, not a PR.
+const R_WINDOW = 4;       // Epley's input is R = reps+rir. Only comparable at comparable R.
+
+/**
+ * PRs, derived by REPLAY, never stored. This definition WILL change, and a stored pr:true from an
+ * old rule is a lie you can't recompute away. ~4k sets for two users — it's free.
+ *
+ * Why not "heaviest weight ever": progress() raises the load 2-5% EVERY week while rirForWeek()
+ * removes a rep of reserve, so it fires almost every session of accumulation and then goes dead
+ * for the whole deload. It throws confetti for obedience, then calls your best recovery week a
+ * five-week slump. Worst of both.
+ */
+function replayPRs(sessions, library) {
+  const hist = {}, prs = [];
+  for (const s of (sessions || []).slice().sort(chrono)) {
+    if (!s.finished || s.off_plan) continue;
+    for (const set of (s.sets || [])) {
+      if (!countableSet(set)) continue;        // ← silently excludes the entire deload (RIR 5)
+      const ex = (library || []).find(e => e.id === set.exId);
+      if (!ex) continue;
+      const key = trendKey(set, ex);
+      const h = hist[key] || (hist[key] = []);
+      if (!h.length) { h.push(set); continue; }   // your first ever set isn't a PR, it's hello
+      const e = epley(set.load, set.reps, set.rir), R = set.reps + set.rir;
+      const best = h.reduce((a, x) => epley(x.load, x.reps, x.rir) > epley(a.load, a.reps, a.rir) ? x : a, h[0]);
+      const bestE = epley(best.load, best.reps, best.rir);
+      // e1RM PR — "you beat the prescription". The R window matters: 200×10@2 → R=12 → 280, but
+      // 120×20@2 → R=22 → 208. Epley's error GROWS with R, so a rep-range drift upward would
+      // manufacture fake PRs out of pure geometry. Different R = a different set, not a better one.
+      if (Math.abs(R - (best.reps + best.rir)) <= R_WINDOW && e >= bestE * (1 + PR_MARGIN)) {
+        prs.push({ kind:"e1rm", key, exId:set.exId, at:s.date, week:s.week,
+                   gain: e/bestE - 1, load:set.load, reps:set.reps, rir:set.rir });
+      } else {
+        // Matched-load rep PR — the one lifters actually feel, and the MORE trustworthy of the
+        // two precisely because no model is involved: same-or-heavier load, same-or-lower reserve.
+        const cands = h.filter(x => x.load >= set.load && x.rir <= set.rir).map(x => x.reps);
+        const bestReps = cands.length ? Math.max.apply(null, cands) : null;
+        if (bestReps != null && set.reps > bestReps)
+          prs.push({ kind:"reps", key, exId:set.exId, at:s.date, week:s.week,
+                     load:set.load, reps:set.reps, was:bestReps });
+      }
+      h.push(set);
+    }
+  }
+  return prs;
+}
+
+/**
+ * @deprecated Use e1rmSeries + trendFit. Kept for the one caller that still wants a crude number.
+ * Now routed through countableSet, which fixes a latent -52% deload collapse: this used to
+ * exclude off_plan and nothing else.
+ * ⚠️ off_plan (travel) stays excluded. Otherwise a hotel's 50lb dumbbell ceiling reads as
+ * detraining, you believe it, and you deload for nothing.
  */
 function e1rmTrend(sessions, exId, slotRir) {
   const pts = [];
   for (const s of sessions || []) {
     if (s.off_plan) continue;
     for (const set of s.sets || []) {
-      if (set.exId !== exId || !set.load || set.reps == null || set.reps < 0) continue;
-      pts.push({ at: s.date, e: epley(set.load, set.reps, set.rir == null ? slotRir : set.rir) });
+      if (set.exId !== exId) continue;
+      const rir = set.rir == null ? slotRir : set.rir;
+      if (!countableSet(Object.assign({}, set, { rir, done: set.done !== false }))) continue;
+      pts.push({ at: s.date, e: epley(set.load, set.reps, rir) });
     }
   }
   if (pts.length < 2) return null;
@@ -858,6 +1418,131 @@ function verify() {
   ], "x", 2);
   ok("hotel session excluded → trend is UP, not down", tr && tr.pct > 0);
 
+  /* ================= SPLITS ================= */
+  // Realistic emphasis spreads. NB: a greedy spread (3 emphasize + 6 grow) genuinely does not fit
+  // 4 days — ~168 sets against a ~120-set week — and the engine is RIGHT to reject every split
+  // for it. That's what recommendSplit().budget.note is for. These users fit.
+  const nina = { trainingAge:"intermediate", emphasis:{
+    glutes:"emphasize", hamstrings:"emphasize", quads:"grow", back:"grow", abs:"grow",
+    side_delt:"maintain", chest:"maintain", triceps:"maintain", biceps:"maintain",
+    rear_delt:"maintain", front_delt:"maintain", calves:"maintain", traps:"maintain",
+    forearms:"maintain", adductors:"maintain" } };
+  const rob = { trainingAge:"advanced", emphasis:{
+    chest:"emphasize", back:"emphasize", side_delt:"emphasize", triceps:"grow", biceps:"grow",
+    quads:"grow", hamstrings:"maintain", glutes:"maintain", rear_delt:"maintain",
+    front_delt:"maintain", calves:"maintain", traps:"maintain", forearms:"maintain",
+    abs:"maintain", adductors:"maintain" } };
+  ok("an over-broad emphasis spread is REPORTED, not silently under-delivered",
+     recommendSplit({ trainingAge:"advanced", emphasis:{
+       chest:"emphasize", back:"emphasize", side_delt:"emphasize", triceps:"grow", biceps:"grow",
+       quads:"grow", hamstrings:"grow", rear_delt:"grow", calves:"grow" } }, 4).budget.over);
+
+  ok("2 days: Upper/Lower is REJECTED — 1× chest is below RP's published floor",
+     !splitsFor(2, nina).find(o => o.split.id === "ul1").valid);
+  eq("2 days: Full Body is the recommendation", recommendSplit(nina, 2).best.id, "fb2");
+  ok("3 days: PPL ×1 is REJECTED", !splitsFor(3, rob).find(o => o.split.id === "ppl1").valid);
+  ok("4 days is NOT automatically Upper/Lower", recommendSplit(rob, 4).best.id !== "ul2");
+  // Robert's own spread (chest+back+side_delt all Emphasize) legitimately BREAKS Upper/Lower:
+  // two upper days can't hold ~108 sets of upper work. That's exactly why fb4 wins for him —
+  // full body spreads those three across 4 days instead of 2. So test the menu property with a
+  // spread that actually fits.
+  const lean = { trainingAge:"intermediate", emphasis:{
+    chest:"emphasize", back:"grow", quads:"grow", side_delt:"maintain", triceps:"maintain",
+    biceps:"maintain", hamstrings:"maintain", glutes:"maintain", rear_delt:"maintain",
+    front_delt:"maintain", calves:"maintain", traps:"maintain", forearms:"maintain",
+    abs:"maintain", adductors:"maintain" } };
+  ok("Upper/Lower ×2 IS valid at 4 days for a spread that fits — it's a menu, not a decree",
+     splitsFor(4, lean).find(o => o.split.id === "ul2").valid);
+  ok("every rejection carries a human reason",
+     splitsFor(2, nina).filter(o => !o.valid).every(o => o.rejects[0].why.length > 20));
+
+  // Frequency is planned against where the meso LANDS, not where it seeds. Without this, every
+  // split validates at every day count and the whole check is decorative.
+  ok("split planned against where the meso LANDS, not where it seeds",
+     planVolume("glutes","emphasize") > band("glutes","emphasize").start);
+  ok("Emphasize never plans LESS volume than Grow (RP's quads MAV*P lo < MAV hi)",
+     planVolume("quads","emphasize") >= planVolume("quads","grow"));
+  eq("Maintain doesn't force frequency (4 sets of chest is not two gym trips)", targetFreq("chest","maintain"), 1);
+
+  // The spreadable top-up: side delts publish at 3-6×/wk but a 4-day Upper/Lower only ANCHORS
+  // them at 2. They're not "upper" muscles, they're whenever muscles — so they land on the lower
+  // days too. This is what keeps Upper/Lower viable at all.
+  // side_delt must actually WANT frequency for the top-up to be observable — on Maintain it
+  // correctly wants 1. Give it Grow (→ 24 sets → 3 sessions) against an otherwise-quiet week.
+  const spready = { trainingAge:"intermediate", emphasis: Object.keys(LANDMARKS)
+    .reduce((o, m) => (o[m] = "maintain", o), { side_delt:"grow", quads:"grow" }) };
+  spready.emphasis.side_delt = "grow"; spready.emphasis.quads = "grow";
+  const ul2p = assignDays(spready, splitById("ul2"));
+  ok("side delts (RP: 3-6×/wk) get >2 sessions on a 4-day Upper/Lower via the spreadable top-up",
+     ul2p.muscles.find(r => r.m === "side_delt").freq > 2);
+  ok("quads are NOT spread onto upper days — 2-5× is not a licence to schedule badly",
+     ul2p.muscles.find(r => r.m === "quads").freq <= 2);
+  // 🔑 The two-pass regression: sorting purely by (tier, targetFreq) puts the high-frequency
+  // SPREADABLE muscles first, they fan out and fill every 30-set bin, and then quads — which can
+  // only live on a lower day — finds both lower days full and gets rejected. A 4-day Upper/Lower
+  // that trains no quads, because the lateral raises got there first.
+  ok("anchors are placed BEFORE spreadables — quads never lose their day to lateral raises",
+     assignDays(rob, splitById("ul2")).muscles.find(r => r.m === "quads").freq >= 2);
+
+  // Priority + pulsatility coexist
+  const d0 = orderDay(rob, ["chest","back","side_delt","triceps","biceps"], 0);
+  const d1 = orderDay(rob, ["chest","back","side_delt","triceps","biceps"], 1);
+  ok("[PUB] the top-emphasis muscle leads, without exception",
+     rob.emphasis[d0[0]] === "emphasize" && rob.emphasis[d1[0]] === "emphasize");
+  ok("[PUB] pulsatility rotates who leads across sessions", d0[0] !== d1[0]);
+  ok("...and rotation NEVER lets a Grow muscle outrank an Emphasize one",
+     [d0, d1].every(d => d.map(m => EMPHASIS.indexOf(rob.emphasis[m])).every((v,i,a) => i===0 || v<=a[i-1])));
+
+  // Heavy is earlier in the WEEK, not earlier in the session
+  eq("first session of the week is the heavy one", repRangeFor(0, 2, 0), [5,8]);
+  ok("heavy/light is a WEEKLY axis — two sessions of the same muscle differ",
+     repRangeFor(0,2,0).join() !== repRangeFor(1,2,0).join());
+
+  // Full body can't run three hours
+  ok("a full-body day is capped at 4-6 groups, not all 15",
+     assignDays(nina, splitById("fb2")).days.every(d => d.muscles.length <= CFG.groupsPerSession[1]));
+  ok("...and at ~30 projected sets",
+     assignDays(rob, splitById("fb4")).days.every(d => d.projSets <= CFG.sessionSetMax));
+  ok("6 days buys shorter sessions, not more frequency than 4-day U/L",
+     assignDays(rob, splitById("ppl2")).muscles.find(r => r.m === "chest").freq ===
+     assignDays(rob, splitById("ul2")).muscles.find(r => r.m === "chest").freq);
+
+  /* ================= PROGRESS ================= */
+  const L2 = [{ id:"x", load_portability:"absolute", muscles:[{m:"chest",role:"primary"}] }];
+  const dl = [
+    { date:"2026-01-01", finished:true, week:1, day:1, mesoId:"m", sets:[{done:true,exId:"x",load:200,reps:10,rir:2}] },
+    { date:"2026-01-08", finished:true, week:2, day:1, mesoId:"m", sets:[{done:true,exId:"x",load:205,reps:10,rir:1}] },
+    { date:"2026-01-15", finished:true, week:3, day:1, mesoId:"m", sets:[{done:true,exId:"x",load:100,reps:5,rir:5}] }
+  ];
+  // 🔑 The bug that would have shipped: without the RIR<=4 gate this reads as a 52% collapse in
+  // the exact week RP says the growth lands. Only visible in week 5 of a 5-week test.
+  eq("deload sets are excluded from the strength series", e1rmSeries(dl, L2, "x").length, 2);
+  ok("...so the deload does NOT read as a collapse", trendFit(e1rmSeries(dl, L2, "x")).total > -0.02);
+  ok("the OLD e1rmTrend is now deload-safe too", (e1rmTrend(dl, "x", 2) || {pct:0}).pct > -0.02);
+
+  // The prescription is e1RM-neutral: obeying it is not an achievement
+  eq("following the RIR calendar does NOT mint a PR", replayPRs(dl.slice(0,2), L2).length, 0);
+  ok("a 20-rep set is not an e1RM PR over a 10-rep set (Epley's error grows with R)",
+     replayPRs([
+       { date:"2026-02-01", finished:true, week:1, day:1, sets:[{done:true,exId:"x",load:200,reps:10,rir:2}] },
+       { date:"2026-02-08", finished:true, week:2, day:1, sets:[{done:true,exId:"x",load:120,reps:20,rir:2}] }
+     ], L2).every(p => p.kind !== "e1rm"));
+
+  // Refusing to claim is a first-class answer
+  eq("a flat series reports 'flat', never 'down'", trendFit([1,2,3,4,5].map(() => ({e:280}))).verdict, "flat");
+  eq("3 points refuse to claim a trend", trendFit([{e:270},{e:280},{e:292}]).verdict, "building");
+  eq("a real trend IS claimed", trendFit([{e:280},{e:279},{e:285},{e:288},{e:292}]).verdict, "up");
+  ok("median-of-3 leaves the endpoints alone (smoothing the last point smooths the answer)",
+     smooth3([{e:1},{e:99},{e:3},{e:4},{e:5}])[0].e === 1 && smooth3([{e:1},{e:99},{e:3},{e:4},{e:5}])[4].e === 5);
+  eq("...and deletes the one-off spike", smooth3([{e:1},{e:99},{e:3},{e:4},{e:5}])[1].e, 3);
+
+  // Machine loads never cross instances
+  eq("machine-relative sets are instance-scoped",
+     trendKey({exId:"lat",instanceId:"c_lat"}, {load_portability:"machine_relative"}), "lat@c_lat");
+  eq("free-weight sets are absolute", trendKey({exId:"x",instanceId:"h_db"}, {load_portability:"absolute"}), "x");
+  eq("countableSet rejects RIR 5 (the deload gate)", countableSet({done:true,load:100,reps:5,rir:5}), false);
+  eq("countableSet rejects a 3-rep set [PUB: 5-30]", countableSet({done:true,load:100,reps:3,rir:1}), false);
+
   const fails = t.filter(x => !x.ok);
   console.table(t.map(x => ({ test: x.n, ok: x.ok ? "✅" : "❌", got: JSON.stringify(x.got) })));
   console.log(fails.length ? `❌ ${fails.length}/${t.length} FAILED` : `✅ all ${t.length} passed`);
@@ -870,7 +1555,16 @@ return {
   landmarks, band, setDelta, applyDelta, performanceScore, mrvHit, recoverySession, resumeVolume,
   rirForWeek, rirFloor, isDeload, deloadPrescription, deloadDrops,
   epley, loadFor, progress, matchReps, setBadge, minFrequency, splitFor,
+  // splits
+  SPLITS, splitById, DAY_MUSCLES, DAY_LABEL, SPREADABLE, REP_LADDER,
+  planVolume, targetFreq, splitStatus, splitsFor, recommendSplit, scoreSplit,
+  assignDays, orderDay, repRangeFor, sessionMinutes, fullBodyRationale,
+  // selection
   loadPlan, resolveEquipment, selectForSlot, pickBackups, scoreExercise,
-  loadKey, ratio, targetLoad, learnRatio, weeklyVolume, e1rmTrend, verify
+  loadKey, ratio, targetLoad, learnRatio, weeklyVolume,
+  // progress
+  countableSet, trendKey, e1rmSeries, keysForMuscle, smooth3, trendFit,
+  volumeByWeek, bandState, replayPRs, e1rmTrend,
+  verify
 };
 })();

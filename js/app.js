@@ -32,13 +32,16 @@ function mgPill(m, emph) {
   return `<span class="mg" style="color:${c};background:color-mix(in srgb, ${c} 20%, transparent)">${bars(n)}${esc(E.MG_LABEL[m]||m)}</span>`;
 }
 const ICON = {
-  workout:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6.5 6.5v11M17.5 6.5v11M3 9v6M21 9v6M6.5 12h11"/></svg>',
-  mesos:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
-  gyms:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 21V8l9-5 9 5v13M9 21v-6h6v6"/></svg>',
-  exercises:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
+  today:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6.5 6.5v11M17.5 6.5v11M3 9v6M21 9v6M6.5 12h11"/></svg>',
+  plan:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 5h16M4 10h16M4 15h10M4 20h6"/><circle cx="19" cy="16" r="3"/></svg>',
+  // Progress gets the CALENDAR glyph, not a chart — the calendar is that tab's headline, and
+  // "Progress" alone doesn't telegraph it.
+  progress:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>',
   more:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>',
   check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 12.5l5 5L20 6.5"/></svg>'
 };
+const DOW3 = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
+const MON3 = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
 
 /* ============ seed data ============ */
 /* Phase 1: the program is a JSON seed you edit, not a builder UI. Deliberate — a program
@@ -61,45 +64,94 @@ const SEED_GYMS = [
         load:{ kind:"variable", levels:["light","medium","heavy"], approx_lb:[15,35,60] },
         load_portability:"absolute", contention:"low" }
     ] },
-  { gym_id:"commercial", name:"Commercial Gym", scope:"household",
+  /* ── Crunch Fitness — El Paso Dyer ──────────────────────────────────────────────
+   * 9155 Dyer St, El Paso TX 79924 · 24/7. Confirmed as the NE club (El Paso has exactly two
+   * Crunch locations: Dyer/NE and Zaragoza/East).
+   *
+   * ⚠️ SPARSE ON PURPOSE. Built almost entirely from MEMBER photos (grass-cs/ URLs), because the
+   * "place hero" photos (gps-cs-s/) on a Google listing are contaminated with neighbouring
+   * businesses — a first pass silently pulled in Chuze Fitness and Hardcore Fitness interiors.
+   * A whole row of plate-loaded machines IS visible and could not be identified by function, so
+   * it is NOT listed: an inventory that claims a pec deck nobody can find is worse than a short
+   * one, because the app will confidently prescribe it. Add machines as you confirm them.
+   * Unknown numbers are `null`, never a plausible-looking guess.
+   * TODO(Robert, 30 seconds next visit): dumbbell min/max, stack min/increment, rack count,
+   *   name the plate-loaded row, is there a Smith machine. */
+  { gym_id:"crunch", name:"Crunch — Dyer", scope:"household",
+    address:"9155 Dyer St, El Paso TX 79924",
     constraints:{ solo_training:false },
     equipment:[
-      { instance_id:"c_bb", type:"barbell", caps:["barbell"], bar_weight:45,
-        load:{ kind:"plate_loaded", min:45, max:495, increment:5 }, load_portability:"absolute", count:3, contention:"low" },
-      { instance_id:"c_db", type:"dumbbell_set", caps:["dumbbell"],
-        load:{ kind:"fixed_pairs", min:5, max:120, increment:5, per_hand:true, pairs:true },
+      { instance_id:"cr_rack", type:"rack", caps:["squat_rack","barbell","safety_arms","bench","pullup_bar"],
+        attrs:{ safety_arms:true }, bar_weight:45,
+        load:{ kind:"plate_loaded", min:45, max:495, increment:5 },
+        load_portability:"absolute", count:3, count_estimated:true, contention:"high" },
+      { instance_id:"cr_bench_station", type:"rack", caps:["barbell","bench","squat_rack","safety_arms"],
+        attrs:{ safety_arms:true }, bar_weight:45,
+        load:{ kind:"plate_loaded", min:45, max:495, increment:5 },
+        load_portability:"absolute", count:4, count_estimated:true, contention:"high" },
+      { instance_id:"cr_platform", type:"platform", caps:["barbell","landmine"], bar_weight:45,
+        load:{ kind:"plate_loaded", min:45, max:495, increment:5 },
+        load_portability:"absolute", count:2, contention:"med" },
+      { instance_id:"cr_legpress", type:"machine", machine_key:"leg_press", caps:["machine","leg_press"],
+        load:{ kind:"plate_loaded", carriage_weight:65, carriage_weight_estimated:true, min:65, max:700, increment:5 },
+        load_portability:"machine_relative", count:2, contention:"high" },
+      // ⚠️ min/max UNREAD. 5-120 is the Crunch chain norm, not something anyone saw. This caps
+      // Nina's progression AND sets her floor — highest-value thing to verify.
+      { instance_id:"cr_db", type:"dumbbell_set", caps:["dumbbell"],
+        load:{ kind:"fixed_pairs", min:5, max:120, increment:5, per_hand:true, pairs:true, range_estimated:true },
         load_portability:"absolute", contention:"low" },
-      { instance_id:"c_cable", type:"cable_station", caps:["cable","freemotion","machine_assistance","high_pulley","low_pulley"],
-        attrs:{ pulley_height:"adjustable" }, attachments:["rope","straight_bar","d_handle","ez_bar","ankle_strap","lat_bar"],
-        load:{ kind:"selectorized_stack", min:10, max:200, increment:10, add_on:[2.5,5] },
-        load_portability:"machine_relative", count:2, contention:"med" },
-      { instance_id:"c_rack", type:"rack", caps:["squat_rack","pullup_bar","safety_arms","dip_station"],
-        attrs:{ safety_arms:true }, count:2, contention:"low" },
-      { instance_id:"c_bench", type:"bench", caps:["bench","adjustable_bench"],
-        attrs:{ adjustable:true, angles:[0,15,30,45,60,75,85] }, count:4, contention:"low" },
-      { instance_id:"c_smith", type:"smith", caps:["smith"], bar_weight:15, bar_weight_estimated:true,
-        load:{ kind:"plate_loaded", min:15, max:495, increment:2.5 }, load_portability:"machine_relative", count:1, contention:"med" },
-      { instance_id:"c_pec", type:"machine", machine_key:"pec_deck", caps:["machine","pec_deck"],
-        load:{ kind:"selectorized_stack", min:15, max:250, increment:15 }, load_portability:"machine_relative", count:1, contention:"high" },
-      { instance_id:"c_lat", type:"machine", machine_key:"lat_pulldown", caps:["machine","lat_pulldown"],
-        load:{ kind:"selectorized_stack", min:10, max:250, increment:10 }, load_portability:"machine_relative", count:1, contention:"high" },
-      { instance_id:"c_row", type:"machine", machine_key:"seated_row", caps:["machine","seated_row"],
-        load:{ kind:"selectorized_stack", min:10, max:250, increment:10 }, load_portability:"machine_relative", count:1, contention:"med" },
-      { instance_id:"c_legpress", type:"machine", machine_key:"leg_press", caps:["machine","leg_press"],
-        load:{ kind:"plate_loaded", carriage_weight:65, min:65, max:700, increment:5 }, load_portability:"machine_relative", count:1, contention:"med" },
-      { instance_id:"c_hack", type:"machine", machine_key:"hack_squat", caps:["machine","hack_squat"],
-        load:{ kind:"plate_loaded", carriage_weight:65, min:65, max:700, increment:5 }, load_portability:"machine_relative", count:1, contention:"med" },
-      { instance_id:"c_ext", type:"machine", machine_key:"leg_extension", caps:["machine","leg_extension"],
-        load:{ kind:"selectorized_stack", min:10, max:250, increment:10 }, load_portability:"machine_relative", count:1, contention:"med" },
-      { instance_id:"c_curl", type:"machine", machine_key:"leg_curl_seated", caps:["machine","leg_curl_seated"],
-        load:{ kind:"selectorized_stack", min:10, max:200, increment:10 }, load_portability:"machine_relative", count:1, contention:"med" },
-      { instance_id:"c_calf", type:"machine", machine_key:"calf_raise_seated", caps:["machine","calf_raise_seated"],
-        load:{ kind:"plate_loaded", min:0, max:300, increment:5 }, load_portability:"machine_relative", count:1, contention:"low" },
-      { instance_id:"c_rear", type:"machine", machine_key:"rear_delt_machine", caps:["machine","rear_delt_machine"],
-        load:{ kind:"selectorized_stack", min:15, max:200, increment:15 }, load_portability:"machine_relative", count:1, contention:"med" },
-      { instance_id:"c_sp", type:"machine", machine_key:"shoulder_press_machine", caps:["machine","shoulder_press_machine"],
-        load:{ kind:"selectorized_stack", min:10, max:200, increment:10 }, load_portability:"machine_relative", count:1, contention:"med" }
+      { instance_id:"cr_bench_adj", type:"bench", caps:["bench","adjustable_bench"],
+        attrs:{ adjustable:true, angles:[0,15,30,45,60,75,85] }, count:6, contention:"low" },
+      { instance_id:"cr_bench_flat", type:"bench", caps:["bench"], count:4, contention:"low" }
     ] },
+
+  /* ── Anytime Fitness — Northeast El Paso ────────────────────────────────────────
+   * 10641 Kenworthy St, El Paso TX 79924 · club #3735 · 24h. Confirmed NE: the club's own
+   * Facebook is literally "Anytime Fitness Northeast El Paso", and 79924 is the only AF in the
+   * NE zip. Small franchise (~4-5k sqft) — do NOT assume big-box equipment.
+   *
+   * Only the leg press and prone leg curl were identified by reading their shrouds (both PRECOR).
+   * Stack maxima come from Precor's published specs for those units, not from the machines.
+   * A member review — "they only have one of each machine" — is why count:1 and the high rack
+   * contention. 2+ iso-lateral plate-loaded machines are visible but unnamed, so unlisted.
+   * TODO(Robert): dumbbell range, stack min/increment (Precor add-on lever?), rack count 1 or 2,
+   *   Smith machine y/n, name the rest of the Precor line (leg extension is the likely one). */
+  { gym_id:"anytime", name:"Anytime — Kenworthy", scope:"household",
+    address:"10641 Kenworthy St, El Paso TX 79924",
+    constraints:{ solo_training:true },   // 24h franchise — often genuinely alone at 5am
+    equipment:[
+      { instance_id:"af_legpress", type:"machine", machine_key:"leg_press", caps:["machine","leg_press"],
+        brand:"Precor",
+        load:{ kind:"selectorized_stack", min:10, max:400, increment:10, increment_estimated:true },
+        load_portability:"machine_relative", count:1, contention:"med" },
+      { instance_id:"af_legcurl", type:"machine", machine_key:"leg_curl_lying", caps:["machine","leg_curl_lying"],
+        brand:"Precor",
+        load:{ kind:"selectorized_stack", min:10, max:200, increment:10, increment_estimated:true },
+        load_portability:"machine_relative", count:1, contention:"med" },
+      // ⚠️ range_estimated — no number was legible. 5-75 is a guess at a small-franchise norm.
+      { instance_id:"af_db", type:"dumbbell_set", caps:["dumbbell"],
+        load:{ kind:"fixed_pairs", min:5, max:75, increment:5, per_hand:true, pairs:true, range_estimated:true },
+        load_portability:"absolute", contention:"med" },
+      { instance_id:"af_rack", type:"rack", caps:["squat_rack","barbell","safety_arms"],
+        attrs:{ safety_arms:true }, bar_weight:45,
+        load:{ kind:"plate_loaded", min:45, max:300, increment:5, max_estimated:true },
+        load_portability:"absolute", count:1, count_estimated:true, contention:"high" },
+      { instance_id:"af_bench_press", type:"rack", caps:["barbell","bench"], bar_weight:45,
+        load:{ kind:"plate_loaded", min:45, max:300, increment:5, max_estimated:true },
+        load_portability:"absolute", count:1, contention:"med" },
+      { instance_id:"af_bench_adj", type:"bench", caps:["bench","adjustable_bench"],
+        attrs:{ adjustable:true, angles:[0,30,45,60,85] }, count:2, count_estimated:true, contention:"med" },
+      { instance_id:"af_cable", type:"cable_station", caps:["cable","high_pulley","low_pulley","machine_assistance"],
+        attrs:{ pulley_height:"adjustable" }, attachments:["rope","straight_bar","d_handle","ez_bar","lat_bar"],
+        load:{ kind:"selectorized_stack", min:10, max:200, increment:10, range_estimated:true },
+        load_portability:"machine_relative", count:1, contention:"med" },
+      { instance_id:"af_pullup", type:"rack", caps:["pullup_bar","bodyweight_only","dip_station"],
+        count:1, contention:"low" },
+      { instance_id:"af_band", type:"band_set", caps:["band","machine_assistance"],
+        load:{ kind:"variable", levels:["light","medium","heavy"], approx_lb:[15,35,60] },
+        load_portability:"absolute", contention:"low" }
+    ] },
+
   { gym_id:"hotel", name:"Hotel / Travel", scope:"household",
     constraints:{ solo_training:true, ceiling_height_in:84 },
     equipment:[
@@ -113,72 +165,101 @@ const SEED_GYMS = [
         load_portability:"absolute", contention:"low" }
     ] }
 ];
+/* ⚠️ Emphasis spreads are DELIBERATELY LEAN. The tempting version — everything on Grow with 3 on
+   Emphasize — asks for ~168 sets a week against a ~120-set 4-day budget, and the planner correctly
+   refuses to build it. Maintain isn't giving up; it's what frees the recovery for the groups you
+   actually picked. Change these in More → and recommendSplit() will tell you if they stop fitting. */
 const SEED_USERS = [
-  { id:"rob", name:"Robert", unit:"lb", bodyweight:185,
-    emphasis:{ chest:"emphasize", back:"emphasize", side_delt:"emphasize", triceps:"grow", biceps:"grow",
-               quads:"grow", hamstrings:"grow", glutes:"maintain", rear_delt:"grow", front_delt:"maintain",
-               calves:"grow", traps:"maintain", forearms:"maintain", abs:"maintain", adductors:"maintain" },
+  { id:"rob", name:"Robert", unit:"lb", bodyweight:185, trainingAge:"advanced",
+    emphasis:{ chest:"emphasize", back:"emphasize", side_delt:"emphasize",
+               triceps:"grow", biceps:"grow", quads:"grow",
+               hamstrings:"maintain", glutes:"maintain", rear_delt:"maintain", front_delt:"maintain",
+               calves:"maintain", traps:"maintain", forearms:"maintain", abs:"maintain", adductors:"maintain" },
     overrides:{}, injuries:[], learned_ratios:{}, painFlags:{} },
-  { id:"nina", name:"Nina", unit:"lb", bodyweight:132,
-    emphasis:{ glutes:"emphasize", quads:"grow", hamstrings:"emphasize", back:"grow", side_delt:"grow",
-               chest:"grow", triceps:"maintain", biceps:"grow", rear_delt:"grow", front_delt:"maintain",
-               calves:"grow", traps:"maintain", forearms:"maintain", abs:"grow", adductors:"grow" },
+  { id:"nina", name:"Nina", unit:"lb", bodyweight:132, trainingAge:"intermediate",
+    emphasis:{ glutes:"emphasize", hamstrings:"emphasize",
+               quads:"grow", back:"grow", abs:"grow",
+               chest:"maintain", side_delt:"maintain", triceps:"maintain", biceps:"maintain",
+               rear_delt:"maintain", front_delt:"maintain", calves:"maintain", traps:"maintain",
+               forearms:"maintain", adductors:"maintain" },
     overrides:{}, injuries:[], learned_ratios:{}, painFlags:{} }
 ];
 
-/* Build a starting mesocycle from the split + landmarks + the selection engine. */
-function seedMeso(user, gym, days, weeks) {
-  const split = E.splitFor(days);
-  const GROUPS = {
-    full:  ["quads","chest","back","hamstrings","side_delt","biceps","triceps"],
-    upper: ["chest","back","side_delt","triceps","biceps","rear_delt"],
-    lower: ["quads","hamstrings","glutes","calves","abs"],
-    push:  ["chest","side_delt","triceps","front_delt"],
-    pull:  ["back","biceps","rear_delt","traps"],
-    legs:  ["quads","hamstrings","glutes","calves"],
-    arms:  ["biceps","triceps","side_delt","rear_delt","forearms","abs"]
-  };
+/**
+ * Build a starting mesocycle from the split planner + landmarks + the selection engine.
+ * @param splitId optional — omit and it takes recommendSplit()'s pick.
+ */
+function seedMeso(user, gym, days, weeks, splitId) {
+  const rec = E.recommendSplit(user, days);
+  const split = (splitId && E.splitById(splitId)) || rec.best;
+  if (!split) throw new Error(rec.why);
+
+  /* ⚠️ TWO DIFFERENT NUMBERS, TWO DIFFERENT JOBS — this is the whole design:
+   *   assignDays() plans the SPLIT against END-OF-BLOCK volume (planVolume → MAV/MAV*P), because
+   *     the split is fixed for the whole meso and must survive the ramp.
+   *   The slots below seed SETS at WEEK-1 volume (band().start → MEV), because that's where you
+   *     actually start.
+   * Collapsing them — sizing the split off MEV — makes minFrequency() return 1 for everything, so
+   * every split validates at every day count and the check is decorative. That was the bug. */
+  const plan = E.assignDays(user, split);
+
   const meso = {
     id: uid(), userId: user.id, name: `${split.name} — ${weeks}wk`, weeks, unit: user.unit,
-    days: [], startedAt: today(), homeGym: gym.gym_id, createdAt: new Date().toISOString()
+    splitId: split.id, days: [], startedAt: today(), homeGym: gym.gym_id,
+    createdAt: new Date().toISOString(),
+    // Persist what the planner had to give up. If Nina's glutes cap at 24 because she trains twice
+    // a week, week 4 must SAY so — otherwise the app looks broken exactly when it's being correct.
+    caps: plan.muscles.filter(r => r.status !== "ok")
+                      .map(r => ({ m: r.m, status: r.status, ceil: r.ceil, why: r.why })),
+    budget: rec.budget, forced: rec.forced
   };
-  split.days.forEach((kind, i) => {
-    const muscles = GROUPS[kind] || GROUPS.full;
-    const freq = split.days.filter(d => d === kind).length;
-    const day = { name: kind[0].toUpperCase() + kind.slice(1), kind, muscles: [] };
-    // [PUB] "Whatever muscle group matters most gets trained first in each session, without
-    // exception." So order by emphasis, not by muscle size or compound-vs-isolation —
-    // neither of those is actually an RP rule.
-    const ordered = muscles.slice().sort((a, b) =>
-      E.EMPHASIS.indexOf(user.emphasis[b] || "grow") - E.EMPHASIS.indexOf(user.emphasis[a] || "grow"));
+
+  const seen = {};
+  plan.days.forEach((pd, i) => {
+    const n = (seen[pd.kind] = (seen[pd.kind] || 0) + 1);
+    const total = plan.days.filter(d => d.kind === pd.kind).length;
+    // [PUB] pulsatility means Upper A and Upper B are genuinely different workouts — different
+    // muscle leads. Don't name them the same thing.
+    const day = { name: E.DAY_LABEL[pd.kind] + (total > 1 ? " " + "ABCDEF"[n - 1] : ""),
+                  kind: pd.kind, muscles: [] };
+    const ordered = E.orderDay(user, pd.muscles, i);
     // `chosen` accumulates across the WHOLE day, not per muscle. Scoped per muscle (the obvious
     // mistake) the redundancy penalty never sees across groups, and you get barbell RDL for
     // hamstrings followed by dumbbell RDL for glutes — the same movement twice in one session.
     const chosen = [];
+    // [PUB] ≥5 groups in a session → the CLOCK is the binding constraint, not recovery.
+    // scoreExercise already weights setup_cost 3× when timeboxed and nothing ever set this flag.
+    // Sets are cheap; SETUPS are what turn a full-body day into three hours.
+    const timeboxed = ordered.length >= 5;
+
     ordered.forEach((m, mi) => {
       const emph = user.emphasis[m] || "grow";
       const b = E.band(m, emph);
-      const weekly = b.start;
-      const perSession = Math.max(2, Math.min(E.CFG.perSessionMax, Math.round(weekly / Math.max(1, freq))));
-      // [PUB] >=3 sets per exercise on average → 1-2 exercises per muscle per session.
-      const nEx = perSession >= 6 ? 2 : 1;
-      const g = { m, emphasis: emph, slots: [] };
-      const sess = { chosen, fatigueSpent: mi / Math.max(1, ordered.length), occupied: new Set() };
+      const rep = plan.muscles.find(r => r.m === m);
+      const freq = rep ? Math.max(1, rep.freq) : 1;
+      // occ = which session of the WEEK this is for THIS muscle — the axis heavy/light lives on.
+      const occ = plan.days.filter(d => d.i < i && d.muscles.includes(m)).length;
+      const perSession = Math.max(2, Math.min(E.CFG.perSessionMax, Math.round(b.start / freq)));
+      // [PUB] ≥3 sets per exercise on average → 1-2 exercises per muscle per session.
+      const nEx = (perSession >= 6 && !timeboxed) ? 2 : 1;
+      const g = { m, emphasis: emph, freq, slots: [] };
+      const sess = { chosen, timeboxed, fatigueSpent: mi / Math.max(1, ordered.length), occupied: new Set() };
       for (let k = 0; k < nEx; k++) {
         const sets = k === 0 ? Math.ceil(perSession / nEx) : Math.floor(perSession / nEx);
         if (sets < 1) continue;
-        // First exercise of a muscle wants the stretch position; the second complements it.
-        const slot = { id: uid(), muscle: m, sets, repRange: k === 0 ? [8, 12] : [12, 20],
-                       position: mi + 1, wanted_profile: k === 0 ? "stretch" : "shortened", wants_stretch: k === 0 };
+        const slot = { id: uid(), muscle: m, sets, repRange: E.repRangeFor(occ, freq, k),
+                       position: mi + 1, wanted_profile: k === 0 ? "stretch" : "shortened",
+                       wants_stretch: k === 0 };
         const pick = E.selectForSlot(slot, gym, Object.assign({}, user, { loadState:{} }), sess, LIB());
-        // A slot with no exercise is a hole in the workout — drop it rather than render a
-        // muscle group with nothing under it.
+        // A slot with no exercise is a hole in the workout — drop it rather than render a muscle
+        // group with nothing under it.
         if (!pick.primary) continue;
         slot.exId = pick.primary.ex.id; chosen.push(pick.primary.ex);
         g.slots.push(slot);
       }
       if (g.slots.length) day.muscles.push(g);
     });
+    day.estMinutes = E.sessionMinutes(day);
     meso.days.push(day);
   });
   return meso;
@@ -225,22 +306,118 @@ async function loadUser() {
   S.user.loadState = S.loadState;
 }
 
-/* ============ router ============ */
+/* ============ router ============
+ * Past · present · future. Every tab is about training.
+ * The old bar was the IndexedDB schema (mesos/gyms/exercises are literally the object stores)
+ * with a workout stapled to the front. Nobody opens a training app to browse a noun.
+ *   Gyms → a chip in the Today header. It's state you set at the door, not a place you go.
+ *   Exercises → the search inside the swap sheet. The library is only ever meaningful
+ *               relative to a slot ("what else could go HERE?"), where it can actually rank.
+ */
 const TABS = [
-  { k:"workout", t:"Workout" }, { k:"mesos", t:"Mesos" }, { k:"gyms", t:"Gyms" },
-  { k:"exercises", t:"Exercises" }, { k:"more", t:"More" }
+  { k:"today", t:"Today" },        // present — the session
+  { k:"plan", t:"Plan" },          // future  — the meso, weeks × days, no dates
+  { k:"progress", t:"Progress" },  // past    — calendar, volume, trend
+  { k:"more", t:"More" }
 ];
+/* Required, not cosmetic: an installed PWA has "workout"/"mesos"/"gyms"/"exercises" persisted in
+   prefs. Without aliasing, go() renders Today while S.tab stays "exercises" → no tab highlighted,
+   and the pref never heals itself. */
+const TAB_ALIAS = { workout:"today", mesos:"plan", gyms:"today", exercises:"today" };
+
 function renderTabs() {
   $("#tabs").innerHTML = TABS.map(t =>
     `<button data-tab="${t.k}" aria-selected="${S.tab===t.k}">${ICON[t.k]}<span>${t.t}</span></button>`).join("");
   $("#tabs").onclick = e => { const b = e.target.closest("[data-tab]"); if (b) go(b.dataset.tab); };
 }
 function go(tab) {
+  tab = TAB_ALIAS[tab] || tab;
+  if (!TABS.some(t => t.k === tab)) tab = "today";
   S.tab = tab; DB.pref.set("tab", tab);
   document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
-  ({ workout: viewWorkout, mesos: viewMesos, gyms: viewGyms, exercises: viewExercises, more: viewMore }[tab] || viewWorkout)();
+  ({ today: viewToday, plan: viewPlan, progress: viewProgress, more: viewMore }[tab])();
   scrollTo(0, 0);
 }
+
+/* ================================================================
+ * THE TWO CLOCKS
+ *
+ * The app used to have only one, which is why it could never say what day it was.
+ *
+ *   PROGRAM clock — Week 2, Day 3. Advances ONLY when you finish a session. currentSlot().
+ *   CALENDAR clock — Saturday, Jul 15. Advances when the sun comes up. weekStats().
+ *
+ * ⚠️ These must NEVER call each other. The moment the program reads the calendar, missing a
+ * Monday starts costing you something — and that's exactly the trap RP fell into
+ * ("You have to start your Meso on Monday, no adjusting the start day which is super annoying").
+ *
+ * The rule everything below follows from:
+ *   The program has no dates. The log has dates. Every calendar affordance reads the LOG and
+ *   never the PLAN — so the calendar can only ever describe, never demand. A red X requires a
+ *   broken appointment, and no appointment was ever made.
+ *
+ * And the corollary: missing a day doesn't cost you a workout — the set is still there waiting.
+ * It costs you TIME. The only thing that moves is the meso's finish date. So show the finish
+ * line, not the hole.
+ * ================================================================ */
+
+/* ⚠️ s.date is stamped at ensureSession() — i.e. session CREATION. An unfinished session that
+   sits overnight would report the wrong weekday forever. The calendar is about when you
+   FINISHED, so always read finishedAt first. (finishWorkout also re-stamps s.date.) */
+const onDate = s => (s.finishedAt || s.date || "").slice(0, 10);
+
+function weekStats() {
+  const now = new Date();
+  const dow = (now.getDay() + 6) % 7;                     // Mon=0 — humans think in Mondays
+  const mon = new Date(now); mon.setDate(now.getDate() - dow);
+  const monKey = mon.toISOString().slice(0, 10);
+  const d7 = new Date(Date.now() - 6 * 864e5).toISOString().slice(0, 10);
+
+  const fin = S.sessions.filter(s => s.finished);
+  const week = fin.filter(s => onDate(s) >= monKey);
+  const byDow = Array(7).fill(null);
+  for (const s of week) byDow[(new Date(onDate(s) + "T12:00").getDay() + 6) % 7] = s;
+
+  return { dow, week, byDow, trailing7: fin.filter(s => onDate(s) >= d7).length,
+           perWeek: S.meso ? S.meso.days.length : 0 };
+}
+
+/**
+ * A week is a RATE, not a quota.
+ *  - The count only counts UP. "3 workouts this week", never "3 of 4", never "1 missed".
+ *    A fraction implies a denominator you owe. You owe nothing.
+ *  - The badge is forward-looking, always: ON PACE or N TO GO. There is no third state.
+ *    "To go" is a plan; "behind" is a verdict.
+ *  - The badge reads the TRAILING 7 DAYS, not the calendar week — otherwise a Sat+Sun weekend
+ *    gets wiped by Monday's reset and the app calls a good week a zero. The dots answer "what
+ *    did I do this week" (a log); the badge answers "am I on track" (a rate).
+ */
+function pace() {
+  const cur = currentSlot(), per = S.meso.days.length, w = weekStats();
+  const done = S.sessions.filter(s => s.mesoId === S.meso.id && s.finished).length;
+  const left = S.meso.weeks * per - done;
+
+  const short = Math.max(0, per - w.trailing7);
+  const badge = short === 0 ? "ON PACE" : `${short} TO GO`;   // never "behind", never red
+  const cls = short === 0 ? "b-up" : "b-mid";
+
+  // Rate from the last 28 days of ACTUAL training. Under 3 sessions there's nothing to measure,
+  // so trust the plan's own assumption rather than extrapolating from noise.
+  const since = new Date(Date.now() - 27 * 864e5).toISOString().slice(0, 10);
+  const recent = S.sessions.filter(s => s.finished && onDate(s) >= since).length;
+  const rate = recent >= 3 ? Math.max(0.5, recent / 4) : per;
+
+  const eta = new Date(Date.now() + Math.round(left / rate * 7) * 864e5);
+  const M = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return { week: cur.week, badge, cls, short,
+           line: left <= 0 ? "last session" : `~${M[eta.getMonth()]} ${eta.getDate()} at this rate` };
+}
+
+/* Day-kind → color. The strip shows your split at a glance: pink Mon, green Wed, cyan Fri.
+   Not decoration — it's the week's shape. */
+const KIND_C = { push:"var(--push)", pull:"var(--pull)", legs:"var(--legs)",
+                 upper:"var(--push)", lower:"var(--legs)", arms:"var(--acc)", full:"var(--acc)" };
+const kindColor = s => (S.meso && KIND_C[(S.meso.days[s.day - 1] || {}).kind]) || "var(--acc)";
 
 /* ================================================================
  * WORKOUT
@@ -293,15 +470,17 @@ async function ensureSession(w, d) {
   return s;
 }
 
-async function viewWorkout() {
+async function viewToday() {
   if (!S.meso) return viewNoMeso();
   const cur = currentSlot();
   if (cur.week > S.meso.weeks) return viewMesoComplete();
   S.session = await ensureSession(cur.week, cur.day);
-  drawWorkout();
+  drawToday();
   wake();
-  // Batch soreness BEFORE the first set — see askSorenessUpfront for why this beats RP.
-  if (!S.session.sorenessAsked && !S.session.finished) { await askSorenessUpfront(); drawWorkout(); }
+  // NOTE: askSorenessUpfront no longer auto-fires here. Opening the app is not consent to answer
+  // questions — you'd get a modal in the face in the parking lot before seeing anything. It now
+  // fires from "Start", or lazily from the first logSet() if you skip the button and just lift.
+  // Same data, same batching, no ambush.
 }
 
 function viewNoMeso() {
@@ -330,7 +509,7 @@ function viewNoMeso() {
   $("#mk").onclick = async () => {
     if (!LIB().length) return toast("Exercise library hasn't loaded");
     const m = seedMeso(S.user, S.gym, d, w);
-    await DB.put("meso", m); await loadUser(); go("workout");
+    await DB.put("meso", m); await loadUser(); go("today");
     toast(`${m.name} created`);
   };
 }
@@ -343,42 +522,94 @@ function viewMesoComplete() {
       <div class="sm dim" style="margin-top:4px">Every meso you finish is more muscle on top of what you've already built. Your loads carry into the next one — unlike RP's app, which starts you over.</div>
     </div></div></div>
     <button class="btn wide" id="nx">Plan the next mesocycle</button>`;
-  $("#nx").onclick = async () => { S.meso = null; go("workout"); };
+  $("#nx").onclick = async () => { S.meso = null; go("today"); };
 }
 
-function drawWorkout() {
-  const s = S.session, cur = { week: s.week, day: s.day };
+/* Two clocks, two lines. The eyebrow is the CALENDAR clock (a fact about the world); the h2 is the
+   PROGRAM clock (a fact about the plan). Never fused into one string — fusing them is exactly what
+   "WEEK 1 DAY 1" did wrong: a database coordinate pretending to be information. And "Monday: Push"
+   is the sentence that becomes RP's "you have to start your meso on Monday". */
+function todayHeader(day) {
+  const d = new Date();
+  return `<div class="hd"><div class="hd-row">
+    <div class="grow">
+      <div class="eyebrow">${DOW3[d.getDay()]} · ${MON3[d.getMonth()]} ${d.getDate()}</div>
+      <h2>${esc(day.name)}</h2>
+    </div>
+    <div class="hd-act">
+      ${S.rest ? `<span class="badge b-info mono" id="restb">${fmtRest()}</span>` : ""}
+      <button class="chip" id="gymc"><span class="t">${esc(S.gym.name)}</span><span class="dim2">▾</span></button>
+    </div>
+  </div></div>`;
+}
+
+function weekStrip() {
+  const w = weekStats(), p = pace();
+  const L = ["M","T","W","T","F","S","S"];
+  return `<div class="card">
+    <div class="wkstrip">${L.map((l, i) => {
+      const hit = w.byDow[i];
+      return `<div class="wkd${i === w.dow ? " now" : ""}">
+        <span class="wkl">${l}</span>
+        <i class="dot${hit ? " on" : ""}"${hit ? ` style="--c:${kindColor(hit)}"` : ""}></i>
+      </div>`;
+    }).join("")}</div>
+    <div class="row">
+      <div class="grow">
+        <div class="lead">${w.week.length} workout${w.week.length === 1 ? "" : "s"} this week</div>
+        <div class="sm dim" style="margin-top:3px">Week ${p.week} of ${S.meso.weeks} · ${esc(p.line)}</div>
+      </div>
+      <span class="badge ${p.cls}">${p.badge}</span>
+    </div>
+  </div>`;
+}
+
+function todayCard(day, s) {
+  const started = s.sets.some(x => x.done);
+  const done = s.sets.filter(x => x.done || x.reps === -1).length;
+  const nEx = new Set(s.sets.map(x => x.exId)).size;
+  const deload = E.isDeload(s.week, S.meso.weeks);
+  return `<div class="card">
+    <div class="row"><div class="grow pills">
+      ${day.muscles.filter(g => s.sets.some(x => x.muscle === g.m)).map(g => mgPill(g.m, g.emphasis)).join("")}
+    </div></div>
+    <div class="row"><div class="grow sm dim">
+      ${s.sets.length} sets · ${nEx} exercise${nEx === 1 ? "" : "s"}${day.estMinutes ? ` · ~${day.estMinutes} min` : ""}
+      ${deload ? ' · <span class="badge b-warn">DELOAD</span>' : ` · <span class="dim2">${E.rirForWeek(s.week, S.meso.weeks)} RIR</span>`}
+      ${s.off_plan ? ' · <span class="badge b-info">Travel</span>' : ""}
+    </div></div>
+    ${started
+      ? `<div class="row"><div class="grow">
+           <div class="pbar"><i style="width:${Math.round(done / s.sets.length * 100)}%"></i></div>
+           <div class="xs dim2" style="margin-top:6px">${done} of ${s.sets.length} sets logged</div>
+         </div></div>`
+      : `<div style="padding:0 14px 14px"><button class="btn wide" id="start">Start ${esc(day.name)}</button></div>`}
+  </div>`;
+}
+
+function drawToday() {
+  const s = S.session;
   const day = S.meso.days[s.day - 1];
   const deload = E.isDeload(s.week, S.meso.weeks);
-  const rir = E.rirForWeek(s.week, S.meso.weeks);
+  const started = s.sets.some(x => x.done);
 
   const groups = [];
   for (const g of day.muscles) {
     const sets = s.sets.filter(x => x.muscle === g.m);
-    if (!sets.length) continue;
-    groups.push({ g, sets });
+    if (sets.length) groups.push({ g, sets });
   }
+  // Surface what the split planner had to give up — see meso.caps in seedMeso.
+  const caps = (S.meso.caps || []).filter(c => groups.some(x => x.g.m === c.m) && c.status !== "ok");
 
-  $("#v").innerHTML = `
-    <div class="hd"><div class="hd-row">
-      <h2>WEEK ${s.week} <span class="d">DAY ${s.day}</span></h2>
-      <div style="display:flex;gap:6px;align-items:center">
-        ${S.rest ? `<span class="badge b-info mono" id="restb">${fmtRest()}</span>` : ""}
-        <button class="help" id="cal" title="History">◷</button>
-      </div>
-    </div>
-    <div class="sm dim" style="margin-top:2px">
-      ${esc(day.name)} · ${esc(S.meso.name)} · ${esc(S.gym.name)}
-      ${deload ? ' · <span class="badge b-warn">DELOAD</span>' : ` · <span class="dim2">${rir} RIR</span>`}
-      ${s.off_plan ? ' · <span class="badge b-info">Travel</span>' : ""}
-    </div></div>
-    ${deload ? `<div class="card"><div class="row"><div class="grow sm">Deload week — half the reps, lighter loads, 5+ RIR. Traps and forearms are out. Take it easy; this is where the growth lands.</div></div></div>` : ""}
-    ${s.off_plan ? `<div class="card"><div class="row"><div class="grow sm">Away from your home gym. These sets still count toward your weekly volume, but they're kept out of your strength trend — a hotel's 50lb dumbbell ceiling shouldn't read as detraining.</div></div></div>` : ""}
-    <div id="gs">${groups.map(x => drawGroup(x.g, x.sets)).join("")}</div>
-    <button class="btn wide" id="fin" style="margin:14px 0 20px">${s.sets.every(x=>x.done||x.reps===-1) ? "Finish workout" : "Finish early"}</button>
-    <div class="sync ${syncClass()}"><span class="dot"></span>${syncLabel()}</div>`;
+  $("#v").innerHTML = todayHeader(day) + weekStrip() + todayCard(day, s) +
+    (deload ? `<div class="card"><div class="row"><div class="grow sm">Deload week — half the reps, lighter loads, 5+ RIR. Traps and forearms are out. Take it easy; this is where the growth actually lands.</div></div></div>` : "") +
+    (s.off_plan ? `<div class="card"><div class="row"><div class="grow sm">Away from your home gym. These sets still count toward your weekly volume, but they're kept out of your strength trend — a hotel's 50lb dumbbell ceiling shouldn't read as detraining.</div></div></div>` : "") +
+    (caps.length ? `<div class="card"><div class="row"><div class="grow sm dim">${esc(caps[0].why)}</div></div></div>` : "") +
+    `<div id="gs">${groups.map(x => drawGroup(x.g, x.sets)).join("")}</div>
+     ${started ? `<button class="btn wide" id="fin" style="margin:14px 0 20px">${s.sets.every(x => x.done || x.reps === -1) ? "Finish workout" : "Finish early"}</button>` : `<div style="height:16px"></div>`}
+     <div class="sync ${syncClass()}"><span class="dot"></span>${syncLabel()}</div>`;
 
-  wireWorkout();
+  wireToday();
 }
 
 function drawGroup(g, sets) {
@@ -399,7 +630,7 @@ function drawExercise(g, e) {
         <div class="ex-nm">${esc(ex.name)}</div>
         <div class="sm dim" style="margin-top:2px">${esc(eq)}</div>
       </div>
-      <button class="help" data-occ="${e.exId}" title="Taken?">⇄</button>
+      <button class="swapb${(S.user.painFlags || {})[e.exId] ? " pain" : ""}" data-swap="${e.exId}">Swap</button>
     </div>
     ${est != null ? `<div class="note"><span>⌁</span><span>Estimated from a similar lift${est ? ` (${Math.round(est*100)}% confident)` : ""} — first set calibrates it.</span></div>` : ""}
     <div class="sets">
@@ -463,8 +694,11 @@ function stepFor(field, st) {
   return bind && bind.ok && bind.plan ? bind.plan.stepAt(st.load || bind.plan.min) : 5;
 }
 
-function wireWorkout() {
+function wireToday() {
   const v = $("#v");
+  const st = $("#start");
+  if (st) st.onclick = async () => { await askSorenessUpfront(); drawToday(); };
+  const gc = $("#gymc"); if (gc) gc.onclick = gymSheet;
   v.querySelectorAll(".set").forEach(row => {
     const id = row.dataset.set;
     const st = S.session.sets.find(x => x.id === id);
@@ -488,9 +722,8 @@ function wireWorkout() {
       onLoadOverride(st, parseFloat(e.target.value), row));
   });
   v.querySelectorAll("[data-log]").forEach(b => b.onclick = () => logSet(b.dataset.log));
-  v.querySelectorAll("[data-occ]").forEach(b => b.onclick = () => occupied(b.dataset.occ));
+  v.querySelectorAll("[data-swap]").forEach(b => b.onclick = () => swapSheet(b.dataset.swap));
   const fin = $("#fin"); if (fin) fin.onclick = finishWorkout;
-  const cal = $("#cal"); if (cal) cal.onclick = () => go("mesos");
 }
 
 /* [PUB] RP's predictive matching: override the load → recompute target reps to hold equal
@@ -510,7 +743,7 @@ async function logSet(id) {
   if (!st) return;
   const row = $(`.set[data-set="${id}"]`);
   if (st.done) {   // tap a completed set to un-log it
-    st.done = false; st.reps = null; await DB.put("session", S.session); return drawWorkout();
+    st.done = false; st.reps = null; await DB.put("session", S.session); return drawToday();
   }
   const loadV = parseFloat(row.querySelector('[data-f="load"]').value);
   const repsRaw = row.querySelector('[data-f="reps"]').value.trim();
@@ -530,7 +763,7 @@ async function logSet(id) {
   await DB.put("session", S.session);
   startRest(st.muscle);
   await maybeFeedback(st);
-  drawWorkout();
+  drawToday();
 }
 
 /* Load state is keyed per (user, exercise[, instance]) and SURVIVES meso boundaries.
@@ -545,55 +778,159 @@ async function recordLoadState(st) {
   await DB.put("loadState", rec); S.loadState[k] = rec; S.user.loadState = S.loadState;
 }
 
-/* ============ occupied → backup chain ============ */
-function occupied(exId) {
+/* ============ SWAP — one sheet, TWO intents, distinguished at commit ============
+ *
+ * RP conflates "the machine is taken" with "this exercise hurts". They're the same CHOICE (which
+ * exercise) and different SCOPES (how long):
+ *
+ *   "Just today"      → this session's pending sets. Marks the instance occupied, 20-min TTL.
+ *                       The plan is untouched — the machine is free next week.
+ *   "Rest of the meso"→ writes slot.exId. ensureSession() reads it, so every future session picks
+ *                       it up with zero extra plumbing. Progression is untouched: sets, reps and
+ *                       position all live on the SLOT, and the slot is what survives.
+ *
+ * The UI splits on the real seam: pick the exercise FIRST (the hard part, identical for both
+ * intents), then pick the verb (the easy part, one word). Forcing "how long" first — a radio, a
+ * mode toggle, a nested dialog — makes you answer the easy question before the hard one, on a
+ * screen where you can't yet see the options that would inform it. Scope is never a mode you're
+ * in; it's the button you end on.
+ *
+ * And the button says "Swap", not "⇄". Robert asked for a "switch exercise button" while ⇄ was
+ * sitting right there in the header — that's a completed usability test with a failing grade.
+ * A glyph that needs a title attribute has already lost on a device with no hover.
+ */
+function swapSheet(exId, opts) {
+  opts = opts || {};
   const ex = LIB().find(x => x.id === exId); if (!ex) return;
-  const bind = E.resolveEquipment(ex, S.gym, S.occupied);
-  if (bind.ok && bind.carrier) S.occupied.add(bind.carrier.instance_id);
-  // TTL — someone else's set ends eventually.
-  const freed = bind.ok && bind.carrier && bind.carrier.instance_id;
-  if (freed) setTimeout(() => S.occupied.delete(freed), 20 * 60 * 1000);
-
-  const st = S.session.sets.find(x => x.exId === exId && !x.done);
-  const slot = { muscle: st ? st.muscle : (ex.muscles[0] || {}).m, exId,
-                 repRange: [8, 12], rir: st ? st.rir : 2, position: 1,
-                 wanted_profile: ex.profile && ex.profile.resistance_peak, wants_stretch: true };
-  const sess = { chosen: [], fatigueSpent: .4, occupied: S.occupied };
-  const pick = E.selectForSlot(slot, S.gym, S.user, sess, LIB());
-  const opts = [pick.primary].concat(pick.backups).filter(Boolean).filter(c => c.ex.id !== exId).slice(0, 4);
-  if (!opts.length) { S.occupied.delete(freed); return toast("Nothing else here hits that muscle"); }
+  const st = S.session && S.session.sets.find(x => x.exId === exId && !x.done);
+  const muscle = opts.muscle || (st && st.muscle) || (ex.muscles[0] || {}).m;
+  const pain = (S.user.painFlags || {})[exId];
+  const inGym = !!st;                    // no session (Plan tab) → "just today" is meaningless
+  let picked = null, filter = "here";
 
   sheet(`
-    <h3>Taken — try one of these</h3>
-    <div class="sm dim" style="margin:6px 0 4px">Your sets and progression stay on the slot, so swapping doesn't cost you anything.</div>
-    ${opts.map((c, i) => `<div class="row tap" data-sub="${c.ex.id}" style="border:1px solid var(--line);border-radius:var(--r-btn);margin-top:8px">
-      <div class="grow"><div class="lead">${esc(c.ex.name)}</div>
-      <div class="sm dim">${esc(equipLabel(c.ex))}${c.load ? ` · start ~${c.load} ${S.user.unit}` : ""}${c.est && c.est.calibration ? " · estimated" : ""}</div></div>
-      ${i === 0 ? '<span class="badge b-up">BEST</span>' : ""}
-    </div>`).join("")}
-    <div class="sheet-ft"><button id="sc">Cancel</button></div>`);
-  $("#sc").onclick = () => { S.occupied.delete(freed); closeSheet(); };
-  document.querySelectorAll("[data-sub]").forEach(r => r.onclick = () => substitute(exId, r.dataset.sub));
+    <h3>Swap ${esc(ex.name)}</h3>
+    <div class="sm dim" style="margin:6px 0 10px">Your sets, reps and progression live on the
+      <b>slot</b>, not the exercise — swapping never costs you volume.</div>
+    ${pain ? `<div class="note" style="background:var(--er);color:var(--erc)"><span>⚠</span>
+      <span>You logged ${esc(String(pain.v).replace("_"," "))} joint pain here on ${esc(pain.at)}.
+      Pain is RP's one criterion that <i>forces</i> a swap — you probably want the whole meso.</span></div>` : ""}
+    <input id="sq" placeholder="Search all exercises"
+      style="width:100%;margin-top:4px;background:var(--b1);border:1px solid var(--line);
+             border-radius:var(--r-btn);padding:13px 12px;outline:none">
+    <div class="seg" style="margin-top:8px" id="sf">
+      <button data-f="here" aria-selected="true">Best here</button>
+      <button data-f="all" aria-selected="false">All ${esc(E.MG_LABEL[muscle] || "")}</button>
+    </div>
+    <div id="slist" style="margin-top:4px"></div>
+    <div class="xs dim2" style="margin-top:12px">${inGym
+      ? "“Just today” leaves your plan alone — the machine’s free next time."
+      : "This changes the plan from your next session onward."}</div>
+    <div class="sheet-ft" id="sft" hidden>
+      ${inGym ? `<button class="btn ${pain ? "ghost" : ""}" id="swToday">Just today</button>` : ""}
+      <button class="btn ${(pain || !inGym) ? "" : "ghost"}" id="swMeso">Rest of the meso</button>
+    </div>`);
+
+  const draw = () => {
+    const q = ($("#sq").value || "").toLowerCase().trim();
+    let rows;
+    if (filter === "here" && !q) {
+      // Rank against the actual slot — this is what a standalone exercise list could never do.
+      const slot = { muscle, exId, repRange: st ? [8, 12] : [8, 12], rir: st ? st.rir : 2, position: 1,
+                     wanted_profile: ex.profile && ex.profile.resistance_peak, wants_stretch: true };
+      const sess = { chosen: [], fatigueSpent: .4, occupied: S.occupied };
+      const pick = E.selectForSlot(slot, S.gym, S.user, sess, LIB());
+      rows = [pick.primary].concat(pick.backups).filter(Boolean)
+              .filter(c => c.ex.id !== exId)
+              .map(c => ({ ex: c.ex, load: c.load, ok: true, best: true }));
+    } else {
+      rows = LIB().filter(e => e.id !== exId
+          && (e.muscles || []).some(m => m.m === muscle)
+          && (!q || e.name.toLowerCase().includes(q) || (e.aliases||[]).some(a => a.toLowerCase().includes(q))))
+        .map(e => ({ ex: e, ok: E.resolveEquipment(e, S.gym, S.occupied).ok }))
+        .sort((a, b) => b.ok - a.ok);
+    }
+    $("#slist").innerHTML = rows.slice(0, 30).map((r, i) => `
+      <div class="row pick" data-sub="${r.ex.id}" aria-pressed="${picked === r.ex.id}" style="${r.ok?"":"opacity:.4"}">
+        <div class="grow"><div class="lead">${esc(r.ex.name)}</div>
+        <div class="sm dim">${esc(equipLabel(r.ex))}${r.load ? ` · start ~${r.load} ${S.user.unit}` : ""}${r.ok?"":" · not here"}</div></div>
+        ${i === 0 && r.best ? '<span class="badge b-up">BEST</span>' : ""}
+      </div>`).join("") || '<div class="empty">Nothing else here hits that muscle.</div>';
+    $("#slist").querySelectorAll("[data-sub]").forEach(row => row.onclick = () => {
+      picked = row.dataset.sub;
+      $("#slist").querySelectorAll(".pick").forEach(p => p.setAttribute("aria-pressed", p.dataset.sub === picked));
+      $("#sft").hidden = false;
+    });
+  };
+  draw();
+  $("#sq").oninput = draw;
+  $("#sf").onclick = e => { const b = e.target.closest("[data-f]"); if (!b) return;
+    filter = b.dataset.f;
+    document.querySelectorAll("#sf button").forEach(x => x.setAttribute("aria-selected", x === b));
+    draw(); };
+  if ($("#swToday")) $("#swToday").onclick = () => picked && substitute(exId, picked, "occupied", opts);
+  $("#swMeso").onclick = () => picked && substitute(exId, picked, "replaced", opts);
 }
 
-async function substitute(fromId, toId) {
-  const to = LIB().find(x => x.id === toId);
+/** Scope is the ONLY difference. Picking the exercise was identical; what it MEANS is here. */
+async function substitute(fromId, toId, scope, opts) {
+  opts = opts || {};
+  const to = LIB().find(x => x.id === toId); if (!to) return;
+
+  if (scope === "replaced") {
+    // PERMANENT — write the slot. Progression is untouched: sets/reps/position live on the slot.
+    const dayIx = S.session ? S.session.day - 1 : opts.dayIx;
+    const day = S.meso.days[dayIx];
+    if (day) for (const g of day.muscles) for (const sl of g.slots) if (sl.exId === fromId) {
+      sl.exId = toId; sl.replacedFrom = fromId; sl.replacedAt = today();
+    }
+    await DB.put("meso", S.meso);
+  } else {
+    // TEMPORARY — mark the machine busy so the backup chain won't re-bind it. 20-min TTL, because
+    // someone else's sets do eventually end.
+    const b0 = E.resolveEquipment(LIB().find(x => x.id === fromId), S.gym, S.occupied);
+    if (b0.ok && b0.carrier) {
+      const id = b0.carrier.instance_id;
+      S.occupied.add(id);
+      setTimeout(() => S.occupied.delete(id), 20 * 60 * 1000);
+    }
+  }
+
   const bind = E.resolveEquipment(to, S.gym, S.occupied);
-  const pending = S.session.sets.filter(x => x.exId === fromId && !x.done && x.reps !== -1);
+  // Both scopes retarget THIS session's pending sets — identical code, and that's the point.
+  const pending = S.session ? S.session.sets.filter(x => x.exId === fromId && !x.done && x.reps !== -1) : [];
   for (const st of pending) {
-    const sl = { repRange: [8, 12], rir: st.rir, exId: fromId, muscle: st.muscle };
-    const tgt = E.targetLoad(S.user, to, bind, sl);
+    const tgt = E.targetLoad(S.user, to, bind, { repRange:[8,12], rir: st.rir, exId: fromId, muscle: st.muscle });
     st.exId = toId;
     st.instanceId = bind.ok && bind.carrier ? bind.carrier.instance_id : null;
-    st.load = tgt && tgt.load; st.targetLoad = tgt && tgt.load;
+    st.load = st.targetLoad = tgt && tgt.load;
     st.targetReps = (tgt && tgt.reps) || st.targetReps;
-    st.est = tgt && tgt.calibration ? tgt.confidence : null;
+    st.est = tgt && tgt.why === "ratio" ? tgt.confidence : null;
     // Log what was PERFORMED and why — never write substituted results into the original's history.
-    st.sub = { of: fromId, reason: "occupied" };
+    st.sub = { of: fromId, reason: scope };
   }
-  await DB.put("session", S.session);
-  closeSheet(); drawWorkout();
-  toast(`Swapped to ${to.name}`);
+  if (S.session) await DB.put("session", S.session);
+  closeSheet();
+  S.tab === "today" ? drawToday() : viewPlan();
+  toast(scope === "replaced" ? `${to.name} for the rest of the meso` : `Swapped to ${to.name} for today`);
+}
+
+/* Which gym you're at is state you set at the door, not a place you navigate to. */
+function gymSheet() {
+  sheet(`<h3>Where are you training?</h3>
+    <div class="sm dim" style="margin:6px 0 10px">Meso only prescribes what's actually there.</div>
+    ${S.gyms.map(g => `<div class="row pick" data-gym="${g.gym_id}" aria-pressed="${S.gym.gym_id===g.gym_id}">
+      <div class="grow"><div class="lead">${esc(g.name)}</div>
+      <div class="sm dim">${g.equipment.length} items${S.meso && g.gym_id===S.meso.homeGym?" · home gym":""}</div></div>
+      ${S.gym.gym_id===g.gym_id ? '<span class="badge b-up">HERE</span>' : ""}
+    </div>`).join("")}
+    <div class="sheet-ft"><button id="gc">Close</button></div>`);
+  $("#gc").onclick = closeSheet;
+  document.querySelectorAll("[data-gym]").forEach(r => r.onclick = async () => {
+    S.gym = S.gyms.find(g => g.gym_id === r.dataset.gym);
+    DB.pref.set("gym", S.gym.gym_id); S.occupied.clear();
+    closeSheet(); toast(`Training at ${S.gym.name}`); go("today");
+  });
 }
 
 /* ============ rest timer — RP refuses to ship one; it's their #1 complaint ============ */
@@ -634,7 +971,7 @@ async function wake() {
 }
 document.addEventListener("visibilitychange", () => {
   // The lock is dropped on blur and MUST be re-acquired — this is the bit everyone forgets.
-  if (document.visibilityState === "visible" && S.tab === "workout") wake();
+  if (document.visibilityState === "visible" && S.tab === "today") wake();
 });
 
 /* ================================================================
@@ -819,92 +1156,314 @@ function showSummary(s, notes) {
     }).join("")}
     ${notes.length ? `<div class="note" style="margin-top:12px">${esc(notes.join(" · "))}</div>` : ""}
     <div class="sheet-ft"><button class="btn" id="okd">Done</button></div>`);
-  $("#okd").onclick = () => { closeSheet(); go("workout"); };
+  $("#okd").onclick = () => { closeSheet(); go("today"); };
 }
 
 /* ================================================================
- * MESOS / STATS
+ * PLAN — the FUTURE. Weeks × days, no dates.
+ * Was "Mesos", which was doing three unrelated jobs (active meso · stats · history) — the
+ * definition of a junk drawer and the reason it was unfindable. Stats + history went to Progress.
  * ================================================================ */
-async function viewMesos() {
-  const mesos = await DB.all("meso", "user", S.user.id);
-  const vol = E.weeklyVolume(S.sessions.filter(s => s.finished), LIB());
-  const muscles = Object.keys(vol).sort((a, b) => vol[b] - vol[a]);
+async function viewPlan() {
+  if (!S.meso) return viewNoMeso();
+  const cur = currentSlot();
+  const rec = S.meso.budget;
   $("#v").innerHTML = `
-    <div class="hd"><div class="hd-row"><h2>Mesos</h2></div></div>
-    ${S.meso ? `<div class="card"><div class="row"><div class="grow">
-      <div class="lead">${esc(S.meso.name)}</div>
-      <div class="sm dim" style="margin-top:3px">${S.meso.weeks} weeks · ${S.meso.days.length} days/wk · started ${esc(S.meso.startedAt)}</div>
-    </div><span class="badge b-info">ACTIVE</span></div></div>` : ""}
-    <h4 style="margin:18px 0 8px">Muscle group stats</h4>
-    <div class="card"><div style="padding:12px 14px">
-      ${muscles.length ? muscles.map(m => {
-        const b = E.band(m, (S.user.emphasis||{})[m] || "grow");
-        const pct = Math.min(100, Math.round(vol[m] / Math.max(b.ceil, 1) * 100));
-        return `<div class="stat"><div>${mgPill(m, (S.user.emphasis||{})[m])}</div>
-          <div><div class="wk"><div style="height:${Math.max(12,pct*.38)}px;background:${mgColor(m)}33">${vol[m]}</div></div>
-          <div class="xxs dim2" style="margin-top:2px">${vol[m]} sets · MEV ${b.floor} · ceiling ${b.ceil}</div></div></div>`;
-      }).join("") : '<div class="empty">No logged sets yet.</div>'}
+    <div class="hd"><div class="hd-row"><div class="grow">
+      <div class="eyebrow">MESOCYCLE</div><h2>${esc(S.meso.name)}</h2>
     </div></div>
-    <h4 style="margin:18px 0 8px">History</h4>
-    <div class="card">${S.sessions.filter(s=>s.finished).slice(-12).reverse().map(s => `
-      <div class="row"><div class="grow"><div>Week ${s.week} Day ${s.day}</div>
-      <div class="sm dim">${esc(s.date)} · ${s.sets.filter(x=>x.done).length} sets${s.off_plan?" · travel":""}</div></div></div>`).join("")
-      || '<div class="empty">Nothing logged yet.</div>'}</div>
-    ${mesos.length > 1 ? `<div class="sm dim" style="padding:10px 2px">${mesos.length} mesocycles on file. Your loads carry across all of them.</div>` : ""}
+    <div class="sm dim" style="margin-top:4px">${S.meso.weeks} weeks · ${S.meso.days.length} days/wk ·
+      week ${Math.min(cur.week, S.meso.weeks)} of ${S.meso.weeks} · started ${esc(S.meso.startedAt)}</div></div>
+
+    ${rec && rec.note ? `<div class="card"><div class="row"><div class="grow sm">${esc(rec.note)}</div></div></div>` : ""}
+    ${(S.meso.caps || []).length ? `<div class="card">
+      <div class="row"><div class="grow"><div class="lead">What didn't fit</div></div></div>
+      ${S.meso.caps.slice(0, 4).map(c => `<div class="row"><div class="grow sm dim">${esc(c.why)}</div></div>`).join("")}
+    </div>` : ""}
+
+    <h4 style="margin:18px 0 8px">The week</h4>
+    ${S.meso.days.map((d, i) => {
+      const isNow = (i + 1) === cur.day && cur.week <= S.meso.weeks;
+      return `<div class="card">
+        <div class="row tap" data-day="${i}">
+          <div class="grow">
+            <div class="lead">${esc(d.name)}${isNow ? ' <span class="badge b-up" style="margin-left:6px">NEXT</span>' : ""}</div>
+            <div class="sm dim" style="margin-top:3px">${d.muscles.reduce((a,g)=>a+g.slots.reduce((x,s)=>x+s.sets,0),0)} sets ·
+              ${d.muscles.reduce((a,g)=>a+g.slots.length,0)} exercises${d.estMinutes ? ` · ~${d.estMinutes} min` : ""}</div>
+          </div><span class="dim2">›</span>
+        </div>
+        <div style="padding:0 14px 12px" class="pills">${d.muscles.map(g => mgPill(g.m, g.emphasis)).join("")}</div>
+      </div>`;
+    }).join("")}
+
+    <h4 style="margin:18px 0 8px">RIR by week</h4>
+    <div class="card"><div class="row"><div class="grow">
+      <div class="pills">${Array.from({length:S.meso.weeks},(_,i)=>i+1).map(w => {
+        const dl = E.isDeload(w, S.meso.weeks);
+        return `<span class="badge ${dl?"b-warn":w===cur.week?"b-up":"b-mid"}">${dl?"DELOAD":`WK${w} · ${E.rirForWeek(w,S.meso.weeks)} RIR`}</span>`;
+      }).join("")}</div>
+      <div class="sm dim" style="margin-top:8px">Reps stay put, RIR falls, and the weight is what moves to keep up. The last week is always the deload.</div>
+    </div></div>
     <div style="height:20px"></div>`;
+
+  document.querySelectorAll("[data-day]").forEach(r => r.onclick = () => planDaySheet(+r.dataset.day));
+}
+
+function planDaySheet(ix) {
+  const d = S.meso.days[ix];
+  sheet(`<h3>${esc(d.name)}</h3>
+    <div class="sm dim" style="margin:6px 0 10px">${d.estMinutes ? `~${d.estMinutes} min · ` : ""}tap an exercise to swap it for the rest of the meso.</div>
+    ${d.muscles.map(g => `
+      <div style="margin:14px 0 6px">${mgPill(g.m, g.emphasis)}
+        <span class="xs dim2" style="margin-left:6px">${g.freq ? `${g.freq}× a week` : ""}</span></div>
+      ${g.slots.map(sl => {
+        const ex = LIB().find(x => x.id === sl.exId) || { name: sl.exId };
+        return `<div class="row pick" data-pswap="${sl.exId}" data-day="${ix}">
+          <div class="grow"><div class="lead">${esc(ex.name)}</div>
+          <div class="sm dim">${sl.sets} × ${sl.repRange[0]}-${sl.repRange[1]} · ${esc(equipLabel(ex))}</div></div>
+          <span class="dim2">⇄</span></div>`;
+      }).join("")}`).join("")}
+    <div class="sheet-ft"><button id="pdc">Close</button></div>`);
+  $("#pdc").onclick = closeSheet;
+  document.querySelectorAll("[data-pswap]").forEach(r => r.onclick = () =>
+    swapSheet(r.dataset.pswap, { dayIx: +r.dataset.day }));
 }
 
 /* ================================================================
- * GYMS
+ * PROGRESS — the PAST. Calendar, strength, volume.
+ * This is RP's most-hammered gap ("There is no Calendar type tab", "tracking should, well, track").
  * ================================================================ */
-function viewGyms() {
-  $("#v").innerHTML = `
-    <div class="hd"><div class="hd-row"><h2>Gyms</h2></div>
-      <div class="sm dim" style="margin-top:2px">Where are you training today? Meso picks exercises your gym can actually do.</div></div>
-    ${S.gyms.map(g => `<div class="card"><div class="row tap" data-gym="${g.gym_id}">
-      <div class="grow"><div class="lead">${esc(g.name)}</div>
-      <div class="sm dim" style="margin-top:3px">${g.equipment.length} items${g.gym_id===S.meso?.homeGym?" · home gym":""}</div></div>
-      ${S.gym.gym_id===g.gym_id ? '<span class="badge b-up">HERE</span>' : ""}
-    </div>
-    <div style="padding:0 14px 12px" class="xs dim2">${esc(g.equipment.map(e=>e.type.replace(/_/g," ")).join(" · "))}</div>
-    </div>`).join("")}
-    <div class="sm dim" style="padding:10px 2px">Editing inventories is Phase 3 — for now these live in the seed at the top of <span class="mono xs">js/app.js</span>.</div>`;
-  document.querySelectorAll("[data-gym]").forEach(r => r.onclick = async () => {
-    S.gym = S.gyms.find(g => g.gym_id === r.dataset.gym);
-    DB.pref.set("gym", S.gym.gym_id); S.occupied.clear();
-    toast(`Training at ${S.gym.name}`); go("workout");
-  });
+function verdictOf(fits) {
+  const real = fits.filter(f => f.verdict === "up" || f.verdict === "down" || f.verdict === "flat");
+  if (!real.length) return { word:"BUILDING", cls:"none", arrow:"", line:"Log a few more sessions and this starts answering." };
+  const up = real.filter(f => f.verdict === "up").length, down = real.filter(f => f.verdict === "down").length;
+  if (up > down) return { word:"GROWING", cls:"up", arrow:"↗",
+    line:`Strength up on ${up} of ${real.length} movement${real.length>1?"s":""} since this meso started.` };
+  if (down > up) return { word:"SLIPPING", cls:"down", arrow:"↘",
+    line:`Down on ${down} of ${real.length}. Check your sleep and food before you touch the program.` };
+  // Flat is the PRESCRIPTION'S OWN BASELINE (the load bump is the toll for the RIR drop), not a
+  // failure. Never render it red — that trains you to distrust every screen.
+  return { word:"HOLDING", cls:"flat", arrow:"→",
+    line:`Holding steady across ${real.length} movement${real.length>1?"s":""}. That's the plan working, not a stall.` };
 }
 
-/* ================================================================
- * EXERCISES
- * ================================================================ */
-function viewExercises() {
+function viewProgress() {
+  const fin = S.sessions.filter(s => s.finished);
+  if (!fin.length) {
+    $("#v").innerHTML = `<div class="hd"><div class="hd-row"><h2>Progress</h2></div></div>
+      <div class="empty">Nothing logged yet.<br>Finish a workout and this fills in.</div>`;
+    return;
+  }
   const lib = LIB();
+  const deload = S.meso && E.isDeload(currentSlot().week, S.meso.weeks);
+
+  // Strength, per muscle, via the muscle's richest trend key.
+  const rows = [];
+  for (const m of Object.keys(E.LANDMARKS)) {
+    const keys = E.keysForMuscle(fin, lib, m);
+    if (!keys.length) continue;
+    const k = keys[0];
+    const pts = E.smooth3(E.e1rmSeries(fin, lib, k.key));
+    const fit = E.trendFit(pts);
+    const ex = lib.find(e => e.id === k.exId) || { name: k.exId };
+    rows.push({ m, key: k.key, ex, pts, fit, last: pts[pts.length - 1] });
+  }
+  rows.sort((a, b) => (b.fit.total || 0) - (a.fit.total || 0));
+  const v = verdictOf(rows.map(r => r.fit));
+  const prs = E.replayPRs(fin, lib);
+  const thisWeek = prs.filter(p => (p.at || "") >= new Date(Date.now() - 7*864e5).toISOString().slice(0,10));
+
+  // Volume vs landmarks, this week.
+  const vol = E.weeklyVolume(fin.filter(s => onDate(s) >= new Date(Date.now()-6*864e5).toISOString().slice(0,10)), lib);
+  const lastDec = fin.slice(-1)[0] && fin.slice(-1)[0].decision || {};
+
   $("#v").innerHTML = `
-    <div class="hd"><div class="hd-row"><h2>Exercises</h2></div>
-      <input id="q" placeholder="Search" style="width:100%;margin-top:10px;background:var(--b2);border:1px solid var(--line);border-radius:var(--r-btn);padding:13px 12px;outline:none">
+    <div class="hd"><div class="hd-row"><div class="grow"><h2>Progress</h2></div>
+      ${S.meso ? `<span class="badge b-mid">Week ${Math.min(currentSlot().week, S.meso.weeks)}/${S.meso.weeks}</span>` : ""}
     </div>
-    <div class="sm dim" style="padding:6px 2px" id="cnt"></div>
-    <div id="list"></div>`;
-  const draw = f => {
-    const q = (f || "").toLowerCase();
-    const rows = lib.filter(e => !q || e.name.toLowerCase().includes(q) ||
-      (e.aliases||[]).some(a => a.toLowerCase().includes(q)) ||
-      (e.muscles||[]).some(m => (E.MG_LABEL[m.m]||"").toLowerCase().includes(q)));
-    const avail = rows.map(e => ({ e, ok: E.resolveEquipment(e, S.gym, S.occupied).ok }));
-    $("#cnt").textContent = `${avail.filter(x=>x.ok).length} of ${rows.length} available at ${S.gym.name}`;
-    $("#list").innerHTML = `<div class="card">${avail.map(({e, ok}) => {
-      const pm = (e.muscles||[]).find(m => m.role === "primary") || {};
-      return `<div class="row" style="${ok?"":"opacity:.35"}">
-        <div class="grow"><div class="ell">${esc(e.name)}</div>
-        <div class="sm" style="margin-top:2px">
-          <span style="color:${mgColor(pm.m)}">●</span>
-          <span class="dim">${esc(E.MG_LABEL[pm.m]||"")} · ${esc(equipLabel(e))}</span></div></div>
-        ${ok ? "" : '<span class="xxs dim2">n/a here</span>'}</div>`;
-    }).join("")}</div>`;
-  };
-  draw(""); $("#q").oninput = e => draw(e.target.value);
+    <div class="sm dim" style="margin-top:3px">${fin.length} session${fin.length>1?"s":""} logged</div></div>
+
+    ${deload ? `<div class="card"><div style="padding:16px 14px">
+      <div class="verdict dl">DELOAD</div>
+      <div class="sm dim" style="margin-top:6px">Loads are halved on purpose. Strength tracking is paused this week — nothing here is a decline.</div>
+    </div></div>`
+    : `<div class="card"><div style="padding:16px 14px 14px">
+      <div class="row" style="padding:0;border:0;min-height:0;align-items:flex-start">
+        <div class="grow">
+          <div class="verdict ${v.cls}">${v.word}</div>
+          <div class="sm dim" style="margin-top:6px;max-width:240px">${esc(v.line)}</div>
+        </div><span class="arrow ${v.cls}">${v.arrow}</span>
+      </div>
+    </div></div>`}
+
+    ${thisWeek.length ? `<div class="card"><div class="row">
+      <span style="font-size:1.1rem">🏆</span>
+      <div class="grow"><div class="lead">${thisWeek.length} PR${thisWeek.length>1?"s":""} this week</div>
+      <div class="sm dim ell" style="margin-top:2px">${esc(thisWeek.slice(0,3).map(p => {
+        const e = lib.find(x => x.id === p.exId) || {}; return `${e.name || p.exId} ${p.load}×${p.reps}`;
+      }).join(" · "))}</div></div>
+    </div></div>` : deload ? `<div class="card"><div class="row"><div class="grow sm dim">PRs paused — deload week.</div></div></div>` : ""}
+
+    <h4 style="margin:18px 0 8px">Strength</h4>
+    <div class="card"><div style="padding:4px 14px 10px">
+      ${rows.map(r => {
+        const c = mgColor(r.m);
+        const b = r.fit.verdict === "up" ? "b-up" : r.fit.verdict === "down" ? "b-dn" : "b-mid";
+        const lbl = r.fit.verdict === "building" ? `${r.fit.n} SESSION${r.fit.n===1?"":"S"}`
+                  : r.fit.verdict === "flat" ? "HOLDING"
+                  : (r.fit.total > 0 ? "+" : "") + (r.fit.total * 100).toFixed(1) + "%";
+        const sub = r.fit.verdict === "building" ? "Need 4"
+                  : r.last ? `${r.last.load}×${r.last.reps} @${r.last.rir}` : "";
+        return `<div class="stat">
+          <div>${mgPill(r.m, (S.user.emphasis||{})[r.m])}</div>
+          <div class="trend">
+            ${sparkline(r.pts, { color: c, dim: r.fit.verdict === "building",
+                                 label: `${E.MG_LABEL[r.m]} strength trend` })}
+            <div class="t-r"><span class="badge ${b} num">${lbl}</span>
+              <div class="xxs dim2 mono" style="margin-top:3px">${esc(sub)}</div></div>
+          </div></div>`;
+      }).join("") || '<div class="empty">No countable sets yet.</div>'}
+    </div></div>
+    <div class="xs dim2" style="padding:2px 2px 0">Measured at matched RIR. Deload and travel sessions are excluded. Strength is a proxy for size, not a synonym.</div>
+
+    <h4 style="margin:18px 0 8px">Volume this week</h4>
+    <div class="card"><div style="padding:10px 14px 4px">
+      ${Object.keys(vol).sort((a,b) => vol[b]-vol[a]).map(m => {
+        const emph = (S.user.emphasis||{})[m] || "grow";
+        const d = (lastDec[m] || {}).delta || 0;
+        const b = E.bandState(m, emph, vol[m], d);
+        const zc = b.zone === "lo" ? "lo" : (b.zone === "hi" || b.zone === "ov") ? "hi" : "";
+        const msg = b.zone === "lo" ? '<span style="color:var(--wac)">below MEV — not a growth dose</span>'
+                  : b.zone === "ov" || b.zone === "hi" ? '<span style="color:var(--wac)">at your ceiling</span>'
+                  : '<span class="dim2">in the productive zone</span>';
+        const nx = d > 0 ? `<span style="color:var(--suc)">+${d} next week</span>`
+                 : d < 0 ? `<span style="color:var(--erc)">${d} next week</span>` : "";
+        return `<div class="stat">
+          <div>${mgPill(m, emph)}</div>
+          <div>
+            <div class="rail ${zc}" style="--c:${mgColor(m)};--mev:${b.pMev}%;--mav:${b.pMav}%;--v:${b.pNow}%;--nx:${b.pNext}%">
+              <i class="z-lo"></i><i class="z-ok"></i><i class="z-hi"></i><i class="fill"></i><i class="now"></i><i class="nxt"></i>
+            </div>
+            <div class="rail-lg xxs dim2"><span>MEV ${b.mev}</span><span>MAV ${b.mav}</span><span>MRV ${b.mrv}</span></div>
+            <div class="xxs" style="margin-top:3px"><b class="num">${vol[m]}</b><span class="dim2"> sets · </span>${msg}${nx ? ' · ' + nx : ""}</div>
+          </div></div>`;
+      }).join("") || '<div class="empty">No sets this week.</div>'}
+    </div></div>
+
+    <h4 style="margin:18px 0 8px">History</h4>
+    ${calendarMonth()}
+    <div style="height:20px"></div>`;
+
+  document.querySelectorAll("[data-sess]").forEach(c => c.onclick = () => sessionSheet(c.dataset.sess));
+}
+
+/* The calendar RENDERS NOTHING PAST TODAY. Not grayed — absent. Two reasons, and the second is
+   the one that matters:
+     1. There's nothing to draw. The plan has no dates, so no future cell has content.
+     2. An empty future cell is an invitation to fill it, and the first person to fill one has
+        invented scheduling — exactly the trap RP fell into ("You have to start your Meso on
+        Monday, no adjusting the start day"). Don't build the box.
+   A trained day glows; an untrained day is blank space. Blank space is not an accusation. */
+function calendarMonth() {
+  const now = new Date(), y = now.getFullYear(), mo = now.getMonth();
+  const first = new Date(y, mo, 1), lead = (first.getDay() + 6) % 7;
+  const days = new Date(y, mo + 1, 0).getDate();
+  const byDay = {};
+  for (const s of S.sessions) if (s.finished) {
+    const d = onDate(s);
+    if (d.slice(0, 7) === `${y}-${String(mo+1).padStart(2,"0")}`) byDay[+d.slice(8, 10)] = s;
+  }
+  const cells = [];
+  for (let i = 0; i < lead; i++) cells.push(`<div class="cald blank"></div>`);
+  for (let d = 1; d <= days; d++) {
+    if (d > now.getDate()) break;                       // the calendar has no future
+    const s = byDay[d];
+    cells.push(`<div class="cald${s ? " tap" : ""}${d === now.getDate() ? " today" : ""}"${s ? ` data-sess="${s.id}"` : ""}>
+      <span class="n">${d}</span>
+      <i class="dot${s ? " on" : ""}"${s ? ` style="--c:${kindColor(s)}"` : ""}></i></div>`);
+  }
+  const n = Object.keys(byDay).length;
+  const sets = Object.values(byDay).reduce((a, s) => a + s.sets.filter(x => x.done).length, 0);
+  return `<div class="card">
+    <div class="row"><div class="grow"><div class="lead">${MON3[mo][0] + MON3[mo].slice(1).toLowerCase()} ${y}</div></div></div>
+    <div class="calhd">${["M","T","W","T","F","S","S"].map(x => `<div>${x}</div>`).join("")}</div>
+    <div class="cal">${cells.join("")}</div>
+    <div class="row"><div class="grow sm dim">${n} workout${n===1?"":"s"} · ${sets} sets this month</div></div>
+  </div>`;
+}
+
+function sessionSheet(id) {
+  const s = S.sessions.find(x => x.id === id); if (!s) return;
+  const lib = LIB();
+  const byEx = [];
+  for (const x of s.sets) { if (!x.done) continue;
+    let e = byEx.find(v => v.exId === x.exId); if (!e) byEx.push(e = { exId: x.exId, sets: [] }); e.sets.push(x); }
+  sheet(`<h3>${esc(S.meso ? (S.meso.days[s.day-1]||{}).name || "Workout" : "Workout")}</h3>
+    <div class="sm dim" style="margin:6px 0 10px">${esc(onDate(s))} · week ${s.week} day ${s.day}${s.off_plan ? " · travel" : ""}</div>
+    ${byEx.map(e => {
+      const ex = lib.find(x => x.id === e.exId) || { name: e.exId };
+      return `<div class="row"><div class="grow">
+        <div class="lead">${esc(ex.name)}</div>
+        <div class="sm dim mono" style="margin-top:3px">${e.sets.map(x => `${x.load}×${x.reps}`).join(" · ")}</div>
+      </div></div>`;
+    }).join("")}
+    ${Object.keys(s.decision || {}).length ? `<h4 style="margin:16px 0 6px">What it changed</h4>
+      ${Object.keys(s.decision).map(m => { const d = s.decision[m];
+        const cls = d.delta > 0 ? "b-up" : d.delta < 0 ? "b-dn" : "b-mid";
+        const lbl = d.action === "recovery" ? "RECOVERY" : d.delta > 0 ? `+${d.delta}` : d.delta < 0 ? `${d.delta}` : "HOLD";
+        return `<div class="row"><div class="grow"><div>${esc(E.MG_LABEL[m])}</div>
+          <div class="xs dim" style="margin-top:2px">${esc((d.reasons||[]).join(" · ") || "Steady")}</div></div>
+          <span class="badge ${cls}">${lbl}</span></div>`; }).join("")}` : ""}
+    <div class="sheet-ft"><button id="ssc">Close</button></div>`);
+  $("#ssc").onclick = closeSheet;
+}
+
+/**
+ * Hand-rolled SVG sparkline. No library — strict offline PWA.
+ * The ±6% minimum span is THE HONESTY VALVE: one misjudged RIR at ~10 reps moves Epley by 1/30
+ * ≈ 3.3%, and autoscaling to a series' own min/max turns that pure noise into a dramatic
+ * full-height mountain range. That's every charting library's default and the single easiest way
+ * for a chart to lie while the number next to it is correct. With the floor, a dead-flat series
+ * LOOKS dead flat. It should.
+ */
+function sparkline(pts, o) {
+  o = o || {};
+  const w = o.w || 112, h = o.h || 30, pad = o.pad || 3, c = o.color || "var(--bc)";
+  const n = (pts || []).length;
+  const open = `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="display:block;overflow:visible" role="img" aria-label="${esc(o.label || "trend")}">`;
+  // n=0 — an empty box is honest. A flat line at zero reads as "no progress", which is a claim.
+  if (!n) return open + `<line x1="0" y1="${h/2}" x2="${w}" y2="${h/2}" stroke="var(--line)" stroke-width="1" stroke-dasharray="2 3"/></svg>`;
+
+  const es = pts.map(p => p.e);
+  const lo0 = Math.min.apply(null, es), hi0 = Math.max.apply(null, es);
+  const mid = (lo0 + hi0) / 2 || 1;
+  const span = Math.max(hi0 - lo0, Math.abs(mid) * 0.06) * 1.15;
+  const yLo = mid - span / 2;
+  const y = e => (h - pad - ((e - yLo) / span) * (h - 2 * pad));
+  const x = i => (n === 1 ? w / 2 : pad + i * (w - 2 * pad) / (n - 1));
+  const P = v => v.toFixed(1);
+  // n=1 — a dot. There is no trend through one point and we won't draw one.
+  if (n === 1) return open + `<circle cx="${P(x(0))}" cy="${P(y(es[0]))}" r="2.5" fill="${c}"/></svg>`;
+
+  // Baseline at the FIRST point — "am I above where I started" answered pre-attentively.
+  let g = `<line x1="0" y1="${P(y(es[0]))}" x2="${w}" y2="${P(y(es[0]))}" stroke="${c}" stroke-opacity=".22" stroke-width="1" stroke-dasharray="2 3"/>`;
+  const brk = new Set(o.breaks || []);
+  const runs = []; let run = [0];
+  for (let i = 1; i < n; i++) { if (brk.has(i)) { runs.push(run); run = [i]; } else run.push(i); }
+  runs.push(run);
+  // Two points is a line, never a trend. Draw it faint — trendFit() says "building" anyway.
+  const dim = (n === 2 || o.dim) ? ' stroke-opacity=".45"' : "";
+  for (const r of runs) {
+    if (r.length === 1) { g += `<circle cx="${P(x(r[0]))}" cy="${P(y(es[r[0]]))}" r="2" fill="${c}"/>`; continue; }
+    // POLYLINE, not a spline. A curve through 5 sessions invents values between them, and the
+    // invented values sit exactly where the eye reads the shape.
+    g += `<polyline points="${r.map(i => `${P(x(i))},${P(y(es[i]))}`).join(" ")}" fill="none" stroke="${c}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"${dim}/>`;
+  }
+  brk.forEach(i => { if (i <= 0 || i >= n) return;
+    const bx = P((x(i-1) + x(i)) / 2);
+    g += `<line x1="${bx}" y1="0" x2="${bx}" y2="${h}" stroke="var(--bc)" stroke-opacity=".3" stroke-width="1" stroke-dasharray="1 2"/>`; });
+  g += `<circle cx="${P(x(n-1))}" cy="${P(y(es[n-1]))}" r="2.5" fill="${c}"/>`;
+  return open + g + "</svg>";
 }
 
 /* ================================================================
@@ -974,7 +1533,7 @@ function viewMore() {
 
   document.querySelectorAll("[data-u]").forEach(r => r.onclick = async () => {
     S.user = S.users.find(u => u.id === r.dataset.u); DB.pref.set("user", S.user.id);
-    await loadUser(); toast(`Now training as ${S.user.name}`); go("workout");
+    await loadUser(); toast(`Now training as ${S.user.name}`); go("today");
   });
   $("#save").onclick = () => { DB.pref.set("syncUrl", $("#url").value.trim()); toast("Saved"); viewMore(); };
   $("#sn").onclick = () => syncNow().then(() => viewMore());
@@ -988,7 +1547,7 @@ function viewMore() {
     if (!confirm("Restore from the Sheet? This merges the Sheet's data into this phone.")) return;
     try {
       const r = await fetch(url + "?user=" + encodeURIComponent(S.user.id));
-      await DB.importUser(await r.json()); await loadUser(); toast("Restored"); go("workout");
+      await DB.importUser(await r.json()); await loadUser(); toast("Restored"); go("today");
     } catch (e) { toast("Restore failed"); }
   };
   document.querySelectorAll("[data-th]").forEach(b => b.onclick = () => {
