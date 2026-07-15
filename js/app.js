@@ -152,7 +152,10 @@ const SEED_GYMS = [
         load_portability:"absolute", contention:"low" }
     ] },
 
-  { gym_id:"hotel", name:"Hotel / Travel", scope:"household",
+  /* travel:true is what drives session.off_plan — sets here COUNT toward weekly volume (a set is
+     a set) but are excluded from e1RM trend and PRs, so a 50lb dumbbell ceiling never reads as
+     detraining. Mark any one-off gym travel; do NOT mark a gym you actually train at. */
+  { gym_id:"hotel", name:"Hotel / Travel", scope:"household", travel:true,
     constraints:{ solo_training:true, ceiling_height_in:84 },
     equipment:[
       { instance_id:"t_db", type:"dumbbell_set", caps:["dumbbell"],
@@ -439,8 +442,19 @@ async function ensureSession(w, d) {
   const day = S.meso.days[d - 1];
   const rir = E.rirForWeek(w, S.meso.weeks);
   const deload = E.isDeload(w, S.meso.weeks);
+  /* ⚠️ off_plan is a property of the GYM, not a comparison against the meso's birthplace.
+   *
+   * It used to be `S.gym.gym_id !== S.meso.homeGym`, which is catastrophically wrong for anyone
+   * who trains at more than one real gym: create the meso at home, then train at Crunch all
+   * year, and EVERY session is flagged travel → excluded from e1RM trend and PRs → Progress
+   * shows nothing, forever. The app would look broken while being "correct".
+   *
+   * The flag exists for one reason: a constrained environment must not read as detraining. That's
+   * a fact about the PLACE (a hotel's 50lb dumbbell ceiling), not about which gym you were
+   * standing in when you tapped Create. Crunch and Anytime are both real gyms with real
+   * progression. Only the hotel is travel. */
   s = { id, userId: S.user.id, mesoId: S.meso.id, week: w, day: d, date: today(),
-        gymId: S.gym.gym_id, off_plan: S.gym.gym_id !== S.meso.homeGym,
+        gymId: S.gym.gym_id, off_plan: S.gym.travel === true,
         sets: [], feedback: {}, jointPain: {}, finished: false };
 
   for (const g of day.muscles) {
@@ -456,8 +470,12 @@ async function ensureSession(w, d) {
         const dp = E.deloadPrescription({ sets, reps, load: load || 0 }, g.m, "first");
         sets = dp.sets; reps = dp.reps; load = dp.load || load;
       }
+      // The set carries its rep bucket so recordLoadState can scope the memory without
+      // re-deriving the slot. Heavy Monday and light Friday must not share a load memory.
+      const bucket = E.repBucket ? E.repBucket(slot.repRange || [8,12]) : null;
       for (let i = 0; i < sets; i++) {
-        s.sets.push({ id: uid(), slotId: slot.id, muscle: g.m, exId: ex.id,
+        s.sets.push({ id: uid(), slotId: slot.id, muscle: g.m, exId: ex.id, bucket,
+          repRange: slot.repRange,
           instanceId: bind.ok && bind.carrier ? bind.carrier.instance_id : null,
           load: load || null, reps: null, targetReps: reps, targetLoad: load || null,
           // Only a real cross-exercise RATIO estimate earns the calibration note. A "feel_out"
@@ -771,7 +789,9 @@ async function logSet(id) {
 async function recordLoadState(st) {
   const ex = LIB().find(x => x.id === st.exId); if (!ex) return;
   const bind = E.resolveEquipment(ex, S.gym, S.occupied);
-  const k = E.loadKey(S.user.id, ex, bind);
+  // Bucket-scoped: see loadKey. Without this, the same exercise trained heavy on Monday and
+  // light on Friday shares one memory, and Monday drifts down to Friday's load forever.
+  const k = E.loadKey(S.user.id, ex, bind, { bucket: st.bucket, repRange: st.repRange });
   const rec = { k, exId: ex.id, load: st.load, reps: st.reps, rir: st.rir,
                 e1rm: E.epley(st.load, st.reps, st.rir), at: new Date().toISOString(),
                 gymId: S.gym.gym_id, off_plan: S.session.off_plan };

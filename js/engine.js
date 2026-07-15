@@ -966,11 +966,26 @@ function pickBackups(scored, primary, n) {
  * number and no schema makes them one. What carries is an e1RM RATIO, shown AS an estimate,
  * corrected by one calibration set, personal after ~3 exposures.
  * ================================================================ */
-function loadKey(userId, ex, bind) {
+/**
+ * @param slot optional — when given, the key is scoped to its REP BUCKET.
+ *
+ * ⚠️ The rep bucket is not optional in practice, and leaving it out is a silent stall.
+ * [PUB] heavy rep ranges go earlier in the WEEK than light, so repRangeFor() puts the same
+ * exercise on Monday at 5-8, Wednesday at 8-12 and Friday at 12-20. With one memory per exercise,
+ * Friday's 20-rep set overwrites Monday's 5-rep set — and then Monday's progression reads a
+ * 12-rep memory against a [5,8] range, trips the rep-range guard, and prescribes 105×5 to someone
+ * whose e1RM says 122×5. Every heavy day drifts down toward the light day's load, forever.
+ *
+ * Same principle as trendKey's instance scoping and replayPRs' R_WINDOW: you cannot compare a
+ * 5-rep set to a 20-rep set, so don't store them in the same box.
+ */
+function loadKey(userId, ex, bind, slot) {
   const inst = bind && bind.carrier;
   // Machine loads are instance-scoped; free-weight loads are absolute (70lb DB is 70lb anywhere).
-  return ex.load_portability === "machine_relative" && inst
+  const base = ex.load_portability === "machine_relative" && inst
     ? `${userId}|${ex.id}@${inst.instance_id}` : `${userId}|${ex.id}`;
+  const b = slot && slot.repRange ? repBucket(slot.repRange) : (slot && slot.bucket);
+  return b ? `${base}|${b}` : base;
 }
 
 function ratio(user, fromEx, toEx, library) {
@@ -999,7 +1014,9 @@ function ratio(user, fromEx, toEx, library) {
 /** Target working load. Exact when we've done it; an explicit estimate otherwise. */
 function targetLoad(user, ex, bind, slot) {
   const ls = user.loadState || {};
-  const known = ls[loadKey(user.id, ex, bind)];
+  // Scoped to the rep bucket — a 5-rep memory must never drive an 8-12 prescription.
+  const known = ls[loadKey(user.id, ex, bind, slot)]
+             || ls[loadKey(user.id, ex, bind)];   // legacy unbucketed rows, pre-fix
   // 45-day freshness. Note this survives meso boundaries — RP throws load history away every
   // mesocycle ("you start over every six weeks") and it's a top-5 review complaint. We don't.
   if (known && known.at && (Date.now() - new Date(known.at)) < 45 * 864e5) {
@@ -1378,6 +1395,44 @@ function verify() {
   eq("20 weekly sets forces >=3 sessions", minFrequency(20), 3);
   eq("8 weekly sets needs only 1", minFrequency(8), 1);
 
+  /* ── PROGRESSIVE OVERLOAD, week over week ──
+   * [PUB] "You should seek to keep reps stable from week to week while letting your RIR decline.
+   *        The way you keep the reps stable as RIR falls is by adding weight."
+   * [PUB] Load Progression Rule: "add only enough to allow at least the same reps, at the same or
+   *        slightly lower RIR, with at least four weeks of accumulation being the goal."
+   * MINIMAL is the operative word — this is the intensity half of RP's system, and it must not
+   * outrun the RIR calendar. */
+  const bar0 = loadPlan({ load:{ kind:"plate_loaded", min:45, max:495, increment:5 } });
+  // RP's own published worked example: 100×10 @2 RIR → next week 10 reps @1 RIR. +2.5lb is too
+  // easy (you'd get 11), +10lb needs 0 RIR → add 5lb. Landing anywhere else means the band is wrong.
+  eq("[PUB] RP's worked example: 100×10@2 → 105×10, not 102.5 and not 110",
+     progress({load:100,reps:10,rir:2},{repRange:[8,12],rir:1},bar0), {load:105,reps:10,why:"load"});
+  // The chain, four accumulation weeks. Reps HELD, load climbing minimally.
+  (() => {
+    let cur = {load:200,reps:10,rir:2}, loads = [200], reps = [10];
+    for (let w = 1; w <= 4; w++) {
+      const p = progress(cur, {repRange:[8,12], rir: rirForWeek(w,5)}, bar0);
+      loads.push(p.load); reps.push(p.reps);
+      cur = {load:p.load, reps:p.reps, rir: rirForWeek(w+1,5)};
+    }
+    eq("load climbs every week: 200→205→210→215→220", loads, [200,205,210,215,220]);
+    eq("...and reps are HELD at 10 the whole way", reps, [10,10,10,10,10]);
+    ok("...at 2-5% a week, never more — 'add only enough'",
+       loads.slice(1).every((l,i) => { const d = (l-loads[i])/loads[i]; return d > 0 && d <= 0.05; }));
+  })();
+  ok("[PUB] the progression is e1RM-NEUTRAL — the load bump is the TOLL for the RIR drop, not gain",
+     Math.abs(epley(205,10,1) - epley(200,10,2)) < 1);
+  // Dumbbells: 10→15lb is a 50% jump. RP: "if the next weight increment is outside of that range
+  // (like going from the 10lb to the 15lb dumbbells), it adds a rep to each set instead."
+  (() => {
+    const db0 = loadPlan({ load:{ kind:"fixed_pairs", min:5, max:120, increment:5 } });
+    let d = {load:10,reps:10,rir:2}, seq = [];
+    for (let i = 0; i < 3; i++) { const p = progress(d, {repRange:[8,12],rir:1}, db0);
+      seq.push(p.load + "x" + p.reps); d = {load:p.load, reps:p.reps, rir:1}; }
+    eq("coarse DB jump → add reps to the top of the range, THEN take the jump and reset",
+       seq, ["10x11","10x12","15x8"]);
+  })();
+
   // ── Load progression ──
   // A barbell: 5lb steps against a 200lb working weight is ~2.5% — inside the band.
   const bar = loadPlan({ load:{ kind:"plate_loaded", min:45, max:495, increment:5 } });
@@ -1390,6 +1445,33 @@ function verify() {
   eq("...and the load actually moved up", progress({load:200,reps:10,rir:2}, {repRange:[8,12],rir:1}, bar).load, 205);
   eq("past the rep range → forces load, resets reps to range low",
      progress({load:100,reps:14,rir:1}, {repRange:[8,12],rir:1}, bar).reps, 8);
+
+  /* ── 🔑 Load memory must be scoped to the REP BUCKET ──
+   * Found by driving the real app: chest_supported_row is correctly scheduled 3× a week at 5-8,
+   * 8-12 and 12-20 (the published heavy→light WEEKLY gradient). With one memory per exercise,
+   * Friday's 12-rep set overwrote Monday's, Monday's [5,8] slot then tripped the rep-range guard,
+   * and week 2 prescribed 105×5 to a lifter whose e1RM said 122×5. Every heavy day would drift
+   * down to the light day's load, forever, and it looks like "the app just isn't progressing me". */
+  (() => {
+    const rowEx = { id:"row", load_portability:"absolute", ratings:{}, muscles:[] };
+    const kH = loadKey("rob", rowEx, {}, { repRange:[5,8] });
+    const kL = loadKey("rob", rowEx, {}, { repRange:[12,20] });
+    ok("heavy and light memories of the SAME exercise are different keys", kH !== kL);
+    eq("...and the key names its bucket", kH, "rob|row|5_8");
+    eq("a slot's `bucket` field works too (that's what the set carries)",
+       loadKey("rob", rowEx, {}, { bucket:"12_20" }), "rob|row|12_20");
+    eq("no slot → unbucketed base key (legacy rows still resolve)", loadKey("rob", rowEx, {}), "rob|row");
+    // machine scoping and bucket scoping must COMPOSE, not replace each other
+    const mEx = { id:"lat", load_portability:"machine_relative", ratings:{}, muscles:[] };
+    eq("machine instance AND rep bucket both scope the key",
+       loadKey("rob", mEx, { carrier:{ instance_id:"c_lat" } }, { repRange:[8,12] }), "rob|lat@c_lat|8_12");
+    // The actual regression: a 12-rep memory must not drive a [5,8] prescription.
+    const user = { id:"rob", loadState:{ "rob|row|8_12": { load:100, reps:12, rir:2, at:new Date().toISOString() } } };
+    const heavy = targetLoad(user, rowEx, { plan: loadPlan({ load:{kind:"plate_loaded",min:45,max:495,increment:5} }) },
+                             { repRange:[5,8], rir:1 });
+    ok("a 12-rep memory does NOT leak into the 5-8 slot (it feels out instead of prescribing 105×5)",
+       !heavy || heavy.load == null || heavy.why === "feel_out");
+  })();
 
   // ── Plate inventory is a real ceiling; the floor binds too ──
   // 45×4 + 25×2 + 10×4 + 5×4 + 2.5×2 = 295lb of plates, all in pairs → 45 + 295 = 340.
@@ -1561,7 +1643,7 @@ return {
   assignDays, orderDay, repRangeFor, sessionMinutes, fullBodyRationale,
   // selection
   loadPlan, resolveEquipment, selectForSlot, pickBackups, scoreExercise,
-  loadKey, ratio, targetLoad, learnRatio, weeklyVolume,
+  loadKey, ratio, targetLoad, learnRatio, weeklyVolume, repBucket,
   // progress
   countableSet, trendKey, e1rmSeries, keysForMuscle, smooth3, trendFit,
   volumeByWeek, bandState, replayPRs, e1rmTrend,
