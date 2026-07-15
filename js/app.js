@@ -151,6 +151,10 @@ function seedMeso(user, gym, days, weeks) {
     // neither of those is actually an RP rule.
     const ordered = muscles.slice().sort((a, b) =>
       E.EMPHASIS.indexOf(user.emphasis[b] || "grow") - E.EMPHASIS.indexOf(user.emphasis[a] || "grow"));
+    // `chosen` accumulates across the WHOLE day, not per muscle. Scoped per muscle (the obvious
+    // mistake) the redundancy penalty never sees across groups, and you get barbell RDL for
+    // hamstrings followed by dumbbell RDL for glutes — the same movement twice in one session.
+    const chosen = [];
     ordered.forEach((m, mi) => {
       const emph = user.emphasis[m] || "grow";
       const b = E.band(m, emph);
@@ -159,7 +163,7 @@ function seedMeso(user, gym, days, weeks) {
       // [PUB] >=3 sets per exercise on average → 1-2 exercises per muscle per session.
       const nEx = perSession >= 6 ? 2 : 1;
       const g = { m, emphasis: emph, slots: [] };
-      const sess = { chosen: [], fatigueSpent: mi / Math.max(1, ordered.length), occupied: new Set() };
+      const sess = { chosen, fatigueSpent: mi / Math.max(1, ordered.length), occupied: new Set() };
       for (let k = 0; k < nEx; k++) {
         const sets = k === 0 ? Math.ceil(perSession / nEx) : Math.floor(perSession / nEx);
         if (sets < 1) continue;
@@ -167,7 +171,10 @@ function seedMeso(user, gym, days, weeks) {
         const slot = { id: uid(), muscle: m, sets, repRange: k === 0 ? [8, 12] : [12, 20],
                        position: mi + 1, wanted_profile: k === 0 ? "stretch" : "shortened", wants_stretch: k === 0 };
         const pick = E.selectForSlot(slot, gym, Object.assign({}, user, { loadState:{} }), sess, LIB());
-        if (pick.primary) { slot.exId = pick.primary.ex.id; sess.chosen.push(pick.primary.ex); }
+        // A slot with no exercise is a hole in the workout — drop it rather than render a
+        // muscle group with nothing under it.
+        if (!pick.primary) continue;
+        slot.exId = pick.primary.ex.id; chosen.push(pick.primary.ex);
         g.slots.push(slot);
       }
       if (g.slots.length) day.muscles.push(g);
@@ -266,7 +273,9 @@ async function ensureSession(w, d) {
         s.sets.push({ id: uid(), slotId: slot.id, muscle: g.m, exId: ex.id,
           instanceId: bind.ok && bind.carrier ? bind.carrier.instance_id : null,
           load: load || null, reps: null, targetReps: reps, targetLoad: load || null,
-          rir: sl.rir, done: false, est: tgt && tgt.calibration ? tgt.confidence : null });
+          // Only a real cross-exercise RATIO estimate earns the calibration note. A "feel_out"
+          // (no history at all) is not an estimate — there's nothing to have estimated from.
+          rir: sl.rir, done: false, est: tgt && tgt.why === "ratio" ? tgt.confidence : null });
       }
     }
   }
@@ -412,15 +421,29 @@ function targetStrip(st, u) {
   if (st.targetLoad == null) return `<span class="dim">Choose your starting weight — warm up, then pick something you can hit for ${st.targetReps || 10} at ${st.rir} RIR.</span>`;
   return `We recommend <b>${st.targetLoad} ${u}</b> × <b>${st.targetReps}</b> at <b>${st.rir} RIR</b>`;
 }
-function equipLabel(ex) {
-  const caps = [];
-  for (const alt of ((ex.requires && ex.requires.any) || []))
-    for (const r of (alt.all || [])) if (r.cap) caps.push(r.cap);
-  const pretty = { barbell:"Barbell", dumbbell:"Dumbbell", cable:"Cable", machine:"Machine", smith:"Smith Machine",
-    bodyweight_only:"Bodyweight", bodyweight_loadable:"Bodyweight (loadable)", machine_assistance:"Machine Assistance",
-    band:"Band", adjustable_bench:"Bench", bench:"Bench", freemotion:"Freemotion" };
-  const first = caps.find(c => pretty[c]);
-  return first ? pretty[first] : "—";
+const PRETTY = { barbell:"Barbell", dumbbell:"Dumbbell", cable:"Cable", machine:"Machine", smith:"Smith Machine",
+  bodyweight_only:"Bodyweight", bodyweight_loadable:"Bodyweight (loadable)", machine_assistance:"Machine Assistance",
+  band:"Band", adjustable_bench:"Bench", bench:"Bench", freemotion:"Freemotion", squat_rack:"Rack",
+  pullup_bar:"Pull-up Bar", dip_station:"Dip Station", preacher_bench:"Preacher", ghd:"GHD", landmine:"Landmine" };
+
+/**
+ * Label the equipment that ACTUALLY resolved at this gym — not the first cap in the schema.
+ * `requires` is an any-of-alls: Face Pull is [cable+high_pulley] OR [band]. At the home garage
+ * the engine correctly binds the band, so labeling it "Cable" is a lie about a gym with no cable.
+ */
+function equipLabel(ex, gym) {
+  const bind = E.resolveEquipment(ex, gym || S.gym, S.occupied);
+  if (bind.ok) {
+    // Prefer the load-bearing instance; a bench is a detail, the dumbbells are the exercise.
+    const inst = bind.carrier || bind.instances[0];
+    for (const c of (inst.caps || [])) if (PRETTY[c] && c !== "bench" && c !== "adjustable_bench") return PRETTY[c];
+    if (inst.machine_key) return PRETTY.machine;
+    for (const c of (inst.caps || [])) if (PRETTY[c]) return PRETTY[c];
+  }
+  // Not available here — fall back to the first alternative's label so the row still reads.
+  const first = ((ex.requires && ex.requires.any) || [])[0];
+  for (const r of ((first && first.all) || [])) if (PRETTY[r.cap]) return PRETTY[r.cap];
+  return "—";
 }
 
 function stepFor(field, st) {

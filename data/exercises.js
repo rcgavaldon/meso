@@ -183,30 +183,6 @@ window.MESO_EXERCISES = [
   },
 
   {
-    id: "bb_decline_press",
-    name: "Decline Barbell Press",
-    aliases: ["decline bench"],
-    family: "decline_press",
-    hub: true,
-    pattern: "horizontal_press",
-    muscles: [
-      { m: "chest", role: "primary", contribution: 1.0 },
-      { m: "triceps", role: "secondary", contribution: 0.5 },
-      { m: "front_delt", role: "secondary", contribution: 0.25 }
-    ],
-    requires: { any: [ { all: [ {cap:"barbell"}, {cap:"bench"}, {cap:"squat_rack"} ] } ] },
-    load_unit: "total_bar_load",
-    load_portability: "absolute",
-    profile: { resistance_peak: "mid", stretch_emphasis: 2, rom_score: 2, shortened_overload: 2 },
-    ratings: { rp_tier: {chest:"C", triceps:"C", front_delt:"D"}, sfr: 3, target_specificity: 3, stability_demand: 3, technique_demand: 3, injury_risk: 3, setup_cost: 4 },
-    fatigue: { systemic: 3, local: 3 },
-    unilateral: false, unilateral_capable: false, failure_safe: false,
-    rep_suitability: { "5_8": 1.0, "8_12": 0.9, "12_20": 0.5, "20_30": 0.2 },
-    ratio_anchors: { bb_flat_bench: {r:1.05, c:0.6} },
-    min_effective_load_hint: { bar_lb: 45 }
-  },
-
-  {
     id: "dip",
     name: "Chest Dip",
     aliases: ["dips", "weighted dip", "parallel bar dip"],
@@ -879,6 +855,28 @@ window.MESO_EXERCISES = [
     rep_suitability: { "5_8": 0.5, "8_12": 1.0, "12_20": 1.0, "20_30": 0.7 },
     ratio_anchors: { bb_shrug: {r:0.57, c:0.25} },
     min_effective_load_hint: { stack_min_lb: 15 }
+  },
+
+  {
+    id: "band_shrug",
+    name: "Band Shrug",
+    aliases: ["banded shrug"],
+    family: "shrug",
+    hub: false,
+    pattern: "shrug",
+    muscles: [
+      { m: "traps", role: "primary", contribution: 1.0 },
+      { m: "forearms", role: "secondary", contribution: 0.3 }
+    ],
+    requires: { any: [ { all: [ {cap:"band"} ] } ] },
+    load_unit: "band_tension",
+    load_portability: "absolute",
+    profile: { resistance_peak: "shortened", stretch_emphasis: 1, rom_score: 2, shortened_overload: 5 },
+    ratings: { rp_tier: {traps:"C", forearms:"D"}, sfr: 4, target_specificity: 5, stability_demand: 3, technique_demand: 1, injury_risk: 1, setup_cost: 1 },
+    fatigue: { systemic: 1, local: 2 },
+    unilateral: false, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.1, "8_12": 0.5, "12_20": 1.0, "20_30": 1.0 },
+    ratio_anchors: { bb_shrug: {r:0.1, c:0.1} }
   },
 
   /* ======================= FRONT DELT / OVERHEAD ======================= */
@@ -1776,6 +1774,27 @@ window.MESO_EXERCISES = [
   },
 
   {
+    id: "band_wrist_curl",
+    name: "Band Wrist Curl",
+    aliases: ["banded forearm curl"],
+    family: "wrist_curl",
+    hub: false,
+    pattern: "isolation_curl",
+    muscles: [
+      { m: "forearms", role: "primary", contribution: 1.0 }
+    ],
+    requires: { any: [ { all: [ {cap:"band"} ] } ] },
+    load_unit: "band_tension",
+    load_portability: "absolute",
+    profile: { resistance_peak: "shortened", stretch_emphasis: 1, rom_score: 3, shortened_overload: 5 },
+    ratings: { rp_tier: {forearms:"C"}, sfr: 4, target_specificity: 5, stability_demand: 1, technique_demand: 1, injury_risk: 1, setup_cost: 1 },
+    fatigue: { systemic: 1, local: 2 },
+    unilateral: false, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.1, "8_12": 0.4, "12_20": 1.0, "20_30": 1.0 },
+    ratio_anchors: { bb_wrist_curl: {r:0.2, c:0.1} }
+  },
+
+  {
     id: "bb_reverse_curl",
     name: "Reverse Curl",
     aliases: ["pronated curl", "brachioradialis curl"],
@@ -2161,6 +2180,977 @@ window.MESO_EXERCISES = [
     variants: { height: ["knee","above_knee"] },
     ratio_anchors: { bulgarian_split_squat: {r:0.79, c:0.35} },
     min_effective_load_hint: { per_hand_lb: 0 }
+  },
+
+  /* ======================= HAMSTRINGS / HINGE ======================= */
+
+  {
+    id: "conventional_deadlift",
+    name: "Conventional Deadlift",
+    aliases: ["deadlift", "dl"],
+    family: "deadlift",
+    hub: true,
+    pattern: "hinge",
+    muscles: [
+      { m: "back", role: "primary", contribution: 1.0 },
+      { m: "glutes", role: "primary", contribution: 0.8 },
+      { m: "hamstrings", role: "primary", contribution: 0.7 },
+      { m: "traps", role: "secondary", contribution: 0.5 },
+      { m: "forearms", role: "secondary", contribution: 0.4 },
+      { m: "quads", role: "secondary", contribution: 0.3 }
+    ],
+    requires: { any: [ { all: [ {cap:"barbell"} ] } ] },
+    load_unit: "total_bar_load",
+    load_portability: "absolute",
+    profile: { resistance_peak: "mid", stretch_emphasis: 2, rom_score: 3, shortened_overload: 3 },
+    ratings: { rp_tier: {back:"B", glutes:"B", hamstrings:"C", traps:"B", forearms:"C", quads:"D"}, sfr: 1, target_specificity: 2, stability_demand: 5, technique_demand: 5, injury_risk: 4, setup_cost: 3 },
+    fatigue: { systemic: 5, local: 4 },
+    unilateral: false, unilateral_capable: false, failure_safe: true,
+    rep_suitability: { "5_8": 1.0, "8_12": 0.6, "12_20": 0.2, "20_30": 0.1 },
+    variants: { stance: ["conventional","sumo"], grip: ["double_overhand","mixed","hook"] },
+    ratio_anchors: { bb_back_squat: {r:1.29, c:0.6} },
+    min_effective_load_hint: { bar_lb: 45 }
+  },
+
+  {
+    id: "trap_bar_deadlift",
+    name: "Trap Bar Deadlift",
+    aliases: ["hex bar deadlift"],
+    family: "deadlift",
+    hub: false,
+    pattern: "hinge",
+    muscles: [
+      { m: "quads", role: "primary", contribution: 1.0 },
+      { m: "glutes", role: "primary", contribution: 0.8 },
+      { m: "back", role: "secondary", contribution: 0.6 },
+      { m: "hamstrings", role: "secondary", contribution: 0.5 },
+      { m: "traps", role: "secondary", contribution: 0.5 },
+      { m: "forearms", role: "secondary", contribution: 0.4 }
+    ],
+    requires: { any: [ { all: [ {cap:"barbell"} ] } ] },
+    load_unit: "total_bar_load",
+    load_portability: "absolute",
+    profile: { resistance_peak: "mid", stretch_emphasis: 2, rom_score: 3, shortened_overload: 3 },
+    ratings: { rp_tier: {quads:"C", glutes:"B", back:"C", hamstrings:"D", traps:"B", forearms:"C"}, sfr: 2, target_specificity: 2, stability_demand: 4, technique_demand: 3, injury_risk: 3, setup_cost: 3 },
+    fatigue: { systemic: 5, local: 4 },
+    unilateral: false, unilateral_capable: false, failure_safe: true,
+    rep_suitability: { "5_8": 1.0, "8_12": 0.7, "12_20": 0.3, "20_30": 0.1 },
+    ratio_anchors: { conventional_deadlift: {r:1.09, c:0.5} },
+    min_effective_load_hint: { bar_lb: 45 }
+  },
+
+  {
+    id: "bb_rdl",
+    name: "Romanian Deadlift",
+    aliases: ["rdl", "barbell rdl"],
+    family: "rdl",
+    hub: true,
+    pattern: "hinge",
+    muscles: [
+      { m: "hamstrings", role: "primary", contribution: 1.0 },
+      { m: "glutes", role: "primary", contribution: 0.8 },
+      { m: "back", role: "secondary", contribution: 0.4 },
+      { m: "forearms", role: "secondary", contribution: 0.3 }
+    ],
+    requires: { any: [ { all: [ {cap:"barbell"} ] }, { all: [ {cap:"barbell"}, {cap:"squat_rack"} ] } ] },
+    load_unit: "total_bar_load",
+    load_portability: "absolute",
+    profile: { resistance_peak: "stretch", stretch_emphasis: 5, rom_score: 4, shortened_overload: 1 },
+    ratings: { rp_tier: {hamstrings:"S", glutes:"A", back:"C", forearms:"C"}, sfr: 4, target_specificity: 4, stability_demand: 4, technique_demand: 4, injury_risk: 3, setup_cost: 2 },
+    fatigue: { systemic: 4, local: 4 },
+    unilateral: false, unilateral_capable: false, failure_safe: true,
+    rep_suitability: { "5_8": 0.8, "8_12": 1.0, "12_20": 0.6, "20_30": 0.2 },
+    ratio_anchors: { conventional_deadlift: {r:0.78, c:0.5} },
+    min_effective_load_hint: { bar_lb: 45 }
+  },
+
+  {
+    id: "db_rdl",
+    name: "Dumbbell Romanian Deadlift",
+    aliases: ["db rdl"],
+    family: "rdl",
+    hub: false,
+    pattern: "hinge",
+    muscles: [
+      { m: "hamstrings", role: "primary", contribution: 1.0 },
+      { m: "glutes", role: "primary", contribution: 0.8 },
+      { m: "back", role: "secondary", contribution: 0.3 }
+    ],
+    requires: { any: [ { all: [ {cap:"dumbbell"} ] } ] },
+    load_unit: "per_dumbbell",
+    load_portability: "absolute",
+    profile: { resistance_peak: "stretch", stretch_emphasis: 5, rom_score: 5, shortened_overload: 1 },
+    ratings: { rp_tier: {hamstrings:"A", glutes:"A", back:"D"}, sfr: 4, target_specificity: 4, stability_demand: 3, technique_demand: 3, injury_risk: 2, setup_cost: 1 },
+    fatigue: { systemic: 3, local: 4 },
+    unilateral: false, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.6, "8_12": 1.0, "12_20": 0.8, "20_30": 0.3 },
+    ratio_anchors: { bb_rdl: {r:0.29, c:0.4} },
+    min_effective_load_hint: { per_hand_lb: 10 }
+  },
+
+  {
+    id: "single_leg_rdl",
+    name: "Single-Leg Romanian Deadlift",
+    aliases: ["sl rdl", "one leg rdl"],
+    family: "rdl",
+    hub: false,
+    pattern: "hinge",
+    muscles: [
+      { m: "hamstrings", role: "primary", contribution: 1.0 },
+      { m: "glutes", role: "primary", contribution: 0.85 }
+    ],
+    requires: { any: [ { all: [ {cap:"dumbbell"} ] }, { all: [ {cap:"bodyweight_only"} ] } ] },
+    load_unit: "per_dumbbell",
+    load_portability: "absolute",
+    profile: { resistance_peak: "stretch", stretch_emphasis: 5, rom_score: 5, shortened_overload: 1 },
+    ratings: { rp_tier: {hamstrings:"B", glutes:"A"}, sfr: 3, target_specificity: 3, stability_demand: 5, technique_demand: 4, injury_risk: 1, setup_cost: 1 },
+    fatigue: { systemic: 2, local: 3 },
+    unilateral: true, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.4, "8_12": 1.0, "12_20": 1.0, "20_30": 0.5 },
+    ratio_anchors: { bb_rdl: {r:0.16, c:0.3} },
+    min_effective_load_hint: { per_hand_lb: 0 }
+  },
+
+  {
+    id: "stiff_leg_deadlift",
+    name: "Stiff-Leg Deadlift",
+    aliases: ["sldl", "deficit stiff leg"],
+    family: "rdl",
+    hub: false,
+    pattern: "hinge",
+    muscles: [
+      { m: "hamstrings", role: "primary", contribution: 1.0 },
+      { m: "glutes", role: "primary", contribution: 0.7 },
+      { m: "back", role: "secondary", contribution: 0.45 }
+    ],
+    requires: { any: [ { all: [ {cap:"barbell"} ] } ] },
+    load_unit: "total_bar_load",
+    load_portability: "absolute",
+    profile: { resistance_peak: "stretch", stretch_emphasis: 5, rom_score: 5, shortened_overload: 1 },
+    ratings: { rp_tier: {hamstrings:"S", glutes:"B", back:"C"}, sfr: 3, target_specificity: 4, stability_demand: 4, technique_demand: 4, injury_risk: 4, setup_cost: 2 },
+    fatigue: { systemic: 4, local: 4 },
+    unilateral: false, unilateral_capable: false, failure_safe: true,
+    rep_suitability: { "5_8": 0.7, "8_12": 1.0, "12_20": 0.6, "20_30": 0.2 },
+    ratio_anchors: { bb_rdl: {r:0.87, c:0.5} },
+    min_effective_load_hint: { bar_lb: 45 }
+  },
+
+  {
+    id: "band_rdl",
+    name: "Band Romanian Deadlift",
+    aliases: ["banded hip hinge", "band good morning"],
+    family: "rdl",
+    hub: false,
+    pattern: "hinge",
+    muscles: [
+      { m: "hamstrings", role: "primary", contribution: 1.0 },
+      { m: "glutes", role: "primary", contribution: 0.7 }
+    ],
+    requires: { any: [ { all: [ {cap:"band"} ] } ] },
+    load_unit: "band_tension",
+    load_portability: "absolute",
+    profile: { resistance_peak: "shortened", stretch_emphasis: 2, rom_score: 4, shortened_overload: 5 },
+    ratings: { rp_tier: {hamstrings:"C", glutes:"C"}, sfr: 4, target_specificity: 3, stability_demand: 3, technique_demand: 2, injury_risk: 1, setup_cost: 2 },
+    fatigue: { systemic: 1, local: 2 },
+    unilateral: false, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.1, "8_12": 0.5, "12_20": 1.0, "20_30": 0.9 },
+    ratio_anchors: { bb_rdl: {r:0.1, c:0.1} }
+  },
+
+  {
+    id: "bb_good_morning",
+    name: "Good Morning",
+    aliases: ["barbell good morning"],
+    family: "good_morning",
+    hub: true,
+    pattern: "hinge",
+    muscles: [
+      { m: "hamstrings", role: "primary", contribution: 1.0 },
+      { m: "glutes", role: "primary", contribution: 0.7 },
+      { m: "back", role: "secondary", contribution: 0.5 }
+    ],
+    requires: { any: [ { all: [ {cap:"barbell"}, {cap:"squat_rack"} ] } ] },
+    load_unit: "total_bar_load",
+    load_portability: "absolute",
+    profile: { resistance_peak: "stretch", stretch_emphasis: 5, rom_score: 4, shortened_overload: 1 },
+    ratings: { rp_tier: {hamstrings:"A", glutes:"C", back:"C"}, sfr: 3, target_specificity: 3, stability_demand: 4, technique_demand: 4, injury_risk: 4, setup_cost: 2 },
+    fatigue: { systemic: 4, local: 3 },
+    unilateral: false, unilateral_capable: false, failure_safe: true,
+    rep_suitability: { "5_8": 0.6, "8_12": 1.0, "12_20": 0.7, "20_30": 0.2 },
+    ratio_anchors: { bb_rdl: {r:0.59, c:0.4} },
+    min_effective_load_hint: { bar_lb: 45 }
+  },
+
+  {
+    id: "back_extension_45",
+    name: "45-Degree Back Extension",
+    aliases: ["hyperextension", "roman chair back extension"],
+    family: "good_morning",
+    hub: false,
+    pattern: "hinge",
+    muscles: [
+      { m: "hamstrings", role: "primary", contribution: 1.0 },
+      { m: "glutes", role: "primary", contribution: 0.8 },
+      { m: "back", role: "secondary", contribution: 0.5 }
+    ],
+    requires: { any: [ { all: [ {cap:"ghd"} ] }, { all: [ {cap:"machine"} ] } ] },
+    load_unit: "bodyweight_plus",
+    load_portability: "absolute",
+    profile: { resistance_peak: "shortened", stretch_emphasis: 3, rom_score: 3, shortened_overload: 5 },
+    ratings: { rp_tier: {hamstrings:"B", glutes:"A", back:"C"}, sfr: 4, target_specificity: 4, stability_demand: 1, technique_demand: 2, injury_risk: 1, setup_cost: 2 },
+    fatigue: { systemic: 2, local: 3 },
+    unilateral: false, unilateral_capable: false, failure_safe: true,
+    rep_suitability: { "5_8": 0.3, "8_12": 0.9, "12_20": 1.0, "20_30": 0.7 },
+    variants: { bias: ["glute_rounded","hamstring_neutral"] },
+    ratio_anchors: { bb_good_morning: {r:0.5, c:0.2} }
+  },
+
+  {
+    id: "leg_curl_seated",
+    name: "Seated Leg Curl",
+    aliases: ["seated hamstring curl"],
+    family: "leg_curl",
+    hub: true,
+    pattern: "isolation_curl",
+    muscles: [
+      { m: "hamstrings", role: "primary", contribution: 1.0 },
+      { m: "calves", role: "secondary", contribution: 0.2 }
+    ],
+    requires: { any: [ { all: [ {cap:"machine", machine_key:"leg_curl_seated"} ] } ] },
+    load_unit: "stack_pin",
+    load_portability: "machine_relative",
+    profile: { resistance_peak: "stretch", stretch_emphasis: 5, rom_score: 4, shortened_overload: 3 },
+    ratings: { rp_tier: {hamstrings:"S", calves:"D"}, sfr: 5, target_specificity: 5, stability_demand: 1, technique_demand: 1, injury_risk: 1, setup_cost: 1 },
+    fatigue: { systemic: 1, local: 4 },
+    unilateral: false, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.4, "8_12": 1.0, "12_20": 1.0, "20_30": 0.7 },
+    ratio_anchors: { bb_rdl: {r:0.48, c:0.2} },
+    min_effective_load_hint: { stack_min_lb: 15 }
+  },
+
+  {
+    id: "leg_curl_lying",
+    name: "Lying Leg Curl",
+    aliases: ["prone leg curl", "lying hamstring curl"],
+    family: "leg_curl",
+    hub: false,
+    pattern: "isolation_curl",
+    muscles: [
+      { m: "hamstrings", role: "primary", contribution: 1.0 },
+      { m: "calves", role: "secondary", contribution: 0.2 }
+    ],
+    requires: { any: [ { all: [ {cap:"machine", machine_key:"leg_curl_lying"} ] } ] },
+    load_unit: "stack_pin",
+    load_portability: "machine_relative",
+    profile: { resistance_peak: "mid", stretch_emphasis: 3, rom_score: 4, shortened_overload: 4 },
+    ratings: { rp_tier: {hamstrings:"A", calves:"D"}, sfr: 5, target_specificity: 5, stability_demand: 1, technique_demand: 1, injury_risk: 1, setup_cost: 1 },
+    fatigue: { systemic: 1, local: 4 },
+    unilateral: false, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.4, "8_12": 1.0, "12_20": 1.0, "20_30": 0.7 },
+    ratio_anchors: { leg_curl_seated: {r:0.9, c:0.3} },
+    min_effective_load_hint: { stack_min_lb: 15 }
+  },
+
+  {
+    id: "nordic_curl",
+    name: "Nordic Ham Curl",
+    aliases: ["nordic hamstring curl", "russian leg curl"],
+    family: "leg_curl",
+    hub: false,
+    pattern: "isolation_curl",
+    muscles: [
+      { m: "hamstrings", role: "primary", contribution: 1.0 },
+      { m: "calves", role: "secondary", contribution: 0.2 }
+    ],
+    requires: { any: [ { all: [ {cap:"bodyweight_only"} ] }, { all: [ {cap:"ghd"} ] } ] },
+    load_unit: "bodyweight_plus",
+    load_portability: "absolute",
+    profile: { resistance_peak: "stretch", stretch_emphasis: 4, rom_score: 3, shortened_overload: 2 },
+    ratings: { rp_tier: {hamstrings:"B", calves:"D"}, sfr: 2, target_specificity: 5, stability_demand: 3, technique_demand: 4, injury_risk: 3, setup_cost: 2 },
+    fatigue: { systemic: 2, local: 5 },
+    unilateral: false, unilateral_capable: false, failure_safe: true,
+    rep_suitability: { "5_8": 1.0, "8_12": 0.7, "12_20": 0.2, "20_30": 0.1 },
+    ratio_anchors: { leg_curl_seated: {r:0.2, c:0.15} },
+    min_effective_load_hint: { note: "bodyweight floor is brutal — most lifters cannot control the eccentric unassisted; band-assist or use leg_curl_seated" }
+  },
+
+  {
+    id: "glute_ham_raise",
+    name: "Glute-Ham Raise",
+    aliases: ["ghr"],
+    family: "leg_curl",
+    hub: false,
+    pattern: "isolation_curl",
+    muscles: [
+      { m: "hamstrings", role: "primary", contribution: 1.0 },
+      { m: "glutes", role: "secondary", contribution: 0.5 },
+      { m: "calves", role: "secondary", contribution: 0.2 }
+    ],
+    requires: { any: [ { all: [ {cap:"ghd"} ] } ] },
+    load_unit: "bodyweight_plus",
+    load_portability: "absolute",
+    profile: { resistance_peak: "stretch", stretch_emphasis: 4, rom_score: 4, shortened_overload: 3 },
+    ratings: { rp_tier: {hamstrings:"A", glutes:"C", calves:"D"}, sfr: 3, target_specificity: 4, stability_demand: 2, technique_demand: 3, injury_risk: 2, setup_cost: 2 },
+    fatigue: { systemic: 2, local: 5 },
+    unilateral: false, unilateral_capable: false, failure_safe: true,
+    rep_suitability: { "5_8": 0.9, "8_12": 1.0, "12_20": 0.5, "20_30": 0.2 },
+    ratio_anchors: { leg_curl_seated: {r:0.25, c:0.15} }
+  },
+
+  {
+    id: "band_leg_curl",
+    name: "Band Leg Curl",
+    aliases: ["banded hamstring curl", "prone band curl"],
+    family: "leg_curl",
+    hub: false,
+    pattern: "isolation_curl",
+    muscles: [
+      { m: "hamstrings", role: "primary", contribution: 1.0 }
+    ],
+    requires: { any: [ { all: [ {cap:"band"} ] } ] },
+    load_unit: "band_tension",
+    load_portability: "absolute",
+    profile: { resistance_peak: "shortened", stretch_emphasis: 2, rom_score: 4, shortened_overload: 5 },
+    ratings: { rp_tier: {hamstrings:"C"}, sfr: 4, target_specificity: 5, stability_demand: 2, technique_demand: 2, injury_risk: 1, setup_cost: 2 },
+    fatigue: { systemic: 1, local: 3 },
+    unilateral: true, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.1, "8_12": 0.5, "12_20": 1.0, "20_30": 0.9 },
+    ratio_anchors: { leg_curl_seated: {r:0.2, c:0.1} }
+  },
+
+  /* ======================= GLUTES ======================= */
+
+  {
+    id: "bb_hip_thrust",
+    name: "Barbell Hip Thrust",
+    aliases: ["hip thrust"],
+    family: "hip_thrust",
+    hub: true,
+    pattern: "hinge",
+    muscles: [
+      { m: "glutes", role: "primary", contribution: 1.0 },
+      { m: "hamstrings", role: "secondary", contribution: 0.4 },
+      { m: "quads", role: "secondary", contribution: 0.2 }
+    ],
+    requires: { any: [ { all: [ {cap:"barbell"}, {cap:"bench"} ] }, { all: [ {cap:"machine", machine_key:"hip_thrust_machine"} ] } ] },
+    load_unit: "total_bar_load",
+    load_portability: "absolute",
+    profile: { resistance_peak: "shortened", stretch_emphasis: 2, rom_score: 3, shortened_overload: 5 },
+    ratings: { rp_tier: {glutes:"S", hamstrings:"C", quads:"D"}, sfr: 4, target_specificity: 5, stability_demand: 2, technique_demand: 3, injury_risk: 1, setup_cost: 4 },
+    fatigue: { systemic: 3, local: 4 },
+    unilateral: false, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.7, "8_12": 1.0, "12_20": 0.9, "20_30": 0.4 },
+    ratio_anchors: { bb_back_squat: {r:1.16, c:0.4} },
+    min_effective_load_hint: { bar_lb: 45 }
+  },
+
+  {
+    id: "hip_thrust_machine",
+    name: "Hip Thrust Machine",
+    aliases: ["glute drive machine"],
+    family: "hip_thrust",
+    hub: false,
+    pattern: "hinge",
+    muscles: [
+      { m: "glutes", role: "primary", contribution: 1.0 },
+      { m: "hamstrings", role: "secondary", contribution: 0.35 }
+    ],
+    requires: { any: [ { all: [ {cap:"machine", machine_key:"hip_thrust_machine"} ] } ] },
+    load_unit: "stack_pin",
+    load_portability: "machine_relative",
+    profile: { resistance_peak: "shortened", stretch_emphasis: 2, rom_score: 3, shortened_overload: 5 },
+    ratings: { rp_tier: {glutes:"S", hamstrings:"D"}, sfr: 5, target_specificity: 5, stability_demand: 1, technique_demand: 1, injury_risk: 1, setup_cost: 1 },
+    fatigue: { systemic: 2, local: 4 },
+    unilateral: false, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.6, "8_12": 1.0, "12_20": 1.0, "20_30": 0.5 },
+    ratio_anchors: { bb_hip_thrust: {r:0.82, c:0.2} },
+    min_effective_load_hint: { stack_min_lb: 15 }
+  },
+
+  {
+    id: "glute_bridge",
+    name: "Barbell Glute Bridge",
+    aliases: ["floor glute bridge"],
+    family: "hip_thrust",
+    hub: false,
+    pattern: "hinge",
+    muscles: [
+      { m: "glutes", role: "primary", contribution: 1.0 },
+      { m: "hamstrings", role: "secondary", contribution: 0.35 }
+    ],
+    requires: { any: [ { all: [ {cap:"barbell"} ] }, { all: [ {cap:"bodyweight_only"} ] } ] },
+    load_unit: "total_bar_load",
+    load_portability: "absolute",
+    profile: { resistance_peak: "shortened", stretch_emphasis: 1, rom_score: 2, shortened_overload: 5 },
+    ratings: { rp_tier: {glutes:"B", hamstrings:"D"}, sfr: 4, target_specificity: 5, stability_demand: 2, technique_demand: 2, injury_risk: 1, setup_cost: 3 },
+    fatigue: { systemic: 2, local: 3 },
+    unilateral: false, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.6, "8_12": 1.0, "12_20": 1.0, "20_30": 0.5 },
+    ratio_anchors: { bb_hip_thrust: {r:0.75, c:0.4} },
+    min_effective_load_hint: { bar_lb: 45 }
+  },
+
+  {
+    id: "single_leg_hip_thrust",
+    name: "Single-Leg Hip Thrust",
+    aliases: ["one leg hip thrust", "sl glute bridge"],
+    family: "hip_thrust",
+    hub: false,
+    pattern: "hinge",
+    muscles: [
+      { m: "glutes", role: "primary", contribution: 1.0 },
+      { m: "hamstrings", role: "secondary", contribution: 0.4 }
+    ],
+    requires: { any: [ { all: [ {cap:"bodyweight_only"}, {cap:"bench"} ] }, { all: [ {cap:"dumbbell"}, {cap:"bench"} ] } ] },
+    load_unit: "bodyweight_plus",
+    load_portability: "absolute",
+    profile: { resistance_peak: "shortened", stretch_emphasis: 2, rom_score: 3, shortened_overload: 5 },
+    ratings: { rp_tier: {glutes:"B", hamstrings:"D"}, sfr: 4, target_specificity: 5, stability_demand: 3, technique_demand: 2, injury_risk: 1, setup_cost: 1 },
+    fatigue: { systemic: 2, local: 3 },
+    unilateral: true, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.3, "8_12": 0.9, "12_20": 1.0, "20_30": 0.7 },
+    ratio_anchors: { bb_hip_thrust: {r:0.12, c:0.2} }
+  },
+
+  {
+    id: "band_hip_thrust",
+    name: "Band Hip Thrust",
+    aliases: ["banded glute bridge"],
+    family: "hip_thrust",
+    hub: false,
+    pattern: "hinge",
+    muscles: [
+      { m: "glutes", role: "primary", contribution: 1.0 },
+      { m: "hamstrings", role: "secondary", contribution: 0.3 }
+    ],
+    requires: { any: [ { all: [ {cap:"band"} ] } ] },
+    load_unit: "band_tension",
+    load_portability: "absolute",
+    profile: { resistance_peak: "shortened", stretch_emphasis: 1, rom_score: 3, shortened_overload: 5 },
+    ratings: { rp_tier: {glutes:"C", hamstrings:"D"}, sfr: 4, target_specificity: 5, stability_demand: 2, technique_demand: 1, injury_risk: 1, setup_cost: 1 },
+    fatigue: { systemic: 1, local: 3 },
+    unilateral: false, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.1, "8_12": 0.5, "12_20": 1.0, "20_30": 1.0 },
+    ratio_anchors: { bb_hip_thrust: {r:0.1, c:0.1} }
+  },
+
+  {
+    id: "cable_pull_through",
+    name: "Cable Pull-Through",
+    aliases: ["pull through"],
+    family: "pull_through",
+    hub: true,
+    pattern: "hinge",
+    muscles: [
+      { m: "glutes", role: "primary", contribution: 1.0 },
+      { m: "hamstrings", role: "primary", contribution: 0.6 }
+    ],
+    requires: { any: [ { all: [ {cap:"cable"}, {cap:"low_pulley"} ] }, { all: [ {cap:"band"} ] } ] },
+    load_unit: "stack_pin",
+    load_portability: "machine_relative",
+    profile: { resistance_peak: "shortened", stretch_emphasis: 3, rom_score: 4, shortened_overload: 5 },
+    ratings: { rp_tier: {glutes:"A", hamstrings:"B"}, sfr: 5, target_specificity: 4, stability_demand: 2, technique_demand: 2, injury_risk: 1, setup_cost: 1 },
+    fatigue: { systemic: 2, local: 3 },
+    unilateral: false, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.3, "8_12": 0.9, "12_20": 1.0, "20_30": 0.7 },
+    ratio_anchors: { bb_hip_thrust: {r:0.33, c:0.2} },
+    min_effective_load_hint: { stack_min_lb: 15 }
+  },
+
+  {
+    id: "cable_kickback",
+    name: "Cable Glute Kickback",
+    aliases: ["glute kickback", "cable hip extension"],
+    family: "glute_kickback",
+    hub: true,
+    pattern: "hinge",
+    muscles: [
+      { m: "glutes", role: "primary", contribution: 1.0 },
+      { m: "hamstrings", role: "secondary", contribution: 0.3 }
+    ],
+    requires: { any: [ { all: [ {cap:"cable"}, {cap:"low_pulley"} ] }, { all: [ {cap:"machine"} ] } ] },
+    load_unit: "stack_pin",
+    load_portability: "machine_relative",
+    profile: { resistance_peak: "shortened", stretch_emphasis: 3, rom_score: 4, shortened_overload: 5 },
+    ratings: { rp_tier: {glutes:"A", hamstrings:"D"}, sfr: 5, target_specificity: 5, stability_demand: 3, technique_demand: 2, injury_risk: 1, setup_cost: 2 },
+    fatigue: { systemic: 1, local: 3 },
+    unilateral: true, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.2, "8_12": 0.8, "12_20": 1.0, "20_30": 0.9 },
+    ratio_anchors: { bb_hip_thrust: {r:0.11, c:0.2} },
+    min_effective_load_hint: { stack_min_lb: 5 }
+  },
+
+  /* ======================= ABDUCTORS / ADDUCTORS ======================= */
+
+  {
+    id: "abductor_machine",
+    name: "Hip Abduction Machine",
+    aliases: ["abductor machine", "seated hip abduction"],
+    family: "abduction",
+    hub: true,
+    pattern: "isolation_extension",
+    muscles: [
+      { m: "glutes", role: "primary", contribution: 1.0 }
+    ],
+    requires: { any: [ { all: [ {cap:"machine", machine_key:"abductor"} ] } ] },
+    load_unit: "stack_pin",
+    load_portability: "machine_relative",
+    profile: { resistance_peak: "shortened", stretch_emphasis: 2, rom_score: 3, shortened_overload: 5 },
+    ratings: { rp_tier: {glutes:"A"}, sfr: 5, target_specificity: 5, stability_demand: 1, technique_demand: 1, injury_risk: 1, setup_cost: 1 },
+    fatigue: { systemic: 1, local: 3 },
+    unilateral: false, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.2, "8_12": 0.8, "12_20": 1.0, "20_30": 0.9 },
+    variants: { torso: ["upright","leaned_forward"] },
+    ratio_anchors: { bb_hip_thrust: {r:0.41, c:0.2} },
+    min_effective_load_hint: { stack_min_lb: 15 }
+  },
+
+  {
+    id: "cable_hip_abduction",
+    name: "Cable Hip Abduction",
+    aliases: ["standing cable abduction"],
+    family: "abduction",
+    hub: false,
+    pattern: "isolation_extension",
+    muscles: [
+      { m: "glutes", role: "primary", contribution: 1.0 }
+    ],
+    requires: { any: [ { all: [ {cap:"cable"}, {cap:"low_pulley"} ] } ] },
+    load_unit: "stack_pin",
+    load_portability: "machine_relative",
+    profile: { resistance_peak: "shortened", stretch_emphasis: 2, rom_score: 4, shortened_overload: 5 },
+    ratings: { rp_tier: {glutes:"B"}, sfr: 5, target_specificity: 5, stability_demand: 3, technique_demand: 2, injury_risk: 1, setup_cost: 2 },
+    fatigue: { systemic: 1, local: 2 },
+    unilateral: true, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.2, "8_12": 0.8, "12_20": 1.0, "20_30": 0.9 },
+    ratio_anchors: { abductor_machine: {r:0.27, c:0.2} },
+    min_effective_load_hint: { stack_min_lb: 5 }
+  },
+
+  {
+    id: "band_seated_abduction",
+    name: "Band Seated Hip Abduction",
+    aliases: ["band knee spread", "banded abduction"],
+    family: "abduction",
+    hub: false,
+    pattern: "isolation_extension",
+    muscles: [
+      { m: "glutes", role: "primary", contribution: 1.0 }
+    ],
+    requires: { any: [ { all: [ {cap:"band"} ] } ] },
+    load_unit: "band_tension",
+    load_portability: "absolute",
+    profile: { resistance_peak: "shortened", stretch_emphasis: 1, rom_score: 3, shortened_overload: 5 },
+    ratings: { rp_tier: {glutes:"C"}, sfr: 4, target_specificity: 5, stability_demand: 1, technique_demand: 1, injury_risk: 1, setup_cost: 1 },
+    fatigue: { systemic: 1, local: 2 },
+    unilateral: false, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.1, "8_12": 0.4, "12_20": 1.0, "20_30": 1.0 },
+    ratio_anchors: { abductor_machine: {r:0.15, c:0.1} }
+  },
+
+  {
+    id: "adductor_machine",
+    name: "Hip Adduction Machine",
+    aliases: ["adductor machine", "seated hip adduction", "inner thigh machine"],
+    family: "adduction",
+    hub: true,
+    pattern: "isolation_curl",
+    muscles: [
+      { m: "adductors", role: "primary", contribution: 1.0 }
+    ],
+    requires: { any: [ { all: [ {cap:"machine", machine_key:"adductor_machine"} ] } ] },
+    load_unit: "stack_pin",
+    load_portability: "machine_relative",
+    profile: { resistance_peak: "stretch", stretch_emphasis: 5, rom_score: 4, shortened_overload: 4 },
+    ratings: { rp_tier: {adductors:"S"}, sfr: 5, target_specificity: 5, stability_demand: 1, technique_demand: 1, injury_risk: 2, setup_cost: 1 },
+    fatigue: { systemic: 1, local: 3 },
+    unilateral: false, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.2, "8_12": 0.9, "12_20": 1.0, "20_30": 0.8 },
+    ratio_anchors: { abductor_machine: {r:1.0, c:0.25} },
+    min_effective_load_hint: { stack_min_lb: 15 }
+  },
+
+  {
+    id: "cable_hip_adduction",
+    name: "Cable Hip Adduction",
+    aliases: ["standing cable adduction"],
+    family: "adduction",
+    hub: false,
+    pattern: "isolation_curl",
+    muscles: [
+      { m: "adductors", role: "primary", contribution: 1.0 }
+    ],
+    requires: { any: [ { all: [ {cap:"cable"}, {cap:"low_pulley"} ] } ] },
+    load_unit: "stack_pin",
+    load_portability: "machine_relative",
+    profile: { resistance_peak: "stretch", stretch_emphasis: 4, rom_score: 4, shortened_overload: 4 },
+    ratings: { rp_tier: {adductors:"A"}, sfr: 5, target_specificity: 5, stability_demand: 3, technique_demand: 2, injury_risk: 2, setup_cost: 2 },
+    fatigue: { systemic: 1, local: 2 },
+    unilateral: true, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.2, "8_12": 0.8, "12_20": 1.0, "20_30": 0.8 },
+    ratio_anchors: { adductor_machine: {r:0.3, c:0.2} },
+    min_effective_load_hint: { stack_min_lb: 5 }
+  },
+
+  {
+    id: "copenhagen_plank",
+    name: "Copenhagen Plank",
+    aliases: ["copenhagen adduction", "side plank adduction"],
+    family: "adduction",
+    hub: false,
+    pattern: "isolation_curl",
+    muscles: [
+      { m: "adductors", role: "primary", contribution: 1.0 },
+      { m: "abs", role: "secondary", contribution: 0.5 }
+    ],
+    requires: { any: [ { all: [ {cap:"bodyweight_only"}, {cap:"bench"} ] }, { all: [ {cap:"bodyweight_only"} ] } ] },
+    load_unit: "bodyweight_plus",
+    load_portability: "absolute",
+    profile: { resistance_peak: "stretch", stretch_emphasis: 4, rom_score: 2, shortened_overload: 2 },
+    ratings: { rp_tier: {adductors:"B", abs:"C"}, sfr: 3, target_specificity: 4, stability_demand: 4, technique_demand: 3, injury_risk: 2, setup_cost: 1 },
+    fatigue: { systemic: 1, local: 3 },
+    unilateral: true, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.3, "8_12": 0.8, "12_20": 1.0, "20_30": 0.7 },
+    variants: { lever: ["short_knee","long_leg"] },
+    ratio_anchors: { adductor_machine: {r:0.1, c:0.1} }
+  },
+
+  /* ======================= CALVES ======================= */
+
+  {
+    id: "standing_calf_raise",
+    name: "Standing Calf Raise",
+    aliases: ["standing calf machine"],
+    family: "calf_standing",
+    hub: true,
+    pattern: "calf",
+    muscles: [
+      { m: "calves", role: "primary", contribution: 1.0 }
+    ],
+    requires: { any: [ { all: [ {cap:"machine", machine_key:"calf_raise_standing"} ] }, { all: [ {cap:"smith"} ] } ] },
+    load_unit: "stack_pin",
+    load_portability: "machine_relative",
+    profile: { resistance_peak: "stretch", stretch_emphasis: 5, rom_score: 4, shortened_overload: 3 },
+    ratings: { rp_tier: {calves:"S"}, sfr: 5, target_specificity: 5, stability_demand: 2, technique_demand: 1, injury_risk: 1, setup_cost: 1 },
+    fatigue: { systemic: 1, local: 4 },
+    unilateral: false, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.4, "8_12": 1.0, "12_20": 1.0, "20_30": 0.8 },
+    ratio_anchors: { bb_back_squat: {r:0.95, c:0.2} },
+    min_effective_load_hint: { stack_min_lb: 15 }
+  },
+
+  {
+    id: "smith_calf_raise",
+    name: "Smith Machine Calf Raise",
+    aliases: ["smith standing calf raise"],
+    family: "calf_standing",
+    hub: false,
+    pattern: "calf",
+    muscles: [
+      { m: "calves", role: "primary", contribution: 1.0 }
+    ],
+    requires: { any: [ { all: [ {cap:"smith"} ] }, { all: [ {cap:"barbell"}, {cap:"squat_rack"} ] } ] },
+    load_unit: "total_bar_load",
+    load_portability: "machine_relative",
+    profile: { resistance_peak: "stretch", stretch_emphasis: 5, rom_score: 4, shortened_overload: 3 },
+    ratings: { rp_tier: {calves:"A"}, sfr: 4, target_specificity: 5, stability_demand: 2, technique_demand: 2, injury_risk: 1, setup_cost: 2 },
+    fatigue: { systemic: 1, local: 4 },
+    unilateral: false, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.4, "8_12": 1.0, "12_20": 1.0, "20_30": 0.7 },
+    ratio_anchors: { standing_calf_raise: {r:0.92, c:0.3} },
+    min_effective_load_hint: { bar_lb: 20 }
+  },
+
+  {
+    id: "leg_press_calf_raise",
+    name: "Leg Press Calf Raise",
+    aliases: ["calf press", "toe press"],
+    family: "calf_standing",
+    hub: false,
+    pattern: "calf",
+    muscles: [
+      { m: "calves", role: "primary", contribution: 1.0 }
+    ],
+    requires: { any: [ { all: [ {cap:"machine", machine_key:"leg_press"} ] }, { all: [ {cap:"machine", machine_key:"hack_squat"} ] } ] },
+    load_unit: "carriage_plus",
+    load_portability: "machine_relative",
+    profile: { resistance_peak: "stretch", stretch_emphasis: 5, rom_score: 4, shortened_overload: 3 },
+    ratings: { rp_tier: {calves:"A"}, sfr: 5, target_specificity: 5, stability_demand: 1, technique_demand: 1, injury_risk: 2, setup_cost: 1 },
+    fatigue: { systemic: 1, local: 4 },
+    unilateral: false, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.4, "8_12": 1.0, "12_20": 1.0, "20_30": 0.8 },
+    ratio_anchors: { standing_calf_raise: {r:1.5, c:0.2} }
+  },
+
+  {
+    id: "single_leg_calf_raise",
+    name: "Single-Leg Bodyweight Calf Raise",
+    aliases: ["one leg calf raise", "step calf raise"],
+    family: "calf_standing",
+    hub: false,
+    pattern: "calf",
+    muscles: [
+      { m: "calves", role: "primary", contribution: 1.0 }
+    ],
+    requires: { any: [ { all: [ {cap:"bodyweight_only"} ] }, { all: [ {cap:"dumbbell"} ] } ] },
+    load_unit: "bodyweight_plus",
+    load_portability: "absolute",
+    profile: { resistance_peak: "stretch", stretch_emphasis: 5, rom_score: 4, shortened_overload: 3 },
+    ratings: { rp_tier: {calves:"B"}, sfr: 4, target_specificity: 5, stability_demand: 3, technique_demand: 1, injury_risk: 1, setup_cost: 1 },
+    fatigue: { systemic: 1, local: 3 },
+    unilateral: true, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.2, "8_12": 0.7, "12_20": 1.0, "20_30": 1.0 },
+    ratio_anchors: { standing_calf_raise: {r:0.17, c:0.15} }
+  },
+
+  {
+    id: "seated_calf_raise",
+    name: "Seated Calf Raise",
+    aliases: ["seated calf machine", "soleus raise"],
+    family: "calf_seated",
+    hub: true,
+    pattern: "calf",
+    muscles: [
+      { m: "calves", role: "primary", contribution: 1.0 }
+    ],
+    requires: { any: [ { all: [ {cap:"machine", machine_key:"calf_raise_seated"} ] }, { all: [ {cap:"barbell"}, {cap:"bench"} ] } ] },
+    load_unit: "stack_pin",
+    load_portability: "machine_relative",
+    profile: { resistance_peak: "stretch", stretch_emphasis: 5, rom_score: 4, shortened_overload: 3 },
+    ratings: { rp_tier: {calves:"S"}, sfr: 5, target_specificity: 5, stability_demand: 1, technique_demand: 1, injury_risk: 1, setup_cost: 1 },
+    fatigue: { systemic: 1, local: 3 },
+    unilateral: false, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.3, "8_12": 0.9, "12_20": 1.0, "20_30": 1.0 },
+    ratio_anchors: { standing_calf_raise: {r:0.5, c:0.25} },
+    min_effective_load_hint: { stack_min_lb: 15 }
+  },
+
+  /* ======================= ABS ======================= */
+
+  {
+    id: "cable_crunch",
+    name: "Cable Crunch",
+    aliases: ["kneeling cable crunch", "rope crunch"],
+    family: "crunch",
+    hub: true,
+    pattern: "core",
+    muscles: [
+      { m: "abs", role: "primary", contribution: 1.0 }
+    ],
+    requires: { any: [ { all: [ {cap:"cable"}, {cap:"high_pulley"} ] }, { all: [ {cap:"machine", machine_key:"lat_pulldown"} ] } ] },
+    load_unit: "stack_pin",
+    load_portability: "machine_relative",
+    profile: { resistance_peak: "shortened", stretch_emphasis: 3, rom_score: 4, shortened_overload: 5 },
+    ratings: { rp_tier: {abs:"S"}, sfr: 5, target_specificity: 5, stability_demand: 2, technique_demand: 2, injury_risk: 1, setup_cost: 1 },
+    fatigue: { systemic: 1, local: 3 },
+    unilateral: false, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.4, "8_12": 1.0, "12_20": 1.0, "20_30": 0.7 },
+    ratio_anchors: {},
+    min_effective_load_hint: { stack_min_lb: 15 }
+  },
+
+  {
+    id: "ab_crunch_machine",
+    name: "Ab Crunch Machine",
+    aliases: ["machine crunch", "seated ab machine"],
+    family: "crunch",
+    hub: false,
+    pattern: "core",
+    muscles: [
+      { m: "abs", role: "primary", contribution: 1.0 }
+    ],
+    requires: { any: [ { all: [ {cap:"machine", machine_key:"ab_crunch_machine"} ] } ] },
+    load_unit: "stack_pin",
+    load_portability: "machine_relative",
+    profile: { resistance_peak: "flat", stretch_emphasis: 3, rom_score: 3, shortened_overload: 4 },
+    ratings: { rp_tier: {abs:"A"}, sfr: 5, target_specificity: 5, stability_demand: 1, technique_demand: 1, injury_risk: 1, setup_cost: 1 },
+    fatigue: { systemic: 1, local: 3 },
+    unilateral: false, unilateral_capable: false, failure_safe: true,
+    rep_suitability: { "5_8": 0.4, "8_12": 1.0, "12_20": 1.0, "20_30": 0.7 },
+    ratio_anchors: { cable_crunch: {r:1.08, c:0.2} },
+    min_effective_load_hint: { stack_min_lb: 15 }
+  },
+
+  {
+    id: "hanging_leg_raise",
+    name: "Hanging Leg Raise",
+    aliases: ["hanging knee raise", "captains chair raise"],
+    family: "leg_raise",
+    hub: true,
+    pattern: "core",
+    muscles: [
+      { m: "abs", role: "primary", contribution: 1.0 },
+      { m: "forearms", role: "secondary", contribution: 0.3 }
+    ],
+    requires: { any: [ { all: [ {cap:"pullup_bar"} ] }, { all: [ {cap:"dip_station"} ] } ] },
+    load_unit: "bodyweight_plus",
+    load_portability: "absolute",
+    profile: { resistance_peak: "mid", stretch_emphasis: 4, rom_score: 4, shortened_overload: 3 },
+    ratings: { rp_tier: {abs:"S", forearms:"D"}, sfr: 4, target_specificity: 4, stability_demand: 4, technique_demand: 3, injury_risk: 1, setup_cost: 1 },
+    fatigue: { systemic: 2, local: 3 },
+    unilateral: false, unilateral_capable: false, failure_safe: true,
+    rep_suitability: { "5_8": 0.5, "8_12": 1.0, "12_20": 0.9, "20_30": 0.4 },
+    variants: { knee: ["bent","straight"] },
+    ratio_anchors: { cable_crunch: {r:0.2, c:0.15} }
+  },
+
+  {
+    id: "reverse_crunch",
+    name: "Reverse Crunch",
+    aliases: ["lying reverse crunch", "lying leg raise"],
+    family: "leg_raise",
+    hub: false,
+    pattern: "core",
+    muscles: [
+      { m: "abs", role: "primary", contribution: 1.0 }
+    ],
+    requires: { any: [ { all: [ {cap:"bodyweight_only"} ] }, { all: [ {cap:"bench"} ] } ] },
+    load_unit: "bodyweight_plus",
+    load_portability: "absolute",
+    profile: { resistance_peak: "shortened", stretch_emphasis: 3, rom_score: 3, shortened_overload: 4 },
+    ratings: { rp_tier: {abs:"B"}, sfr: 4, target_specificity: 4, stability_demand: 2, technique_demand: 2, injury_risk: 1, setup_cost: 1 },
+    fatigue: { systemic: 1, local: 2 },
+    unilateral: false, unilateral_capable: false, failure_safe: true,
+    rep_suitability: { "5_8": 0.2, "8_12": 0.8, "12_20": 1.0, "20_30": 0.8 },
+    ratio_anchors: { hanging_leg_raise: {r:0.6, c:0.15} }
+  },
+
+  {
+    id: "ab_wheel",
+    name: "Ab Wheel Rollout",
+    aliases: ["rollout", "ab roller"],
+    family: "anti_extension",
+    hub: true,
+    pattern: "core",
+    muscles: [
+      { m: "abs", role: "primary", contribution: 1.0 },
+      { m: "back", role: "secondary", contribution: 0.3 }
+    ],
+    requires: { any: [ { all: [ {cap:"bodyweight_only"} ] }, { all: [ {cap:"barbell"} ] } ] },
+    load_unit: "bodyweight_plus",
+    load_portability: "absolute",
+    profile: { resistance_peak: "stretch", stretch_emphasis: 5, rom_score: 4, shortened_overload: 1 },
+    ratings: { rp_tier: {abs:"A", back:"D"}, sfr: 4, target_specificity: 4, stability_demand: 4, technique_demand: 3, injury_risk: 2, setup_cost: 1 },
+    fatigue: { systemic: 2, local: 3 },
+    unilateral: false, unilateral_capable: false, failure_safe: true,
+    rep_suitability: { "5_8": 0.6, "8_12": 1.0, "12_20": 0.9, "20_30": 0.4 },
+    variants: { position: ["from_knees","from_feet"] },
+    ratio_anchors: { cable_crunch: {r:0.15, c:0.1} }
+  },
+
+  {
+    id: "pallof_press",
+    name: "Pallof Press",
+    aliases: ["anti rotation press", "cable pallof"],
+    family: "anti_rotation",
+    hub: true,
+    pattern: "core",
+    muscles: [
+      { m: "abs", role: "primary", contribution: 1.0 }
+    ],
+    requires: { any: [ { all: [ {cap:"cable"} ] }, { all: [ {cap:"band"} ] } ] },
+    load_unit: "stack_pin",
+    load_portability: "machine_relative",
+    profile: { resistance_peak: "flat", stretch_emphasis: 1, rom_score: 2, shortened_overload: 3 },
+    ratings: { rp_tier: {abs:"C"}, sfr: 4, target_specificity: 4, stability_demand: 3, technique_demand: 2, injury_risk: 1, setup_cost: 2 },
+    fatigue: { systemic: 1, local: 2 },
+    unilateral: true, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.2, "8_12": 0.7, "12_20": 1.0, "20_30": 0.9 },
+    ratio_anchors: { cable_crunch: {r:0.33, c:0.2} },
+    min_effective_load_hint: { stack_min_lb: 10 }
+  },
+
+  {
+    id: "band_crunch",
+    name: "Band Crunch",
+    aliases: ["banded kneeling crunch"],
+    family: "crunch",
+    hub: false,
+    pattern: "core",
+    muscles: [
+      { m: "abs", role: "primary", contribution: 1.0 }
+    ],
+    requires: { any: [ { all: [ {cap:"band"} ] } ] },
+    load_unit: "band_tension",
+    load_portability: "absolute",
+    profile: { resistance_peak: "shortened", stretch_emphasis: 2, rom_score: 3, shortened_overload: 5 },
+    ratings: { rp_tier: {abs:"C"}, sfr: 4, target_specificity: 5, stability_demand: 2, technique_demand: 2, injury_risk: 1, setup_cost: 2 },
+    fatigue: { systemic: 1, local: 2 },
+    unilateral: false, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.1, "8_12": 0.5, "12_20": 1.0, "20_30": 0.9 },
+    ratio_anchors: { cable_crunch: {r:0.3, c:0.1} }
   }
 
+];
+
+window.MESO_FAMILIES = [
+  { family: "flat_press",         hub: "bb_flat_bench" },
+  { family: "incline_press",      hub: "bb_incline_press" },
+  { family: "dip",                hub: "dip" },
+  { family: "pushup",             hub: "pushup" },
+  { family: "fly",                hub: "db_fly" },
+  { family: "vertical_pull",      hub: "lat_pulldown" },
+  { family: "horizontal_row",     hub: "bb_row" },
+  { family: "pullover",           hub: "db_pullover" },
+  { family: "shrug",              hub: "bb_shrug" },
+  { family: "overhead_press",     hub: "bb_ohp" },
+  { family: "lateral_raise",      hub: "db_lateral_raise" },
+  { family: "front_raise",        hub: "db_front_raise" },
+  { family: "rear_delt_fly",      hub: "db_rear_delt_fly" },
+  { family: "biceps_curl",        hub: "db_curl" },
+  { family: "preacher_curl",      hub: "ez_preacher_curl" },
+  { family: "hammer_curl",        hub: "db_hammer_curl" },
+  { family: "triceps_pushdown",   hub: "cable_pushdown" },
+  { family: "triceps_extension",  hub: "ez_skullcrusher" },
+  { family: "close_grip_press",   hub: "close_grip_bench" },
+  { family: "wrist_curl",         hub: "bb_wrist_curl" },
+  { family: "reverse_curl",       hub: "bb_reverse_curl" },
+  { family: "carry",              hub: "farmers_carry" },
+  { family: "squat",              hub: "bb_back_squat" },
+  { family: "machine_squat",      hub: "hack_squat" },
+  { family: "leg_extension",      hub: "leg_extension" },
+  { family: "lunge",              hub: "bulgarian_split_squat" },
+  { family: "deadlift",           hub: "conventional_deadlift" },
+  { family: "rdl",                hub: "bb_rdl" },
+  { family: "good_morning",       hub: "bb_good_morning" },
+  { family: "leg_curl",           hub: "leg_curl_seated" },
+  { family: "hip_thrust",         hub: "bb_hip_thrust" },
+  { family: "pull_through",       hub: "cable_pull_through" },
+  { family: "glute_kickback",     hub: "cable_kickback" },
+  { family: "abduction",          hub: "abductor_machine" },
+  { family: "adduction",          hub: "adductor_machine" },
+  { family: "calf_standing",      hub: "standing_calf_raise" },
+  { family: "calf_seated",        hub: "seated_calf_raise" },
+  { family: "crunch",             hub: "cable_crunch" },
+  { family: "leg_raise",          hub: "hanging_leg_raise" },
+  { family: "anti_extension",     hub: "ab_wheel" },
+  { family: "anti_rotation",      hub: "pallof_press" }
+];
+
+window.MESO_MACHINE_KEYS = [
+  "pec_deck",
+  "chest_press",
+  "incline_press_machine",
+  "lat_pulldown",
+  "seated_row",
+  "machine_row",
+  "pullover_machine",
+  "leg_press",
+  "hack_squat",
+  "leg_extension",
+  "leg_curl_seated",
+  "leg_curl_lying",
+  "hip_thrust_machine",
+  "abductor",
+  "adductor_machine",
+  "calf_raise_standing",
+  "calf_raise_seated",
+  "shoulder_press_machine",
+  "lateral_raise_machine",
+  "rear_delt_machine",
+  "preacher_curl_machine",
+  "triceps_extension_machine",
+  "ab_crunch_machine",
+  "assisted_pullup",
+  "smith_machine"
 ];
