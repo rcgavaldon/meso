@@ -629,6 +629,12 @@ async function ensureSession(w, d) {
         sets: [], feedback: {}, jointPain: {}, finished: false };
 
   const subs = [];   // slots this gym couldn't do, auto-swapped — surfaced on the Today screen
+  /* Muscles the last session of this day flagged for a recovery session. [PUB] "If you've
+     under-performed two sessions in a row, you have likely hit your MRV" → cut sets and reps in
+     half at the same load, then resume at the MEV↔MRV midpoint. */
+  const lastSame = S.sessions.filter(x => x.mesoId === S.meso.id && x.finished && x.day === d && x.week < w)
+    .sort((a, b) => b.week - a.week)[0];
+  const recovery = (lastSame && lastSame.recovery) || {};
   for (const g of day.muscles) {
     if (deload && E.deloadDrops(g.m)) continue;      // [APP] traps + forearms come out of deload
     for (const slot of g.slots) {
@@ -653,10 +659,30 @@ async function ensureSession(w, d) {
       }
       const sl = Object.assign({}, slot, { rir: Math.max(rir, E.rirFloor(ex)) });
       const tgt = bind.ok ? E.targetLoad(S.user, ex, bind, sl) : null;
-      let sets = slot.sets, reps = (slot.repRange || [8,12])[1], load = tgt && tgt.load;
+      /* 🔴 USE progress()'s REPS. This used to hardcode reps = repRange[1] and drop tgt.reps on
+         the floor. Two consequences, both bad:
+          · Reps never progressed — every prescription sat at the top of the range forever.
+          · Because targetReps was pinned to `hi`, a lifter who hits their reps ALWAYS has
+            last.reps === hi, so progress()'s "the jump is too coarse, add a rep instead" branch
+            was unreachable. The app took every coarse jump instead: band lateral raise 15→35
+            (+133% load) with reps held, cable lateral raise +25%. Side delts read "+106%" on the
+            Progress tab. The documented rule was live in the engine and dead in the app. */
+      let sets = slot.sets, load = tgt && tgt.load;
+      let reps = (tgt && tgt.reps != null) ? tgt.reps : (slot.repRange || [8,12])[1];
+      /* The deload's SECOND half halves the load — [PUB] "cut not only sets and reps in half, but
+         the weights as well." "first" was hardcoded at the only call site, so days 3-4 prescribed
+         105-120% of the last hard week. The deload was heavier than the block it was recovering
+         from. */
       if (deload) {
-        const dp = E.deloadPrescription({ sets, reps, load: load || 0 }, g.m, "first");
+        const perWeek = S.meso.days.length;
+        const half = (d - 1) < Math.ceil(perWeek / 2) ? "first" : "second";
+        const dp = E.deloadPrescription({ sets, reps, load: load || 0 }, g.m, half);
         sets = dp.sets; reps = dp.reps; load = dp.load || load;
+      } else if (recovery[g.m]) {
+        /* [PUB] Recovery session: half sets AND half reps at the SAME load. The load holding is
+           the point — you're cutting volume, not intensity. */
+        const rp = E.recoverySession({ sets, reps, load: load || 0, rir: sl.rir });
+        sets = rp.sets; reps = rp.reps; load = rp.load || load;
       }
       // The set carries its rep bucket so recordLoadState can scope the memory without
       // re-deriving the slot. Heavy Monday and light Friday must not share a load memory.
@@ -1129,7 +1155,9 @@ async function logSet(id) {
   if (!loadV || isNaN(loadV)) { toast("Enter a weight first"); return; }
   if (reps == null || isNaN(reps)) { toast("Enter your reps"); return; }
   // [PUB] guard — RP shows this once. Logging RIR into the reps box is the classic mistake.
-  if (reps < 5 && !DB.pref.get("rirCheckSeen", false)) {
+  // ...but never on a warm-up WE prescribed at 4 reps. The 80% ramp is 4 reps by design, so this
+  // popped on the first ramp a user ever sees, and Cancel silently discarded the set.
+  if (reps < 5 && !st.warmup && !DB.pref.get("rirCheckSeen", false)) {
     DB.pref.set("rirCheckSeen", true);
     if (!confirm(`Log low reps?\n\nYou're logging ${reps} reps. For hypertrophy, reps should fall between 5 and 30. Be sure to log counted reps, and not RIR targets.`)) return;
   }
@@ -1151,6 +1179,16 @@ async function logSet(id) {
    RP throws this away every cycle — "you start over every six weeks" is a top-5 complaint. */
 async function recordLoadState(st) {
   const ex = LIB().find(x => x.id === st.exId); if (!ex) return;
+  /* 🔴 THE DELOAD MUST NOT OVERWRITE LOAD MEMORY.
+     A deload prescribes ~half the reps at 5+ RIR (and half the load in its back half) — it is
+     BY DESIGN your lightest week. Writing it to loadState meant every new mesocycle seeded from
+     the deload instead of the last hard week: measured -16.7% row, -11.1% incline DB, -21.4%
+     lateral raise, -18.2% overhead extension. The complete screen literally says "Your loads
+     carry into the next one — unlike RP's app, which starts you over." They carried the DELOAD's.
+     The README's headline differentiator, inverted.
+     engine.js's countableSet() already excludes rir>4 for exactly this reason; this write path
+     just never got the same guard. Same rule, one place it was missing. */
+  if (st.warmup || st.rir == null || st.rir > 4) return;
   const bind = E.resolveEquipment(ex, S.gym, S.occupied);
   // Bucket-scoped: see loadKey. Without this, the same exercise trained heavy on Monday and
   // light on Friday shares one memory, and Monday drifts down to Friday's load forever.
@@ -1624,7 +1662,12 @@ async function finishWorkout() {
     // Joint pain is per-exercise; fold the worst of this muscle's exercises into its decision.
     const jp = mine.map(x => s.jointPain[x.exId]).filter(Boolean)
                    .sort((a, b) => E.JOINT.indexOf(b) - E.JOINT.indexOf(a))[0];
-    const d = E.setDelta(Object.assign({}, fb, { jointPain: jp }), pf, emph);
+    /* This muscle's recent performance, oldest→newest. [PUB] MRV is TWO consecutive failures —
+       without the history, one bad night's sleep declared MRV. */
+    const recentPf = S.sessions.filter(x => x.mesoId === s.mesoId && x.finished && x.decision && x.decision[m])
+      .sort((a, b) => (a.week - b.week) || (a.day - b.day))
+      .map(x => x.decision[m].pf).filter(v => v != null).slice(-3);
+    const d = E.setDelta(Object.assign({}, fb, { jointPain: jp }), pf, emph, recentPf);
     s.decision = s.decision || {};
     s.decision[m] = { pf, delta: d.delta, action: d.action, reasons: d.reasons, swap: d.swapExercise };
 
@@ -1644,14 +1687,24 @@ async function finishWorkout() {
       // Add to the first slot, remove from the last — keeps the primary exercise's volume.
       while (diff > 0) { g.slots[0].sets++; diff--; }
       while (diff < 0) { const last = g.slots[g.slots.length-1]; if (last.sets > 1) last.sets--; else break; diff++; }
+      s.decision[m].applied = target - cur;   // what ACTUALLY happened, for an honest badge
       if (target < ap.sets && d.delta > 0)
         notes.push(`${E.MG_LABEL[m]} is capped by your ${E.CFG.sessionMinutesMax}-min session, not by fatigue`);
       else if (ap.atCeiling) notes.push(`${E.MG_LABEL[m]} is at your ceiling`);
     }
-    if (d.action === E.ACTION.RECOVERY) notes.push(`${E.MG_LABEL[m]}: recovery session next time`);
+    if (d.action === E.ACTION.RECOVERY) {
+      // Actually ARM it. This used to be a promise with no mechanism: recoverySession() and
+      // resumeVolume() were implemented and unit-tested with ZERO call sites, so "recovery
+      // session next time" simply never happened — the next session came back at full sets.
+      s.recovery = s.recovery || {}; s.recovery[m] = true;
+      notes.push(`${E.MG_LABEL[m]}: recovery session next time — half sets, half reps, same weight`);
+    }
     if (d.swapExercise) notes.push(`${E.MG_LABEL[m]}: consider swapping that exercise`);
   }
 
+  // Sets just changed, so the clock estimate did too. It was only ever computed at seed time,
+  // so the Today card and Plan tab drifted low all block (54 stored vs 59 actual).
+  for (const day of S.meso.days) day.estMinutes = E.sessionMinutes(day);
   await DB.put("session", s);
   await DB.put("meso", S.meso);
   await loadUser();
@@ -1668,8 +1721,11 @@ function showSummary(s, notes) {
     <div class="sm dim" style="margin:6px 0 12px">Here's what changes next time, and why.</div>
     ${Object.keys(dec).map(m => {
       const d = dec[m];
-      const cls = d.delta > 0 ? "b-up" : d.delta < 0 ? "b-dn" : "b-mid";
-      const lbl = d.action === "recovery" ? "RECOVERY" : d.delta > 0 ? `+${d.delta} SET${d.delta>1?"S":""}` : d.delta < 0 ? `${d.delta} SET` : "HOLD";
+      // Show what was APPLIED, not what was wanted. The clock cap can shave the delta, and the
+      // badge used to say "+2 SETS" while only +1 landed.
+      const n = d.applied != null ? d.applied : d.delta;
+      const cls = n > 0 ? "b-up" : n < 0 ? "b-dn" : "b-mid";
+      const lbl = d.action === "recovery" ? "RECOVERY" : n > 0 ? `+${n} SET${n>1?"S":""}` : n < 0 ? `${n} SET` : "HOLD";
       return `<div class="row" style="padding:12px 0">
         <div class="grow"><div class="lead">${esc(E.MG_LABEL[m])}</div>
         <div class="sm dim" style="margin-top:3px">${esc((d.reasons||[]).join(" · ") || "Steady")}</div></div>

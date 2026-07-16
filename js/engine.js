@@ -204,7 +204,13 @@ const ACTION = { ADD:"add", HOLD:"hold", CUT:"cut", RECOVERY:"recovery" };
  * @param emphasis "maintain"|"grow"|"emphasize"
  * @returns {delta, action, gated, swapExercise, reasons[]}
  */
-function setDelta(fb, pf, emphasis) {
+/**
+ * @param recentPf optional — this muscle's recent performance scores, oldest→newest. [PUB] MRV
+ *   takes TWO consecutive failures: "If you've under-performed two sessions in a row, you have
+ *   likely hit your MRV." Without this, one bad night's sleep declared MRV and triggered the full
+ *   recovery protocol. mrvHit() existed and was unit-tested; nothing ever called it.
+ */
+function setDelta(fb, pf, emphasis, recentPf) {
   fb = fb || {}; emphasis = emphasis || "grow";
   const SO = ix(SORENESS, fb.soreness);
   const PU = ix(PUMP, fb.pump);
@@ -216,8 +222,14 @@ function setDelta(fb, pf, emphasis) {
 
   // ── 1. Fatigue overrides, ordered — first match wins ──
   if (P === PF.FAIL) {
-    reasons.push("Couldn't match last session — that's your MRV. Recovery session.");
-    return { delta: 0, action: ACTION.RECOVERY, gated: true, swapExercise, reasons };
+    // [PUB] TWO in a row is MRV. One is a bad day — RP says to repeat the week and confirm.
+    const history = (recentPf || []).concat([P]);
+    if (mrvHit(history)) {
+      reasons.push("Couldn't match last session twice running — that's your MRV. Recovery session.");
+      return { delta: 0, action: ACTION.RECOVERY, gated: true, swapExercise, reasons };
+    }
+    reasons.push("Couldn't match last session. Could be sleep or stress — holding here to confirm before cutting.");
+    return { delta: 0, action: ACTION.HOLD, gated: true, swapExercise, reasons };
   }
   if (WL === 3) {   // "too much" — "so much volume you can barely see above water"
     reasons.push("Too much volume — cutting back");
@@ -381,8 +393,11 @@ function progress(last, slot, plan) {
   // HOLD reps. If the jump overshoots (10lb → 15lb DBs), add a rep instead.
   if (next > last.load && next <= ceiling) return { load: next, reps: last.reps, why: "load" };
   if (last.reps < hi) return { load: last.load, reps: last.reps + 1, why: "rep" };
-  // Top of range and the equipment can't express a sane jump → take the coarse jump, reset reps.
-  if (plan && next <= plan.max) return { load: next, reps: lo, why: "load_coarse" };
+  /* Top of range and the equipment can't express a sane jump → take the coarse jump, reset reps.
+     ⚠️ Only if the jump actually GOES somewhere. At plan.max, nearestAtOrAbove clamps to max, so
+     `next === last.load` and this returned {same load, reps cut to lo} — a 10% e1RM regression
+     prescribed every week forever once you top out a stack. */
+  if (plan && next > last.load && next <= plan.max) return { load: next, reps: lo, why: "load_coarse" };
   return { load: last.load, reps: last.reps + 1, why: "rep_over" };
 }
 
@@ -650,6 +665,30 @@ function assignDays(user, split) {
               + `${CFG.sessionMinutesMax} minutes. It still grows — there's just a clock.`;
     }
   }
+  /* GROW TO FILL. The trim loop above only ever shrinks, and the per-muscle `cap` is global while
+     the clock is per-DAY — so a light day (e.g. 3 of 5 muscles on Maintain at 1 set) could never
+     spend its spare 16 minutes and peaked at 50 of its 60. You booked an hour; use it.
+     Spend the slack on the highest-priority muscle that still has room under its OWN band ceiling
+     — never past it, so this can't quietly turn Maintain into Grow. */
+  for (const d of days) {
+    let guard = 0;
+    while (guard++ < 200) {
+      const room = d.rows.filter(r => {
+        const b = band(r.m, r.emphasis);
+        return r.per < Math.min(CFG.perSessionMax, Math.ceil(b.ceil / Math.max(1, (report.find(x => x.m === r.m) || {}).freq || 1)));
+      });
+      if (!room.length) break;
+      // Highest priority first, then whoever has the least right now.
+      room.sort((a, b2) => EMPHASIS.indexOf(b2.emphasis) - EMPHASIS.indexOf(a.emphasis) || a.per - b2.per);
+      const pick = room[0];
+      pick.per++;
+      if (planMinutes(d.rows) > maxMin) { pick.per--; break; }   // put it back; we're full
+      d.projSets++;
+    }
+    d.projMin = Math.round(planMinutes(d.rows));
+    d.rows.forEach(r => { const rep = report.find(x => x.m === r.m); if (rep) rep.perSession = Math.max(rep.perSession || 0, r.per); });
+  }
+
   for (const m of new Set(dropped)) {
     const rep = report.find(x => x.m === m);
     if (!rep) continue;
@@ -1800,8 +1839,14 @@ function verify() {
   eq("SO0 + PF0 → +2 sets", setDelta({ soreness:"never" }, PF.EASY, "emphasize").delta, 2);
   eq("SO<=1 + PF<=1 → +1 set", setDelta({ soreness:"healed_early" }, PF.ON, "emphasize").delta, 1);
   ok("SO2-3 + PF>=2 → hold", setDelta({ soreness:"healed_ontime" }, PF.HARD, "emphasize").delta <= 0);
-  eq("PF3 → recovery session (MRV detector)",
-     setDelta({ soreness:"never" }, PF.FAIL, "emphasize").action, ACTION.RECOVERY);
+  // [PUB] MRV is TWO consecutive failures — "if you've under-performed two sessions in a row."
+  // One bad session is a bad session; RP says repeat the week and confirm before cutting.
+  eq("ONE failed session → hold and confirm, NOT an MRV verdict",
+     setDelta({ soreness:"never" }, PF.FAIL, "emphasize", [PF.ON]).action, ACTION.HOLD);
+  eq("TWO in a row → recovery session (the real MRV detector)",
+     setDelta({ soreness:"never" }, PF.FAIL, "emphasize", [PF.FAIL]).action, ACTION.RECOVERY);
+  eq("no history → still cautious, not a verdict",
+     setDelta({ soreness:"never" }, PF.FAIL, "emphasize").action, ACTION.HOLD);
   ok("PUBLISHED override: PF>=2 never adds sets, however low the soreness",
      setDelta({ soreness:"never", pump:"low", workload:"not_enough" }, PF.HARD, "emphasize").delta <= 0);
 
@@ -2068,6 +2113,34 @@ function verify() {
     ok("...but not at a normal ceiling", !violatesGym({ name:"Standing Overhead Press", pattern:"vertical_press" }, { constraints:{ ceiling_height_in:108 } }));
     ok("noise limits block deadlifts", violatesGym({ name:"Conventional Deadlift" }, { constraints:{ noise_limit:true } }));
     ok("...but not curls", !violatesGym({ name:"Incline Dumbbell Curl" }, { constraints:{ noise_limit:true } }));
+  })();
+
+  /* ── QA round 3: found by driving 29 real sessions ── */
+  (() => {
+    // The deload must never become your load memory. countableSet already knew; recordLoadState
+    // didn't, so every new meso seeded from the deload: -16.7% row, -21.4% lateral raise.
+    eq("a deload set is not countable (rir 5)", countableSet({ done:true, load:100, reps:5, rir:5 }), false);
+    eq("a hard set is", countableSet({ done:true, load:100, reps:8, rir:1 }), true);
+
+    // progress() must be able to say "add a rep instead" — the app pinning targetReps to `hi`
+    // made this branch unreachable and took every coarse jump instead (+133% on a band).
+    const dbs = loadPlan({ load:{ kind:"fixed_pairs", min:5, max:50, increment:5 } });
+    eq("a coarse jump adds a rep rather than +50% load",
+       progress({ load:10, reps:10, rir:2 }, { repRange:[8,12], rir:1 }, dbs).why, "rep");
+
+    // At the equipment ceiling, never prescribe a permanent regression.
+    const capped = loadPlan({ load:{ kind:"fixed_pairs", min:5, max:120, increment:5 } });
+    const atMax = progress({ load:120, reps:8, rir:1 }, { repRange:[5,8], rir:1 }, capped);
+    ok("topped-out stack keeps climbing reps, never cuts them", atMax.reps > 8 && atMax.load === 120);
+
+    // Recovery protocol: half sets, half reps, SAME load. Was implemented, tested, never called.
+    const rec = recoverySession({ sets:6, reps:10, load:200, rir:1 });
+    eq("recovery halves sets and reps and HOLDS the load", [rec.sets, rec.reps, rec.load], [3, 5, 200]);
+
+    // Deload second half halves the load. "first" was hardcoded at the only call site, so days
+    // 3-4 prescribed 105-120% of the last hard week.
+    eq("deload 2nd half halves the load", deloadPrescription({sets:6,reps:10,load:200}, "chest", "second").load, 100);
+    ok("deload 1st half does not", deloadPrescription({sets:6,reps:10,load:200}, "chest", "first").load === 200);
   })();
 
   // ── Plate inventory is a real ceiling; the floor binds too ──
