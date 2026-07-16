@@ -1955,7 +1955,7 @@ async function viewPlan() {
       ${S.meso.caps.slice(0, 4).map(c => `<div class="row"><div class="grow sm dim">${esc(c.why)}</div></div>`).join("")}
     </div>` : ""}
 
-    <h4 style="margin:18px 0 8px">The week</h4>
+    <h4 style="margin:18px 0 8px">The week <span class="dim sm" style="font-weight:400">— tap a day to edit sets & exercises</span></h4>
     ${S.meso.days.map((d, i) => {
       const isNow = (i + 1) === cur.day && cur.week <= S.meso.weeks;
       return `<div class="card">
@@ -1964,7 +1964,7 @@ async function viewPlan() {
             <div class="lead">${esc(d.name)}${isNow ? ' <span class="badge b-up" style="margin-left:6px">NEXT</span>' : ""}</div>
             <div class="sm dim" style="margin-top:3px">${d.muscles.reduce((a,g)=>a+g.slots.reduce((x,s)=>x+s.sets,0),0)} sets ·
               ${d.muscles.reduce((a,g)=>a+g.slots.length,0)} exercises${d.estMinutes ? ` · ~${d.estMinutes} min` : ""}</div>
-          </div><span class="dim2">›</span>
+          </div><span class="swapb" style="pointer-events:none">Edit</span>
         </div>
         <div style="padding:0 14px 12px" class="pills">${mgPills(d.muscles)}</div>
       </div>`;
@@ -2339,7 +2339,17 @@ async function syncNow(quiet) {
    training history. Public repo + baked-in URL = the household's log is world-readable and
    world-writable. It lives in localStorage, typed once per device.
    Robert's is set up and live (deployed 2026-07-15, "Anyone" access, per-user keyed). */
-function viewMore() {
+async function viewMore() {
+  // Each user's active mesocycle, for the Programs list.
+  const mProg = {};
+  if (S.user.id === ADMIN_ID) for (const u of S.users) {
+    const ms = (await DB.all("meso", "user", u.id)).sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||""));
+    if (ms[0]) {
+      const per = ms[0].days.length;
+      const done = (await DB.all("session","user",u.id)).filter(x=>x.mesoId===ms[0].id&&x.finished).length;
+      mProg[u.id] = { name: ms[0].name, week: Math.min(Math.floor(done/per)+1, ms[0].weeks) };
+    }
+  }
   $("#v").innerHTML = `
     <div class="hd"><div class="hd-row"><h2>More</h2></div></div>
     <h4 style="margin:6px 0 8px">Backup ${DB.pref.get("syncUrl","") ? "" : '<span class="badge b-dn" style="margin-left:6px">NOT SET UP</span>'}</h4>
@@ -2358,29 +2368,29 @@ function viewMore() {
     </div>
 
     ${S.user.id === ADMIN_ID ? `
-    <h4 style="margin:6px 0 8px">Coach</h4>
+    <h4 style="margin:6px 0 8px">Programs</h4>
     <div class="card">
-      ${S.users.filter(u => u.id !== ADMIN_ID).map(u => `
-        <div class="row tap" data-coach="${u.id}"><div class="grow">
-          <div class="lead">Build ${esc(u.name)}'s mesocycle</div>
-          <div class="sm dim" style="margin-top:3px">Pick her days and focus areas from here.</div>
-        </div><span class="dim2">›</span></div>`).join("")}
+      ${S.users.map(u => {
+        const mine = u.id === S.user.id;
+        const meso = mProg[u.id];
+        return `<div class="row"><div class="grow">
+          <div class="lead">${esc(u.name)}${mine ? ' <span class="badge b-up" style="margin-left:4px">YOU</span>' : ""}</div>
+          <div class="sm dim" style="margin-top:3px">${meso ? esc(meso.name) + " · week " + meso.week : "no plan yet"}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex:none">
+          ${meso ? `<button class="swapb" data-editprog="${u.id}">Edit</button>` : ""}
+          <button class="swapb" data-newprog="${u.id}">New</button>
+        </div></div>`;
+      }).join("")}
     </div>
-    ${(() => {
-      const others = S.users.filter(u => u.id !== ADMIN_ID);
-      return others.map(u => `<div class="row tap" data-coachplan="${u.id}"><div class="grow">
-        <div class="lead">Edit ${esc(u.name)}'s current plan</div>
-        <div class="sm dim" style="margin-top:3px">Sets, swaps and suggestions, day by day.</div>
-      </div><span class="dim2">›</span></div>`).join("");
-    })()}
-    <div class="row tap" data-review="nina"><div class="grow">
+    <div class="card"><div class="row tap" data-review="nina"><div class="grow">
       <div class="lead">Nina's last sessions</div>
       <div class="sm dim" style="margin-top:3px">What she lifted, what she reported, and what Meso changed.</div>
-    </div><span class="dim2">›</span></div>
+    </div><span class="dim2">›</span></div></div>
     <div class="xs dim2" style="padding:2px 2px 14px">
-      Her feedback drives her plan automatically — you don't have to do anything with it. One
-      thing worth knowing: <b>setDelta reads those answers directly</b>. If she ever softens one
-      because you'll read it, her whole progression runs on it. Coach the numbers, not the answers.
+      <b>Edit</b> opens the plan day-by-day — sets, swaps, suggestions. <b>New</b> starts a fresh
+      mesocycle. You can see what Nina lifted, not her feedback answers: setDelta reads those
+      directly, so if she softens one because you'll read it, her progression runs on it.
     </div>` : ""}
 
     <h4 style="margin:6px 0 8px">Who's training</h4>
@@ -2465,11 +2475,26 @@ function viewMore() {
     }).join("") + `<div class="sheet-ft"><button id="rvC">Close</button></div>`);
     $("#rvC").onclick = closeSheet;
   });
-  document.querySelectorAll("[data-coachplan]").forEach(r => r.onclick = async () => {
-    const her = S.users.find(u => u.id === r.dataset.coachplan);
-    if (!(await DB.all("meso", "user", her.id)).length) return toast(`${her.name} has no mesocycle yet — build one first`);
+  // Edit a program → open its Plan tab. Your own: straight there. Someone else's: coach mode
+  //   (be them for the session, banner up, Done hands back).
+  document.querySelectorAll("[data-editprog]").forEach(r => r.onclick = async () => {
+    const uid = r.dataset.editprog;
+    if (uid === S.user.id) return go("plan");
+    const her = S.users.find(u => u.id === uid);
     S.coachingFor = { her: her.id, me: S.user.id };
     S.user = her; await loadUser(); renderTabs(); go("plan");
+  });
+  // New program → the intake, for that person.
+  document.querySelectorAll("[data-newprog]").forEach(r => r.onclick = async () => {
+    const uid = r.dataset.newprog, me = S.user;
+    if (uid !== S.user.id) {
+      const her = S.users.find(u => u.id === uid);
+      S.coachingFor = { her: her.id, me: me.id };
+      S.user = her; await loadUser();
+    }
+    INTAKE.focus = [...new Set(Object.keys(S.user.emphasis||{}).filter(m => S.user.emphasis[m] === "emphasize").map(E.groupOf))];
+    INTAKE.days = Math.min(INTAKE.days, maxDays());
+    S.meso = null; renderTabs(); go("today");   // viewToday → viewNoMeso → the intake
   });
   document.querySelectorAll("[data-coach]").forEach(r => r.onclick = async () => {
     const her = S.users.find(u => u.id === r.dataset.coach);
