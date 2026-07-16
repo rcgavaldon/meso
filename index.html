@@ -123,6 +123,15 @@ input{font:inherit;color:inherit}
 .set.focus .tgt{height:26px;line-height:26px}
 .tgt b{color:var(--p);font-weight:600}
 
+/* warm-up rows — visibly scaffolding, not training */
+.set.warm{grid-template-areas:"tag tag tag" "w r l";margin-bottom:6px}
+.set.warm .wtag{grid-area:tag;font-size:.66rem;letter-spacing:.06em;text-transform:uppercase;
+                opacity:.4;font-weight:700;margin-bottom:2px}
+.set.warm .stp{height:42px;background:transparent;border:1px dashed var(--line)}
+.set.warm .stp input{font-size:.9375rem;opacity:.75}
+.set.warm .log{height:42px;border-style:dashed;opacity:.6}
+.set.warm .log[data-s=done]{opacity:1;border-style:solid}
+
 /* ============ Feedback sheet ============ */
 .sheet-bg{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:opacity .2s}
 .sheet-bg.on{opacity:1;pointer-events:auto}
@@ -242,11 +251,11 @@ input{font:inherit;color:inherit}
 <section class="sheet" id="sheet" role="dialog" aria-modal="true"></section>
 <div class="toast" id="toast"></div>
 
-<script src="data/exercises.js?v=10"></script>
-<script src="js/db.js?v=10"></script>
-<script src="js/engine.js?v=10"></script>
-<script src="js/media.js?v=10"></script>
-<script src="js/app.js?v=10"></script>
+<script src="data/exercises.js?v=12"></script>
+<script src="js/db.js?v=12"></script>
+<script src="js/engine.js?v=12"></script>
+<script src="js/media.js?v=12"></script>
+<script src="js/app.js?v=12"></script>
 <script>
 if ("serviceWorker" in navigator) {
   addEventListener("load", () => navigator.serviceWorker.register("sw.js").then(reg => {

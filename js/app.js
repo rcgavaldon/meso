@@ -362,7 +362,12 @@ function seedMeso(user, gym, days, weeks, splitId) {
        * carrying that cap onto the slot, autoregulation ramps toward the band ceiling anyway and
        * week 4 runs 90 minutes. The trim would be decorative. */
       const cap = Math.max(1, Math.min(E.CFG.perSessionMax, (rep && rep.perSession) || E.CFG.perSessionMax));
-      const perSession = Math.max(1, Math.min(cap, Math.round(b.start / freq)));
+      /* FILL THE HOUR. Seeding at bare MEV (b.start) makes week 1 a ~50-minute session that only
+         reaches 60 by week 4 — you booked an hour, so use it. Start a third of the way from MEV
+         to the clock-trimmed cap: still a real ramp (autoregulation has room to add), but the
+         first session is worth the drive. The cap is what keeps it inside 60 min. */
+      const seed = Math.round(b.start / freq + (cap - b.start / freq) * 0.6);
+      const perSession = Math.max(1, Math.min(cap, Math.max(Math.round(b.start / freq), seed)));
       // [PUB] ≥3 sets per exercise on average → 1-2 exercises per muscle per session.
       const nEx = (perSession >= 6 && !timeboxed) ? 2 : 1;
       const g = { m, emphasis: emph, freq, capPerSession: cap, slots: [] };
@@ -616,6 +621,18 @@ async function ensureSession(w, d) {
       // The set carries its rep bucket so recordLoadState can scope the memory without
       // re-deriving the slot. Heavy Monday and light Friday must not share a load memory.
       const bucket = E.repBucket ? E.repBucket(slot.repRange || [8,12]) : null;
+      /* [PUB] RP prices a warm-up ramp into every first-exercise-of-a-muscle; the 60-min clock is
+         already costed on it (warmupSeconds). Prescribe it too — telling you "60 minutes" while
+         leaving you to guess the ramp is the gap. Never logged, never counted toward volume:
+         [PUB] a countable set is 5-30 reps at 0-4 RIR and these are nowhere near failure. */
+      const firstForMuscle = !s.sets.some(x => x.muscle === g.m);
+      if (!deload) for (const w of E.warmupSets(load, bind.plan, ex, firstForMuscle)) {
+        s.sets.push({ id: uid(), slotId: slot.id, muscle: g.m, exId: ex.id, bucket,
+          repRange: slot.repRange, warmup: true, pct: w.pct,
+          instanceId: bind.ok && bind.carrier ? bind.carrier.instance_id : null,
+          load: w.load, reps: null, targetReps: w.reps, targetLoad: w.load,
+          rir: null, done: false, est: null });
+      }
       for (let i = 0; i < sets; i++) {
         s.sets.push({ id: uid(), slotId: slot.id, muscle: g.m, exId: ex.id, bucket,
           repRange: slot.repRange,
@@ -923,6 +940,12 @@ function drawExercise(g, e) {
   const eq = equipLabel(ex);
   const nextIx = e.sets.findIndex(x => !x.done && x.reps !== -1);
   const est = e.sets[0] && e.sets[0].est;
+  /* [PUB] RP does NOT pick your first weight — you do, via their published feel-out ramp
+     (12 @ ~30RM → 8 @ ~20RM → 4 @ ~10RM, then choose). That ramp is a WEEK-1 discovery tool, not
+     a weekly warm-up: run against a known 200×10 @2 RIR its "10RM" is 210, i.e. heavier than the
+     work set. So show it as instructions exactly when there IS no working weight — which is also
+     the only time warmupSets() can't compute a ramp. */
+  const feelOut = e.sets.length && !e.sets.some(x => x.warmup) && e.sets[0].targetLoad == null;
   return `<div class="card"><div class="ex">
     <div class="ex-hd">
       <div class="grow">
@@ -931,6 +954,10 @@ function drawExercise(g, e) {
       </div>
       <button class="swapb${(S.user.painFlags || {})[e.exId] ? " pain" : ""}" data-swap="${e.exId}">Swap</button>
     </div>
+    ${feelOut ? `<div class="note"><span>⌁</span><span><b>Pick your starting weight.</b> RP's ramp:
+      12 reps with something you could do ~30 times, 8 reps at a ~20-rep weight, 4 reps at a
+      ~10-rep weight — then choose a load you can hit for ${e.sets[0] ? e.sets[0].targetReps : 10}
+      at ${e.sets[0] ? e.sets[0].rir : 2} RIR. From next session Meso ramps you automatically.</span></div>` : ""}
     ${est != null ? `<div class="note"><span>⌁</span><span>Estimated from a similar lift${est ? ` (${Math.round(est*100)}% confident)` : ""} — first set calibrates it.</span></div>` : ""}
     <div class="sets">
       <div class="sets-hd"><div>Weight</div><div>Reps</div><div>Log</div></div>
@@ -942,7 +969,8 @@ function drawExercise(g, e) {
 function drawSet(st, isNext) {
   const state = st.reps === -1 ? "skip" : st.done ? "done" : isNext ? "next" : "pending";
   const u = S.user.unit;
-  return `<div class="set" data-set="${st.id}">
+  return `<div class="set${st.warmup ? " warm" : ""}" data-set="${st.id}">
+    ${st.warmup ? `<div class="wtag">Warm-up · ${st.pct}%</div>` : ""}
     <div class="stp ${st.done?"done":""}">
       <button data-nudge="load" data-dir="-1">−</button>
       <input inputmode="decimal" data-f="load" value="${st.load != null ? st.load : ""}" placeholder="—">
@@ -958,6 +986,7 @@ function drawSet(st, isNext) {
   </div>`;
 }
 function targetStrip(st, u) {
+  if (st.warmup) return `<span class="dim">Warm-up — <b>${st.targetLoad} ${u}</b> × <b>${st.targetReps}</b>. Not to failure; you're greasing the groove, not spending stimulus.</span>`;
   if (st.targetLoad == null) return `<span class="dim">Choose your starting weight — warm up, then pick something you can hit for ${st.targetReps || 10} at ${st.rir} RIR.</span>`;
   return `We recommend <b>${st.targetLoad} ${u}</b> × <b>${st.targetReps}</b> at <b>${st.rir} RIR</b>`;
 }
@@ -1057,6 +1086,11 @@ async function logSet(id) {
     if (!confirm(`Log low reps?\n\nYou're logging ${reps} reps. For hypertrophy, reps should fall between 5 and 30. Be sure to log counted reps, and not RIR targets.`)) return;
   }
   st.load = loadV; st.reps = reps; st.done = true; st.at = new Date().toISOString();
+
+  /* Warm-ups are scaffolding, not training. They must not touch load memory (they'd overwrite
+     your working weight with 50% of it), must not fire the feedback modal, and must not start a
+     3-minute rest timer between ramp sets. */
+  if (st.warmup) { await DB.put("session", S.session); drawToday(); return; }
 
   await recordLoadState(st);
   await DB.put("session", S.session);
@@ -1404,9 +1438,9 @@ document.addEventListener("visibilitychange", () => {
  * ================================================================ */
 async function maybeFeedback(justLogged) {
   const s = S.session, m = justLogged.muscle;
-  const exSets = s.sets.filter(x => x.exId === justLogged.exId);
+  const exSets = s.sets.filter(x => x.exId === justLogged.exId && !x.warmup);
   const exDone = exSets.every(x => x.done || x.reps === -1);
-  const mgSets = s.sets.filter(x => x.muscle === m);
+  const mgSets = s.sets.filter(x => x.muscle === m && !x.warmup);
   const mgDone = mgSets.every(x => x.done || x.reps === -1);
 
   const qs = [];
@@ -1522,11 +1556,11 @@ async function finishWorkout() {
   const muscles = [...new Set(s.sets.map(x => x.muscle))];
   const notes = [];
   for (const m of muscles) {
-    const mine = s.sets.filter(x => x.muscle === m && x.done);
+    const mine = s.sets.filter(x => x.muscle === m && x.done && !x.warmup);
     if (!mine.length) continue;
     const prior = S.sessions.filter(x => x.mesoId === s.mesoId && x.finished && x.day === s.day && x.week < s.week)
                             .sort((a, b) => b.week - a.week)[0];
-    const prev = prior ? prior.sets.filter(x => x.muscle === m && x.done) : null;
+    const prev = prior ? prior.sets.filter(x => x.muscle === m && x.done && !x.warmup) : null;
     const week1 = !prev || !prev.length;
     const pf = E.performanceScore(mine, prev, week1);
     // The CONTRACT, not live intent — see mesoEmphasis(). This decides volume progression;

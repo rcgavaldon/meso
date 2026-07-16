@@ -724,6 +724,50 @@ function warmupSeconds(ex, isFirstForMuscle) {
   return 60 + 40 * td;                                    // squat (5) → 260s · cable fly (2) → 140s
 }
 
+/**
+ * PRESCRIBE the warm-up sets — not just budget time for them.
+ *
+ * [PUB] RP publishes a ramp — "12 reps @ your 30RM → 8 @ 20RM → 4 @ 10RM, then pick your working
+ * weight" — but read it carefully: that's the FEEL-OUT protocol for choosing a starting weight
+ * when you don't have one. It's an e1RM discovery tool. Run it against a KNOWN working weight and
+ * the arithmetic bites: at 200×10 @2 RIR (e1RM 280), your "10RM" is 210 — the last warm-up would
+ * be HEAVIER than your work set. That's why it's a week-1 tool, not a weekly one.
+ *
+ * [RECON] So for a known working weight this is the conventional percentage ramp, which is
+ * RP-consistent (their point is you arrive ready without spending stimulus) but is NOT their
+ * published table. Flagged accordingly.
+ *
+ * Two things make it not-annoying:
+ *  · Only the FIRST exercise of a muscle gets a real ramp — your second chest movement doesn't
+ *    re-warm a warm chest. Matches warmupSeconds, which is what the 60-min clock is costed on.
+ *  · A cable fly does not need three ramp sets. Scale by technique + systemic demand: a heavy
+ *    squat ramps three times, a lateral raise gets one feeler.
+ *
+ * Warm-ups are NEVER logged and NEVER count toward volume — [PUB] RP's countable working set is
+ * 5-30 reps at 0-4 RIR, and these are nowhere near failure by design.
+ *
+ * @returns [{load, reps, warmup:true, note}] — ascending, always strictly below the work weight.
+ */
+function warmupSets(workLoad, plan, ex, isFirstForMuscle) {
+  if (!isFirstForMuscle || !workLoad || workLoad <= 0) return [];
+  const td = (ex && ex.ratings && ex.ratings.technique_demand) || 3;
+  const sys = (ex && ex.fatigue && ex.fatigue.systemic) || 3;
+  const heavy = td >= 4 || sys >= 4;
+  // Bodyweight-ish or trivially light work doesn't get a ramp — you'd spend more time reading it.
+  if (plan && plan.min && workLoad <= plan.min * 1.2) return [];
+  const ramp = heavy ? [[0.50, 8], [0.70, 5], [0.85, 3]]     // squat, deadlift, bench
+                     : [[0.55, 8], [0.80, 4]];               // machine press, curl, fly
+  const out = [];
+  for (const [pct, reps] of ramp) {
+    let load = workLoad * pct;
+    load = plan ? plan.nearestAtOrBelow(load) : Math.round(load / 5) * 5;
+    if (!load || load >= workLoad) continue;                 // never warm up at the work weight
+    if (out.length && load <= out[out.length - 1].load) continue;   // ramp must ascend
+    out.push({ load, reps, warmup: true, pct: Math.round(pct * 100) });
+  }
+  return out;
+}
+
 /** Minutes for a fully-built day (exercises known). */
 function sessionMinutes(day) {
   let sec = 0;
@@ -1437,6 +1481,7 @@ function weeklyVolume(sessions, library) {
     // Travel sessions still COUNT toward volume — a set is a set, stimulus is stimulus.
     // (They're excluded from e1RM trend instead; see e1rmTrend.)
     for (const set of s.sets || []) {
+      if (set.warmup) continue;                            // scaffolding, not volume
       if (set.reps == null || set.reps < 0) continue;      // skipped sets write reps:-1
       const ex = (library || []).find(e => e.id === set.exId);
       if (!ex) continue;
@@ -1484,7 +1529,9 @@ function weeklyVolume(sessions, library) {
  * fiction.
  */
 function countableSet(set) {
-  return !!set && set.done === true && set.load > 0
+  // Warm-ups are scaffolding, not training. They'd also poison the trend: a 50% ramp set logged
+  // at 8 reps is a real e1RM datapoint that says you got half as strong.
+  return !!set && set.done === true && !set.warmup && set.load > 0
       && set.reps != null && set.reps >= 5 && set.reps <= 30
       && set.rir != null && set.rir >= 0 && set.rir <= 4;
 }
@@ -1922,6 +1969,27 @@ function verify() {
     }
   })();
 
+  /* ── WARM-UPS are prescribed, and must never contaminate anything ── */
+  (() => {
+    const bar0 = loadPlan({ load:{ kind:"plate_loaded", min:45, max:495, increment:5 } });
+    const sq = { ratings:{ technique_demand:5 }, fatigue:{ systemic:5 } };
+    const fly = { ratings:{ technique_demand:2 }, fatigue:{ systemic:2 } };
+    const w = warmupSets(225, bar0, sq, true);
+    eq("a heavy compound ramps 3 times", w.length, 3);
+    ok("...ascending, and ALWAYS below the work weight",
+       w.every((x,i) => x.load < 225 && (i===0 || x.load > w[i-1].load)));
+    ok("light isolation gets a shorter ramp", warmupSets(60, loadPlan({load:{kind:"selectorized_stack",min:5,max:200,increment:5}}), fly, true).length <= 2);
+    eq("the 2nd exercise for a muscle gets no ramp — it's already warm", warmupSets(225, bar0, sq, false).length, 0);
+    eq("no work weight yet → no ramp to compute", warmupSets(null, bar0, sq, true).length, 0);
+    // [PUB] RP's 12@30RM/8@20RM/4@10RM is a WEEK-1 feel-out, not a weekly ramp: run against a
+    // known 200x10@2 (e1RM 280) its "10RM" is 210 — heavier than the work set. Guard the invariant.
+    ok("a ramp set is never heavier than the work set", warmupSets(200, bar0, sq, true).every(x => x.load < 200));
+    eq("warm-ups are not countable sets", countableSet({ done:true, load:100, reps:8, rir:2, warmup:true }), false);
+    const lib0 = [{ id:"w", muscles:[{m:"chest",role:"primary"}] }];
+    eq("warm-ups add no weekly volume",
+       weeklyVolume([{ sets:[{exId:"w",load:100,reps:8,warmup:true},{exId:"w",load:200,reps:10}] }], lib0).chest, 1);
+  })();
+
   // ── Plate inventory is a real ceiling; the floor binds too ──
   // 45×4 + 25×2 + 10×4 + 5×4 + 2.5×2 = 295lb of plates, all in pairs → 45 + 295 = 340.
   const p = loadPlan({ bar_weight:45, plates:{ inventory:{ "45":4, "25":2, "10":4, "5":4, "2.5":2 } },
@@ -2092,7 +2160,7 @@ return {
   assignDays, orderDay, repRangeFor, sessionMinutes, fullBodyRationale,
   // selection
   loadPlan, resolveEquipment, selectForSlot, pickBackups, scoreExercise,
-  planMinutes, warmupSeconds, SETUP_SEC, WORK_SEC, buildEmphasis, previewFocus,
+  planMinutes, warmupSeconds, warmupSets, SETUP_SEC, WORK_SEC, buildEmphasis, previewFocus,
   MACHINE_CATALOG, machineUnlocks, machineInstance,
   loadKey, ratio, targetLoad, learnRatio, weeklyVolume, repBucket, minUsableLoad, floorPenalty,
   // progress
