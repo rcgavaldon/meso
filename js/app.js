@@ -29,7 +29,19 @@ const mgColor = m => E.CAT_COLOR[E.CATEGORY[m]] || "var(--acc)";
 function bars(n) { return `<span class="bars">${[1,2,3].map(i => `<i class="${i<=n?"":"off"}"></i>`).join("")}</span>`; }
 function mgPill(m, emph) {
   const c = mgColor(m), n = { maintain:1, grow:2, emphasize:3 }[emph] || 2;
-  return `<span class="mg" style="color:${c};background:color-mix(in srgb, ${c} 20%, transparent)">${bars(n)}${esc(E.MG_LABEL[m]||m)}</span>`;
+  // Show the GROUP label — a front-delt slot reads "Shoulders", not "Front Delts".
+  return `<span class="mg" style="color:${c};background:color-mix(in srgb, ${c} 20%, transparent)">${bars(n)}${esc(E.groupLabel(E.groupOf(m)))}</span>`;
+}
+/* A row of pills for a day, DEDUPED by group: three delt slots collapse to one "Shoulders" pill,
+   at the strongest emphasis any member carries. */
+function mgPills(muscleGroups) {
+  const rank = { maintain:0, grow:1, emphasize:2 };
+  const byGroup = {};
+  for (const g of muscleGroups) {
+    const k = E.groupOf(g.m);
+    if (!byGroup[k] || rank[g.emphasis] > rank[byGroup[k].emphasis]) byGroup[k] = { m: g.m, emphasis: g.emphasis };
+  }
+  return Object.values(byGroup).map(g => mgPill(g.m, g.emphasis)).join("");
 }
 const ICON = {
   today:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6.5 6.5v11M17.5 6.5v11M3 9v6M21 9v6M6.5 12h11"/></svg>',
@@ -828,7 +840,7 @@ const maxDays = () => dayChoices()[dayChoices().length - 1];
 function viewNoMeso() {
   const admin = S.user.id === ADMIN_ID;
   if (!INTAKE.focus.length && S.user.emphasis)
-    INTAKE.focus = Object.keys(S.user.emphasis).filter(m => S.user.emphasis[m] === "emphasize");
+    INTAKE.focus = [...new Set(Object.keys(S.user.emphasis).filter(m => S.user.emphasis[m] === "emphasize").map(E.groupOf))];
   INTAKE.days = Math.min(INTAKE.days, maxDays());
   drawIntake();
 }
@@ -836,7 +848,7 @@ function viewNoMeso() {
 function drawIntake() {
   const p = E.previewFocus(INTAKE.focus, INTAKE.days, { sessionMinutes: S.user.sessionMinutes });
   const byCat = { push: [], pull: [], legs: [], acc: [] };
-  for (const m of Object.keys(E.LANDMARKS)) (byCat[E.CATEGORY[m]] || byCat.acc).push(m);
+  for (const g of E.GROUPS) (byCat[g.cat] || byCat.acc).push(g.key);   // coarse groups, not 15 muscles
   const CATN = { push: "Push", pull: "Pull", legs: "Legs", acc: "Core & grip" };
   const mins = p.minutes && p.minutes.length ? Math.max.apply(null, p.minutes) : null;
 
@@ -920,17 +932,17 @@ function drawIntake() {
 /* The `+N` badge is the product: it's `room` — how many sets this block can actually ADD before
    the clock caps it. It is the only number on the screen that's true. A focus area at 0 does the
    same sets in week 5 as week 1. */
-function focusChip(m, p) {
-  const on = INTAKE.focus.includes(m);
-  const row = p.rows.find(r => r.m === m);
-  const room = row ? row.room : 0;
+function focusChip(g, p) {
+  const on = INTAKE.focus.includes(g);
+  const ms = E.groupMuscles(g);
+  const room = ms.reduce((a, m) => { const r = p.rows.find(x => x.m === m); return a + (r ? r.room : 0); }, 0);
   const dead = on && room <= 0;
-  const c = mgColor(m);
+  const c = mgColor(ms[0]);
   const style = on
     ? `color:${c};background:color-mix(in srgb, ${c} ${dead?10:22}%, transparent);border-color:${dead?"var(--wac)":c}`
     : `border-color:var(--line);opacity:.5`;
-  return `<button class="fchip" data-f="${m}" aria-pressed="${on}" style="${style}">
-    ${esc(E.MG_LABEL[m])}${on ? `<b>${room > 0 ? "+" + room : "0"}</b>` : ""}</button>`;
+  return `<button class="fchip" data-f="${g}" aria-pressed="${on}" style="${style}">
+    ${esc(E.groupLabel(g))}${on ? `<b>${room > 0 ? "+" + room : "0"}</b>` : ""}</button>`;
 }
 
 /* Enforcement is a LIVE LEDGER, not a cap. Three reasons the "max 4 focus areas" rule is wrong:
@@ -952,11 +964,11 @@ function drawAdvice(p) {
   if (!frozen.length) {
     el.innerHTML = INTAKE.days <= 2 && p.missing.length
       ? `<div class="card"><div style="padding:14px" class="sm dim">At ${INTAKE.days} days there's room for
-         ${6*INTAKE.days} muscle groups in a week and there are 15. ${p.missing.slice(0,3).map(m=>esc(E.MG_LABEL[m])).join(", ")}
+         ${6*INTAKE.days} muscle groups in a week and there are 15. ${[...new Set(p.missing.map(E.groupOf))].slice(0,3).map(g=>esc(E.groupLabel(g))).join(", ")}
          sit out. Nothing you pick changes that — it's the day count.</div></div>` : "";
     return;
   }
-  const names = frozen.map(m => esc(E.MG_LABEL[m])).join(" and ");
+  const names = frozen.map(g => esc(E.groupLabel(g))).join(" and ");
   el.innerHTML = `<div class="card" style="border-color:var(--wac)"><div style="padding:14px">
     <div class="lead" style="color:var(--wac)">${all ? "Nothing here can grow." : names + " stopped growing."}</div>
     <div class="sm dim" style="margin:7px 0 12px">${
@@ -971,9 +983,9 @@ function drawAdvice(p) {
     </div></div></div>`;
   // Deselect by lowest room — drop what's contributing least, not what was tapped last.
   $("#advTrim").onclick = () => {
-    const ranked = INTAKE.focus.slice().sort((a,b) =>
-      (p.rows.find(r=>r.m===a)||{room:0}).room - (p.rows.find(r=>r.m===b)||{room:0}).room);
-    INTAKE.focus = INTAKE.focus.filter(m => m !== ranked[0]); drawIntake();
+    const gRoom = g => E.groupMuscles(g).reduce((a,m)=>a+((p.rows.find(r=>r.m===m)||{room:0}).room),0);
+    const ranked = INTAKE.focus.slice().sort((a,b) => gRoom(a) - gRoom(b));
+    INTAKE.focus = INTAKE.focus.filter(g => g !== ranked[0]); drawIntake();
   };
   $("#advMin").onclick = async () => {
     S.user.sessionMinutes = (S.user.sessionMinutes || E.CFG.sessionMinutesMax) + 15;
@@ -1041,7 +1053,7 @@ function todayCard(day, s) {
   const deload = E.isDeload(s.week, S.meso.weeks);
   return `<div class="card">
     <div class="row"><div class="grow pills">
-      ${day.muscles.filter(g => s.sets.some(x => x.muscle === g.m)).map(g => mgPill(g.m, g.emphasis)).join("")}
+      ${mgPills(day.muscles.filter(g => s.sets.some(x => x.muscle === g.m)))}
     </div></div>
     <div class="row"><div class="grow sm dim">
       ${s.sets.length} sets · ${nEx} exercise${nEx === 1 ? "" : "s"}${day.estMinutes ? ` · ~${day.estMinutes} min` : ""}
@@ -1907,7 +1919,7 @@ async function viewPlan() {
               ${d.muscles.reduce((a,g)=>a+g.slots.length,0)} exercises${d.estMinutes ? ` · ~${d.estMinutes} min` : ""}</div>
           </div><span class="dim2">›</span>
         </div>
-        <div style="padding:0 14px 12px" class="pills">${d.muscles.map(g => mgPill(g.m, g.emphasis)).join("")}</div>
+        <div style="padding:0 14px 12px" class="pills">${mgPills(d.muscles)}</div>
       </div>`;
     }).join("")}
 
@@ -2416,7 +2428,7 @@ function viewMore() {
     const her = S.users.find(u => u.id === r.dataset.coach);
     const me = S.user;
     S.user = her; await loadUser();
-    INTAKE.focus = Object.keys(her.emphasis || {}).filter(m => her.emphasis[m] === "emphasize");
+    INTAKE.focus = [...new Set(Object.keys(her.emphasis || {}).filter(m => her.emphasis[m] === "emphasize").map(E.groupOf))];
     INTAKE.days = Math.min(3, maxDays()); INTAKE.weeks = 5;
     S.coachingFor = { her: her.id, me: me.id };
     S.meso = null;                                  // force the picker
@@ -2460,7 +2472,8 @@ function viewMore() {
     S.user.sessionMinutes = +b.dataset.min; await save();
   });
   const ef = $("#editFocus"); if (ef) ef.onclick = () => {
-    INTAKE.focus = Object.keys(S.user.emphasis||{}).filter(m => S.user.emphasis[m] === "emphasize");
+    const em = S.user.emphasis || {};
+    INTAKE.focus = [...new Set(Object.keys(em).filter(m => em[m] === "emphasize").map(E.groupOf))];
     INTAKE.days = Math.min(INTAKE.days, maxDays());
     S.editingFocus = true; drawIntake();
   };

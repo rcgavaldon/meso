@@ -971,10 +971,38 @@ function recommendSplit(user, days) {
  *   all Maintain → 15/15 covered at 4 days · all Grow → 11/15 · at 2 days: 12/15 vs 6/15
  * Maintain is what buys COVERAGE. Focus is what buys GROWTH.
  * ================================================================ */
+/* ================================================================
+ * DISPLAY GROUPS — how Robert thinks, not how physiology splits.
+ * "shoulders as one, upper and lower back as one — I don't distinguish the bigger muscles."
+ * The engine's landmarks/scoring stay per-muscle (correct); only the picker + pills collapse.
+ * ================================================================ */
+const MG_GROUP = {                       // muscle → group key (unlisted = its own group)
+  front_delt: "shoulders", side_delt: "shoulders", rear_delt: "shoulders",
+  back: "back", traps: "back"
+};
+const groupOf = m => MG_GROUP[m] || m;
+const GROUP_LABEL = { shoulders: "Shoulders", back: "Back" };
+const groupLabel = g => GROUP_LABEL[g] || MG_LABEL[g] || g;
+/* Every distinct group, in a sensible order, each with its member muscles + display category. */
+const GROUPS = (() => {
+  const seen = [], byKey = {};
+  for (const m of Object.keys(LANDMARKS)) {
+    const g = groupOf(m);
+    if (!byKey[g]) { byKey[g] = { key: g, label: groupLabel(g), muscles: [], cat: CATEGORY[m] }; seen.push(byKey[g]); }
+    byKey[g].muscles.push(m);
+  }
+  return seen;
+})();
+const groupMuscles = g => (GROUPS.find(x => x.key === g) || { muscles: [g] }).muscles;
+
+/**
+ * @param focus  a list of GROUP keys ("shoulders", "chest", …). A group emphasizes ALL its
+ *   member muscles. Back-compat: a bare muscle id still works (groupOf is identity for it).
+ */
 function buildEmphasis(focus) {
   const em = {};
-  const f = focus || [];
-  for (const m of Object.keys(LANDMARKS)) em[m] = f.includes(m) ? "emphasize" : "maintain";
+  const f = new Set(focus || []);
+  for (const m of Object.keys(LANDMARKS)) em[m] = (f.has(groupOf(m)) || f.has(m)) ? "emphasize" : "maintain";
   return em;      // always all 15 keys — never rely on a `|| "grow"` fallback downstream
 }
 
@@ -1001,10 +1029,11 @@ function previewFocus(focus, days, opts) {
     return Object.assign({}, r, { cap, start, room: cap - start });
   });
   const f = focus || [];
+  // A focus GROUP is frozen when its members have no room to grow, summed. Report the group KEY.
+  const groupRoom = g => groupMuscles(g).reduce((a, m) => { const r = rows.find(x => x.m === m); return a + (r ? r.room : 0); }, 0);
   return {
     emphasis: user.emphasis, split: rec.best, forced: rec.forced, plan, rows,
-    // The whole point: focus areas that CANNOT grow. This is what the picker must surface.
-    frozen: f.filter(m => { const r = rows.find(x => x.m === m); return !r || r.room <= 0; }),
+    frozen: f.filter(g => groupRoom(g) <= 0),
     covered: rows.filter(r => r.freq > 0).length,
     missing: rows.filter(r => !r.freq).map(r => r.m),
     minutes: plan.days.map(d => d.projMin),
@@ -2319,6 +2348,7 @@ function verify() {
 
 return {
   CFG, LANDMARKS, MG_LABEL, MG_LOWER, CATEGORY, CAT_COLOR, REST, EMPHASIS, PF, ACTION,
+  MG_GROUP, groupOf, GROUP_LABEL, groupLabel, GROUPS, groupMuscles,
   SORENESS, PUMP, WORKLOAD, JOINT,
   landmarks, band, setDelta, applyDelta, performanceScore, mrvHit, recoverySession, resumeVolume,
   rirForWeek, rirFloor, isDeload, deloadPrescription, deloadDrops,

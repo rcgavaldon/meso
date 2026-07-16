@@ -238,8 +238,11 @@ body.resting{padding-bottom:calc(64px + 58px + var(--safe-b))}
 /* ============ Exercise demos ============ */
 .demo-glyph{opacity:.4;font-size:.8em;margin-left:2px}
 .demo{padding:4px 0 2px}
-.demo video,.demo-img{display:block;width:100%;max-width:320px;aspect-ratio:1/1;object-fit:cover;
-  border-radius:var(--r-btn);background:var(--b1);margin:0 auto}
+/* contain, NOT cover — cover was cropping every clip to a square and cutting the movement off.
+   Smaller, letterboxed on the dark card, whole rep always visible. */
+.demo video,.demo-img{display:block;width:100%;max-width:240px;max-height:220px;object-fit:contain;
+  border-radius:var(--r-btn);background:#000;margin:0 auto}
+.thumb{object-fit:contain!important;background:#0a0a0a!important}
 .thumb{width:46px;height:46px;border-radius:var(--r-btn);object-fit:cover;background:var(--b1);flex:none}
 .exhd-tap{padding:0;min-width:0}
 
@@ -280,11 +283,11 @@ body.resting{padding-bottom:calc(64px + 58px + var(--safe-b))}
 <section class="sheet" id="sheet" role="dialog" aria-modal="true"></section>
 <div class="toast" id="toast"></div>
 
-<script src="data/exercises.js?v=18"></script>
-<script src="js/db.js?v=18"></script>
-<script src="js/engine.js?v=18"></script>
-<script src="js/media.js?v=18"></script>
-<script src="js/app.js?v=18"></script>
+<script src="data/exercises.js?v=19"></script>
+<script src="js/db.js?v=19"></script>
+<script src="js/engine.js?v=19"></script>
+<script src="js/media.js?v=19"></script>
+<script src="js/app.js?v=19"></script>
 <script>
 if ("serviceWorker" in navigator) {
   addEventListener("load", () => navigator.serviceWorker.register("sw.js").then(reg => {
