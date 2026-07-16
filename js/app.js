@@ -628,12 +628,29 @@ async function ensureSession(w, d) {
         gymId: S.gym.gym_id, off_plan: S.gym.travel === true,
         sets: [], feedback: {}, jointPain: {}, finished: false };
 
+  const subs = [];   // slots this gym couldn't do, auto-swapped — surfaced on the Today screen
   for (const g of day.muscles) {
     if (deload && E.deloadDrops(g.m)) continue;      // [APP] traps + forearms come out of deload
     for (const slot of g.slots) {
-      const ex = LIB().find(x => x.id === slot.exId);
+      let ex = LIB().find(x => x.id === slot.exId);
       if (!ex) continue;
-      const bind = E.resolveEquipment(ex, S.gym, S.occupied);
+      let bind = E.resolveEquipment(ex, S.gym, S.occupied);
+      /* 🔴 THE SLOT'S EXERCISE MAY NOT EXIST AT TODAY'S GYM.
+         Slots are baked at seed time against the gym you were standing in. Change gyms and the
+         plan still names a pec deck. This used to compute `bind` and never check `bind.ok`, so
+         it rendered a full logging card for a Seated Leg Curl at a hotel with a floor, three
+         dumbbells and a bench — labelled "Machine", with no warning. That's the product's whole
+         claim inverted, on the travel flow, which is exactly when it's least recoverable.
+         The backup chain already exists — use it. Auto-substitute, record why, and only drop the
+         slot if this gym genuinely can't train the muscle. */
+      if (!bind.ok) {
+        const pick = E.selectForSlot(Object.assign({}, slot, { rir }), S.gym, S.user,
+          { chosen: s.sets.map(x => LIB().find(e => e.id === x.exId)).filter(Boolean),
+            fatigueSpent: .3, occupied: S.occupied, timeboxed: day.muscles.length >= 5 }, LIB());
+        if (!pick.primary) continue;                       // this gym can't train it at all
+        subs.push({ from: ex.name, to: pick.primary.ex.id });
+        ex = pick.primary.ex; bind = pick.primary.bind;
+      }
       const sl = Object.assign({}, slot, { rir: Math.max(rir, E.rirFloor(ex)) });
       const tgt = bind.ok ? E.targetLoad(S.user, ex, bind, sl) : null;
       let sets = slot.sets, reps = (slot.repRange || [8,12])[1], load = tgt && tgt.load;
@@ -651,14 +668,14 @@ async function ensureSession(w, d) {
       const firstForMuscle = !s.sets.some(x => x.muscle === g.m);
       if (!deload) for (const w of E.warmupSets(load, bind.plan, ex, firstForMuscle)) {
         s.sets.push({ id: uid(), slotId: slot.id, muscle: g.m, exId: ex.id, bucket,
-          repRange: slot.repRange, warmup: true, pct: w.pct,
+          repRange: slot.repRange, sub: ex.id !== slot.exId ? { of: slot.exId, reason: "gym" } : undefined, warmup: true, pct: w.pct,
           instanceId: bind.ok && bind.carrier ? bind.carrier.instance_id : null,
           load: w.load, reps: null, targetReps: w.reps, targetLoad: w.load,
           rir: null, done: false, est: null });
       }
       for (let i = 0; i < sets; i++) {
         s.sets.push({ id: uid(), slotId: slot.id, muscle: g.m, exId: ex.id, bucket,
-          repRange: slot.repRange,
+          repRange: slot.repRange, sub: ex.id !== slot.exId ? { of: slot.exId, reason: "gym" } : undefined,
           instanceId: bind.ok && bind.carrier ? bind.carrier.instance_id : null,
           load: load || null, reps: null, targetReps: reps, targetLoad: load || null,
           // Only a real cross-exercise RATIO estimate earns the calibration note. A "feel_out"
@@ -667,6 +684,7 @@ async function ensureSession(w, d) {
       }
     }
   }
+  if (subs.length) s.gymSubs = subs;   // say it out loud; a silent swap is how trust dies
   await DB.put("session", s);
   return s;
 }
@@ -713,12 +731,17 @@ async function viewToday() {
  *  · Session length — only offered at the moment it binds (when a pick freezes something).
  * ================================================================ */
 const INTAKE = { days: 4, weeks: 5, focus: [] };
+/* One source of truth for which day counts a user may pick. The segment and the "Train N days"
+   advice button both read it — they disagreed, and the button could set a value the segment
+   couldn't render, leaving nothing selected and no way back. */
+const dayChoices = () => (S.user && S.user.id === ADMIN_ID) ? [2,3,4,5,6] : [2,3];
+const maxDays = () => dayChoices()[dayChoices().length - 1];
 
 function viewNoMeso() {
   const admin = S.user.id === ADMIN_ID;
   if (!INTAKE.focus.length && S.user.emphasis)
     INTAKE.focus = Object.keys(S.user.emphasis).filter(m => S.user.emphasis[m] === "emphasize");
-  if (!admin) INTAKE.days = Math.min(INTAKE.days, 3);
+  INTAKE.days = Math.min(INTAKE.days, maxDays());
   drawIntake();
 }
 
@@ -736,7 +759,7 @@ function drawIntake() {
 
     <div class="card"><div class="row"><div class="grow">Days a week</div></div>
       <div style="padding:0 14px 14px"><div class="seg" id="dseg">
-        ${(S.user.id === ADMIN_ID ? [2,3,4,5,6] : [2,3]).map(d =>
+        ${dayChoices().map(d =>
           `<button data-d="${d}" aria-selected="${d===INTAKE.days}">${d}</button>`).join("")}
       </div></div>
     </div>
@@ -838,7 +861,7 @@ function drawAdvice(p) {
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn ghost" id="advTrim">Keep my top ${Math.max(1, n-1)}</button>
       <button class="btn ghost" id="advMin">Make it ${(S.user.sessionMinutes||E.CFG.sessionMinutesMax)+15} minutes</button>
-      ${INTAKE.days < 6 ? `<button class="btn ghost" id="advDay">Train ${INTAKE.days+1} days</button>` : ""}
+      ${INTAKE.days < maxDays() ? `<button class="btn ghost" id="advDay">Train ${INTAKE.days+1} days</button>` : ""}
     </div></div></div>`;
   // Deselect by lowest room — drop what's contributing least, not what was tapped last.
   $("#advTrim").onclick = () => {
@@ -851,7 +874,9 @@ function drawAdvice(p) {
     await DB.put("kv", { k: "users", v: S.users });
     toast(`Sessions are now ~${S.user.sessionMinutes} minutes`); drawIntake();
   };
-  const ad = $("#advDay"); if (ad) ad.onclick = () => { INTAKE.days++; drawIntake(); };
+  // Only offer a day count this user can actually select — the segment is [2,3] for non-admin,
+  // so bumping Nina to 4 rendered a segment with NOTHING selected and no way back.
+  const ad = $("#advDay"); if (ad) ad.onclick = () => { INTAKE.days = Math.min(INTAKE.days + 1, maxDays()); drawIntake(); };
 }
 
 function viewMesoComplete() {
@@ -1355,9 +1380,10 @@ function equipSheet(gymId) {
 
   sheet("<h3>What’s at " + esc(gym.name) + "?</h3>"
     + '<div class="sm dim" style="margin:6px 0 12px">'
-    + "Tick what you’ve actually seen. Meso won’t prescribe anything you don’t have "
-    + "— and it won’t skip anything you do. Not sure? Leave it off; you can add it next "
-    + "time you’re there.</div>"
+    + "Tick what you’ve actually seen. Meso won’t prescribe anything you don’t have. "
+    + "This drives what you can swap to today, and what your next mesocycle is built from — your "
+    + "current block keeps its exercises on purpose. Not sure? Leave it off; add it next time "
+    + "you’re there.</div>"
     + body
     + '<div class="sheet-ft"><button class="btn" id="ekDone">Done</button></div>');
 
@@ -1365,7 +1391,11 @@ function equipSheet(gymId) {
     await DB.put("kv", { k:"gyms", v: S.gyms });
     closeSheet();
     const n = LIB().filter(e => E.resolveEquipment(e, gym, new Set()).ok).length;
-    toast(gym.name + ": " + n + " exercises available");
+    /* Be honest about scope. Slots are baked at seed time and [PUB] RP's continuity rule says you
+       cannot progress what you keep replacing — so a tick does NOT re-pick your current block.
+       It changes what today's session can SWAP to, and what your next meso is built from.
+       The sheet said "it won't skip anything you do", which over-promised. */
+    toast(`${gym.name}: ${n} exercises available — used for swaps and your next meso`);
     if (S.tab === "today") go("today");
   };
   document.querySelectorAll("[data-mk]").forEach(r => r.onclick = async () => {

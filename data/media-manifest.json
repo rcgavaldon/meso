@@ -1,0 +1,943 @@
+{
+  "ab_wheel": {
+    "source": "wger",
+    "source_id": 1573,
+    "source_name": "Ab wheel",
+    "source_page": "https://wger.de/en/exercise/1573/view/",
+    "license": "CC-BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "author": "lhegedus",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/1573/b8efea91-8fcb-4926-82a9-76c62b16925f.jpg",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/1573/b8efea91-8fcb-4926-82a9-76c62b16925f.jpg"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/ab_wheel",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "back_extension_45": {
+    "source": "wger",
+    "source_id": 301,
+    "source_name": "Hyperextensions",
+    "source_page": "https://wger.de/en/exercise/301/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/128/Hyperextensions-1.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/128/Hyperextensions-1.png",
+      "https://wger.de/media/exercise-images/128/Hyperextensions-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/back_extension_45",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "bb_back_squat": {
+    "source": "wger",
+    "source_id": 1801,
+    "source_name": "Barbell Full Squat",
+    "source_page": "https://wger.de/en/exercise/1801/view/",
+    "license": "CC-BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "author": "Workout Guru",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/1801/60043328-1cfb-4289-9865-aaf64d5aaa28.jpg",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/1801/60043328-1cfb-4289-9865-aaf64d5aaa28.jpg",
+      "https://wger.de/media/exercise-images/1801/68720d5e-f422-47ac-81e4-c7b51144d302.jpg"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/bb_back_squat",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "bb_curl": {
+    "source": "wger",
+    "source_id": 91,
+    "source_name": "Biceps Curls With Barbell",
+    "source_page": "https://wger.de/en/exercise/91/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/74/Bicep-curls-1.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/74/Bicep-curls-1.png",
+      "https://wger.de/media/exercise-images/74/Bicep-curls-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/bb_curl",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "bb_flat_bench": {
+    "source": "wger",
+    "source_id": 73,
+    "source_name": "Bench Press",
+    "source_page": "https://wger.de/en/exercise/73/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/192/Bench-press-1.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/192/Bench-press-1.png",
+      "https://wger.de/media/exercise-images/192/Bench-press-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/bb_flat_bench",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "bb_front_squat": {
+    "source": "wger",
+    "source_id": 257,
+    "source_name": "Front Squats",
+    "source_page": "https://wger.de/en/exercise/257/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/191/Front-squat-1-857x1024.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/191/Front-squat-1-857x1024.png",
+      "https://wger.de/media/exercise-images/191/Front-squat-2-857x1024.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/bb_front_squat",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "bb_good_morning": {
+    "source": "wger",
+    "source_id": 1392,
+    "source_name": "Good Morning",
+    "source_page": "https://wger.de/en/exercise/1392/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/1392/a02c9c7d-f42d-43e0-9946-1b99b014daee.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/1392/a02c9c7d-f42d-43e0-9946-1b99b014daee.png",
+      "https://wger.de/media/exercise-images/1392/af848376-3db3-4b16-a056-4aa936d49da4.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/bb_good_morning",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "bb_incline_press": {
+    "source": "wger",
+    "source_id": 538,
+    "source_name": "Incline Bench Press - Barbell",
+    "source_page": "https://wger.de/en/exercise/538/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/41/Incline-bench-press-1.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/41/Incline-bench-press-1.png",
+      "https://wger.de/media/exercise-images/41/Incline-bench-press-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/bb_incline_press",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "bb_ohp": {
+    "source": "wger",
+    "source_id": 566,
+    "source_name": "Shoulder Press, Barbell",
+    "source_page": "https://wger.de/en/exercise/566/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/119/seated-barbell-shoulder-press-large-1.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/119/seated-barbell-shoulder-press-large-1.png",
+      "https://wger.de/media/exercise-images/119/seated-barbell-shoulder-press-large-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/bb_ohp",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "bb_row": {
+    "source": "wger",
+    "source_id": 83,
+    "source_name": "Bent Over Rowing",
+    "source_page": "https://wger.de/en/exercise/83/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/109/Barbell-rear-delt-row-1.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/109/Barbell-rear-delt-row-1.png",
+      "https://wger.de/media/exercise-images/109/Barbell-rear-delt-row-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/bb_row",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "bb_shrug": {
+    "source": "wger",
+    "source_id": 571,
+    "source_name": "Shrugs, Barbells",
+    "source_page": "https://wger.de/en/exercise/571/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/150/Barbell-shrugs-1.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/150/Barbell-shrugs-1.png",
+      "https://wger.de/media/exercise-images/150/Barbell-shrugs-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/bb_shrug",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "bench_dip": {
+    "source": "wger",
+    "source_id": 197,
+    "source_name": "Dips Between Two Benches",
+    "source_page": "https://wger.de/en/exercise/197/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/83/Bench-dips-1.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/83/Bench-dips-1.png",
+      "https://wger.de/media/exercise-images/83/Bench-dips-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/bench_dip",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "cable_curl": {
+    "source": "wger",
+    "source_id": 95,
+    "source_name": "Biceps Curl With Cable",
+    "source_page": "https://wger.de/en/exercise/95/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/129/Standing-biceps-curl-1.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/129/Standing-biceps-curl-1.png",
+      "https://wger.de/media/exercise-images/129/Standing-biceps-curl-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/cable_curl",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "cable_fly": {
+    "source": "wger",
+    "source_id": 237,
+    "source_name": "Fly With Cable",
+    "source_page": "https://wger.de/en/exercise/237/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/122/Incline-cable-flyes-1.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/122/Incline-cable-flyes-1.png",
+      "https://wger.de/media/exercise-images/122/Incline-cable-flyes-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/cable_fly",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "cable_lateral_raise": {
+    "source": "wger",
+    "source_id": 349,
+    "source_name": "Lateral Rows on Cable, One Armed",
+    "source_page": "https://wger.de/en/exercise/349/view/",
+    "license": "CC-BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "author": "philip",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/349/9d969203-9cb6-4d47-9c31-fef53bfe1de5.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/349/9d969203-9cb6-4d47-9c31-fef53bfe1de5.png",
+      "https://wger.de/media/exercise-images/349/8dc5ad63-a93a-496f-9473-ac414236e58d.png",
+      "https://wger.de/media/exercise-images/349/7359ab6a-72a4-4ed8-b7da-35d57aaa2199.png"
+    ],
+    "frames": 3,
+    "cloudinary_public_id": "meso/ex/cable_lateral_raise",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "cable_pushdown": {
+    "source": "wger",
+    "source_id": 805,
+    "source_name": "Tricep Pushdown on Cable",
+    "source_page": "https://wger.de/en/exercise/805/view/",
+    "license": "CC-BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "author": "cshep442",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/805/7a437824-e2cc-46e1-804a-674f0ea31d25.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/805/7a437824-e2cc-46e1-804a-674f0ea31d25.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/cable_pushdown",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "cable_rear_delt_fly": {
+    "source": "wger",
+    "source_id": 822,
+    "source_name": "Cable Rear Delt Fly",
+    "source_page": "https://wger.de/en/exercise/822/view/",
+    "license": "CC-BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "author": "cshep442",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/822/74affc0d-03b6-4f33-b5f4-a822a2615f68.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/822/74affc0d-03b6-4f33-b5f4-a822a2615f68.png",
+      "https://wger.de/media/exercise-images/822/6a770e5d-cd62-4754-a18c-eebe2103d7c5.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/cable_rear_delt_fly",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "cable_rope_hammer_curl": {
+    "source": "wger",
+    "source_id": 275,
+    "source_name": "Hammercurls on Cable",
+    "source_page": "https://wger.de/en/exercise/275/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/138/Hammer-curls-with-rope-1.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/138/Hammer-curls-with-rope-1.png",
+      "https://wger.de/media/exercise-images/138/Hammer-curls-with-rope-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/cable_rope_hammer_curl",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "chinup": {
+    "source": "wger",
+    "source_id": 152,
+    "source_name": "Chin Up",
+    "source_page": "https://wger.de/en/exercise/152/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/152/6c1a7459-266d-491a-bd50-7cbaea2bc771.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/152/6c1a7459-266d-491a-bd50-7cbaea2bc771.png",
+      "https://wger.de/media/exercise-images/152/b2c5a9f9-8beb-41f7-841c-9664d22a427e.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/chinup",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "close_grip_bench": {
+    "source": "wger",
+    "source_id": 76,
+    "source_name": "Bench Press Narrow Grip",
+    "source_page": "https://wger.de/en/exercise/76/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/88/Narrow-grip-bench-press-1.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/88/Narrow-grip-bench-press-1.png",
+      "https://wger.de/media/exercise-images/88/Narrow-grip-bench-press-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/close_grip_bench",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "conventional_deadlift": {
+    "source": "wger",
+    "source_id": 184,
+    "source_name": "Deadlifts",
+    "source_page": "https://wger.de/en/exercise/184/view/",
+    "license": "CC-BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "author": "philip",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/184/1709c405-620a-4d07-9658-fade2b66a2df.jpeg",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/184/1709c405-620a-4d07-9658-fade2b66a2df.jpeg"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/conventional_deadlift",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "db_curl": {
+    "source": "wger",
+    "source_id": 92,
+    "source_name": "Biceps Curls With Dumbbell",
+    "source_page": "https://wger.de/en/exercise/92/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/81/Biceps-curl-1.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/81/Biceps-curl-1.png",
+      "https://wger.de/media/exercise-images/81/Biceps-curl-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/db_curl",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "db_flat_press": {
+    "source": "wger",
+    "source_id": 75,
+    "source_name": "Benchpress Dumbbells",
+    "source_page": "https://wger.de/en/exercise/75/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/97/Dumbbell-bench-press-1.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/97/Dumbbell-bench-press-1.png",
+      "https://wger.de/media/exercise-images/97/Dumbbell-bench-press-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/db_flat_press",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "db_fly": {
+    "source": "wger",
+    "source_id": 238,
+    "source_name": "Fly With Dumbbells",
+    "source_page": "https://wger.de/en/exercise/238/view/",
+    "license": "CC-BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "author": "cshep442",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/238/2fc242d3-5bdd-4f97-99bd-678adb8c96fc.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/238/2fc242d3-5bdd-4f97-99bd-678adb8c96fc.png",
+      "https://wger.de/media/exercise-images/238/c6464fb3-1924-4ff1-adfa-fd36da9b5d13.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/db_fly",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "db_front_raise": {
+    "source": "wger",
+    "source_id": 256,
+    "source_name": "Front Raises",
+    "source_page": "https://wger.de/en/exercise/256/view/",
+    "license": "CC-BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "author": "philip",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/256/b7def5bc-2352-499b-b9e5-fff741003831.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/256/b7def5bc-2352-499b-b9e5-fff741003831.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/db_front_raise",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "db_hammer_curl": {
+    "source": "wger",
+    "source_id": 272,
+    "source_name": "Hammer Curls",
+    "source_page": "https://wger.de/en/exercise/272/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/86/Bicep-hammer-curl-1.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/86/Bicep-hammer-curl-1.png",
+      "https://wger.de/media/exercise-images/86/Bicep-hammer-curl-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/db_hammer_curl",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "db_incline_press": {
+    "source": "wger",
+    "source_id": 537,
+    "source_name": "Incline Bench Press - Dumbbell",
+    "source_page": "https://wger.de/en/exercise/537/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/16/Incline-press-1.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/16/Incline-press-1.png",
+      "https://wger.de/media/exercise-images/16/Incline-press-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/db_incline_press",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "db_lateral_raise": {
+    "source": "wger",
+    "source_id": 348,
+    "source_name": "Lateral Raises",
+    "source_page": "https://wger.de/en/exercise/348/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/148/lateral-dumbbell-raises-large-2.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/148/lateral-dumbbell-raises-large-2.png",
+      "https://wger.de/media/exercise-images/148/lateral-dumbbell-raises-large-1.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/db_lateral_raise",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "db_pullover": {
+    "source": "wger",
+    "source_id": 161,
+    "source_name": "Cross-Bench Dumbbell Pullovers",
+    "source_page": "https://wger.de/en/exercise/161/view/",
+    "license": "CC-BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "author": "powerade69",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/161/b9b1803e-2817-40bf-8ac7-e398ca86d8b4.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/161/b9b1803e-2817-40bf-8ac7-e398ca86d8b4.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/db_pullover",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "db_rear_delt_fly": {
+    "source": "wger",
+    "source_id": 487,
+    "source_name": "Rear Delt Raises",
+    "source_page": "https://wger.de/en/exercise/487/view/",
+    "license": "CC-BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "author": "cshep442",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/487/ad724e5c-b1ed-49e8-9279-a17545b0dd0b.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/487/ad724e5c-b1ed-49e8-9279-a17545b0dd0b.png",
+      "https://wger.de/media/exercise-images/487/692c598c-0493-42a5-be8b-b9d2e9adcd00.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/db_rear_delt_fly",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "db_shoulder_press": {
+    "source": "wger",
+    "source_id": 567,
+    "source_name": "Shoulder Press, Dumbbells",
+    "source_page": "https://wger.de/en/exercise/567/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/123/dumbbell-shoulder-press-large-1.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/123/dumbbell-shoulder-press-large-1.png",
+      "https://wger.de/media/exercise-images/123/dumbbell-shoulder-press-large-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/db_shoulder_press",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "db_shrug": {
+    "source": "wger",
+    "source_id": 572,
+    "source_name": "Shrugs, Dumbbells",
+    "source_page": "https://wger.de/en/exercise/572/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/151/Dumbbell-shrugs-2.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/151/Dumbbell-shrugs-2.png",
+      "https://wger.de/media/exercise-images/151/Dumbbell-shrugs-1.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/db_shrug",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "diamond_pushup": {
+    "source": "wger",
+    "source_id": 1086,
+    "source_name": "Close-grip Press-ups",
+    "source_page": "https://wger.de/en/exercise/1086/view/",
+    "license": "CC-BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "author": "philip",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/1086/b2ee8d9b-0480-4992-8494-c223b37c2696.jpg",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/1086/b2ee8d9b-0480-4992-8494-c223b37c2696.jpg"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/diamond_pushup",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "dip": {
+    "source": "wger",
+    "source_id": 194,
+    "source_name": "Dips",
+    "source_page": "https://wger.de/en/exercise/194/view/",
+    "license": "CC-BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "author": "cshep442",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/194/34600351-8b0b-4cb0-8daa-583537be15b0.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/194/34600351-8b0b-4cb0-8daa-583537be15b0.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/dip",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "ez_preacher_curl": {
+    "source": "wger",
+    "source_id": 465,
+    "source_name": "Preacher Curls",
+    "source_page": "https://wger.de/en/exercise/465/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/193/Preacher-curl-3-1.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/193/Preacher-curl-3-1.png",
+      "https://wger.de/media/exercise-images/193/Preacher-curl-3-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/ez_preacher_curl",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "ez_skullcrusher": {
+    "source": "wger",
+    "source_id": 246,
+    "source_name": "Skullcrusher SZ-bar",
+    "source_page": "https://wger.de/en/exercise/246/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/84/Lying-close-grip-triceps-press-to-chin-1.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/84/Lying-close-grip-triceps-press-to-chin-1.png",
+      "https://wger.de/media/exercise-images/84/Lying-close-grip-triceps-press-to-chin-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/ez_skullcrusher",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "goblet_squat": {
+    "source": "wger",
+    "source_id": 203,
+    "source_name": "Dumbbell Goblet Squat",
+    "source_page": "https://wger.de/en/exercise/203/view/",
+    "license": "CC-BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "author": "philip",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/203/1c052351-2af0-4227-aeb0-244008e4b0a8.jpeg",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/203/1c052351-2af0-4227-aeb0-244008e4b0a8.jpeg",
+      "https://wger.de/media/exercise-images/203/2ab30113-4e08-4d39-9d23-d901ce2c0971.jpeg"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/goblet_squat",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "inverted_row": {
+    "source": "wger",
+    "source_id": 1198,
+    "source_name": "Inverted Rows",
+    "source_page": "https://wger.de/en/exercise/1198/view/",
+    "license": "CC-BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "author": "Gavru",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/1198/864906ac-4ac7-4e52-a886-c6bb97950a9f.jpg",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/1198/864906ac-4ac7-4e52-a886-c6bb97950a9f.jpg"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/inverted_row",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "leg_curl_lying": {
+    "source": "wger",
+    "source_id": 365,
+    "source_name": "Leg Curls (laying)",
+    "source_page": "https://wger.de/en/exercise/365/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/154/lying-leg-curl-machine-large-1.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/154/lying-leg-curl-machine-large-1.png",
+      "https://wger.de/media/exercise-images/154/lying-leg-curl-machine-large-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/leg_curl_lying",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "leg_curl_seated": {
+    "source": "wger",
+    "source_id": 366,
+    "source_name": "Leg Curls (sitting)",
+    "source_page": "https://wger.de/en/exercise/366/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/117/seated-leg-curl-large-1.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/117/seated-leg-curl-large-1.png",
+      "https://wger.de/media/exercise-images/117/seated-leg-curl-large-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/leg_curl_seated",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "machine_shoulder_press": {
+    "source": "wger",
+    "source_id": 543,
+    "source_name": "Shoulder Press, on Machine",
+    "source_page": "https://wger.de/en/exercise/543/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "wger.de",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/53/Shoulder-press-machine-2.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/53/Shoulder-press-machine-2.png",
+      "https://wger.de/media/exercise-images/53/Shoulder-press-machine-1.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/machine_shoulder_press",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "pallof_press": {
+    "source": "wger",
+    "source_id": 1194,
+    "source_name": "Pallof Press",
+    "source_page": "https://wger.de/en/exercise/1194/view/",
+    "license": "CC-BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "author": "prevail90",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/1194/074e1766-4208-4a67-a211-9721772d99b0.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/1194/074e1766-4208-4a67-a211-9721772d99b0.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/pallof_press",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "pec_deck": {
+    "source": "wger",
+    "source_id": 135,
+    "source_name": "Butterfly",
+    "source_page": "https://wger.de/en/exercise/135/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/98/Butterfly-machine-2.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/98/Butterfly-machine-2.png",
+      "https://wger.de/media/exercise-images/98/Butterfly-machine-1.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/pec_deck",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "pike_pushup": {
+    "source": "wger",
+    "source_id": 454,
+    "source_name": "Pike Push Ups",
+    "source_page": "https://wger.de/en/exercise/454/view/",
+    "license": "CC-BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "author": "Nash",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/454/447f3c17-405f-46e0-b138-65c2a8caaab0.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/454/447f3c17-405f-46e0-b138-65c2a8caaab0.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/pike_pushup",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "pullup": {
+    "source": "wger",
+    "source_id": 475,
+    "source_name": "Pull-ups",
+    "source_page": "https://wger.de/en/exercise/475/view/",
+    "license": "CC-BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "author": "Imobard",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/475/b0554016-16fd-4dbe-be47-a2a17d16ae0e.jpg",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/475/b0554016-16fd-4dbe-be47-a2a17d16ae0e.jpg"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/pullup",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "pushup": {
+    "source": "wger",
+    "source_id": 1551,
+    "source_name": "Push-Up",
+    "source_page": "https://wger.de/en/exercise/1551/view/",
+    "license": "CC-BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "author": "Settebello",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/1551/a6a9e561-3965-45c6-9f2b-ee671e1a3a45.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/1551/a6a9e561-3965-45c6-9f2b-ee671e1a3a45.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/pushup",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "reverse_crunch": {
+    "source": "wger",
+    "source_id": 377,
+    "source_name": "Leg Raises, Lying",
+    "source_page": "https://wger.de/en/exercise/377/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/125/Leg-raises-2.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/125/Leg-raises-2.png",
+      "https://wger.de/media/exercise-images/125/Leg-raises-1.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/reverse_crunch",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "reverse_lunge": {
+    "source": "wger",
+    "source_id": 999,
+    "source_name": "Reverse lunges",
+    "source_page": "https://wger.de/en/exercise/999/view/",
+    "license": "CC-BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "author": "philip",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/999/d0931eb3-8db0-4049-bb08-aa4036072056.jfif",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/999/d0931eb3-8db0-4049-bb08-aa4036072056.jfif",
+      "https://wger.de/media/exercise-images/999/8548b2d2-004d-48b4-95fd-b1b25f4e53d0.jfif"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/reverse_lunge",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "smith_incline_press": {
+    "source": "wger",
+    "source_id": 925,
+    "source_name": "Smith Machine Slight Incline Press",
+    "source_page": "https://wger.de/en/exercise/925/view/",
+    "license": "CC-BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "author": "novadani",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/925/67dbb1c9-b378-46f9-adb6-1f55b3d3007a.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/925/67dbb1c9-b378-46f9-adb6-1f55b3d3007a.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/smith_incline_press",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "smith_ohp": {
+    "source": "wger",
+    "source_id": 916,
+    "source_name": "Smith Press",
+    "source_page": "https://wger.de/en/exercise/916/view/",
+    "license": "CC-BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "author": "novadani",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/916/9bf7555a-fec6-43a9-b343-aae496744e5e.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/916/9bf7555a-fec6-43a9-b343-aae496744e5e.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/smith_ohp",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "step_up": {
+    "source": "wger",
+    "source_id": 981,
+    "source_name": "Step-ups",
+    "source_page": "https://wger.de/en/exercise/981/view/",
+    "license": "CC-BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "author": "wger community contributor",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/981/f9377a7e-eb58-4cca-b805-2d36863aeb03.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/981/f9377a7e-eb58-4cca-b805-2d36863aeb03.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/step_up",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "t_bar_row": {
+    "source": "wger",
+    "source_id": 513,
+    "source_name": "Rowing, T-bar",
+    "source_page": "https://wger.de/en/exercise/513/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/106/T-bar-row-1.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/106/T-bar-row-1.png",
+      "https://wger.de/media/exercise-images/106/T-bar-row-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/t_bar_row",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "walking_lunge": {
+    "source": "wger",
+    "source_id": 206,
+    "source_name": "Dumbbell Lunges Walking",
+    "source_page": "https://wger.de/en/exercise/206/view/",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "",
+    "url": "https://wger.de/media/exercise-images/113/Walking-lunges-1.png",
+    "source_urls": [
+      "https://wger.de/media/exercise-images/113/Walking-lunges-1.png",
+      "https://wger.de/media/exercise-images/113/Walking-lunges-2.png",
+      "https://wger.de/media/exercise-images/113/Walking-lunges-3.png"
+    ],
+    "frames": 3,
+    "cloudinary_public_id": "meso/ex/walking_lunge",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  }
+}

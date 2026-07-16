@@ -1121,6 +1121,33 @@ const splitFor = days => {
 function loadPlan(inst) {
   if (!inst || !inst.load) return null;
   const L = inst.load;
+  /* 🔴 BANDS. kind:"variable" carries `levels` + `approx_lb`, not min/max — so this used to fall
+     through to {min:0, max:0} and canReach() then accepted ONLY 0. Net effect: a band exercise
+     worked fine until you logged a set on it, and then silently VANISHED from selection forever,
+     because canReach(35) was false. It also made warmupSets() return [] and made progress()
+     unable to ever raise a band load. That hit 20 exercises at Home and 19 at Hotel — the two
+     sparse gyms where bands are the whole point, and precisely the opposite of what floorPenalty
+     was written to protect. */
+  if (L.kind === "variable") {
+    const lb = (L.approx_lb && L.approx_lb.length) ? L.approx_lb.slice().sort((a, b) => a - b) : [15, 35, 60];
+    const step = () => {
+      // Bands don't have an increment — they have rungs. The "step" is the gap to the next band.
+      let g = Infinity;
+      for (let i = 1; i < lb.length; i++) g = Math.min(g, lb[i] - lb[i - 1]);
+      return isFinite(g) ? g : 20;
+    };
+    const nearest = (w, dir) => {
+      const c = dir < 0 ? lb.filter(x => x <= w + .01) : lb.filter(x => x >= w - .01);
+      return c.length ? (dir < 0 ? c[c.length - 1] : c[0]) : (dir < 0 ? lb[0] : lb[lb.length - 1]);
+    };
+    return {
+      min: lb[0], max: lb[lb.length - 1], increment: step(), addOn: 0, kind: L.kind, levels: L.levels,
+      stepAt: () => step(),
+      canReach: w => w >= lb[0] - .01 && w <= lb[lb.length - 1] + .01,
+      nearestAtOrBelow: w => nearest(w, -1),
+      nearestAtOrAbove: w => nearest(w, +1)
+    };
+  }
   let min = L.min || 0, max = L.max || 0;
   const inc = L.increment || 5;
   const addOn = (L.add_on && L.add_on.length) ? Math.min.apply(null, L.add_on) : 0;
@@ -1185,10 +1212,20 @@ function resolveEquipment(ex, gym, occupied) {
   return { ok: false };
 }
 
+/* ⚠️ DEAD until the library declares the flags. ZERO of 130 exercises set `drops_weight` or
+   `needs_overhead_clearance`, so Home's noise_limit and Hotel's 84" ceiling can never fire.
+   Derive them instead of waiting on a data migration: an overhead press needs clearance, and a
+   deadlift/clean gets dropped. The old `< 96` test also wouldn't have fired at Home, whose
+   ceiling is exactly 96. */
+const OVERHEAD = new Set(["vertical_press"]);
 function violatesGym(ex, gym) {
   const c = (gym && gym.constraints) || {};
-  if (c.ceiling_height_in && ex.needs_overhead_clearance && c.ceiling_height_in < 96) return true;
-  if (c.noise_limit && ex.drops_weight) return true;
+  const overhead = ex.needs_overhead_clearance || OVERHEAD.has(ex.pattern) ||
+                   /overhead|ohp|press.*(standing|military)|snatch|jerk/i.test(ex.name || "");
+  const drops = ex.drops_weight || /deadlift|clean|snatch|jerk/i.test(ex.name || "");
+  // Standing + a bar overhead needs ~7ft. A hotel gym at 84" (7ft flat) is genuinely too low.
+  if (c.ceiling_height_in && overhead && c.ceiling_height_in <= 90) return true;
+  if (c.noise_limit && drops) return true;
   return false;
 }
 
@@ -1206,7 +1243,8 @@ const W = {
   f_profile:.35, f_stretch:.25, f_reps:.20, f_stability:.20,
   p_gran:.60, p_head:.40,
   c_systemic:.30, c_redundancy:.35, c_setup:.10, c_technique:.15, c_risk:.20,
-  m_continuity:+.30, m_joint:-.50, m_stale:-.15, m_contention:-.12, m_untested:-.08
+  m_continuity:+.30, m_joint:-.50, m_stale:-.15, m_contention:-.12, m_untested:-.08,
+  m_simple:-.16,   // full-strength on a 2-day full-body week; see scoreExercise
 };
 
 const effTier = (user, ex, m) => {
@@ -1327,6 +1365,14 @@ function scoreExercise(c, slot, gym, user, session) {
     s += W.m_stale * clamp(user.staleness[ex.id] / 3, 0, 1);
   if (c.carrier && c.carrier.contention) s += W.m_contention * ({ low:0, med:.5, high:1 })[c.carrier.contention];
   if ((slot.position || 1) === 1 && user.loadState && !user.loadState[user.id + "|" + ex.id]) s += W.m_untested;
+
+  /* "Simple movements, nothing fancy." The c_technique term inside `context` is arithmetically
+     incapable of changing a pick: its whole swing is W.context(.15) x W.c_technique(.15) = 0.0225,
+     while ONE RP-tier gap is W.quality(.40) x W.q_tier(.40) x 0.4 = 0.064. It could never
+     outvote a tier. Nina — 132lb, 2 days, session.simple — was still handed bb_front_squat at
+     technique_demand 5, the maximum. So the real decision lives here, as a modifier big enough to
+     cross a tier: on a simple day a technical lift has to be MUCH better to win. */
+  if (session.simple) s += W.m_simple * n5(ex.ratings.technique_demand);
   return s;
 }
 
@@ -1343,6 +1389,15 @@ function selectForSlot(slot, gym, user, session, library) {
     // ⚠️ Scoped to the session on purpose: [PUB] RP explicitly endorses repeating a lift ACROSS
     // the week (heavy bench Mon / light bench Wed / flye Fri). Different day, different `chosen`.
     if ((session.chosen || []).some(c => c.id === ex.id)) continue;
+    /* Same FAMILY and same resistance peak, already in this session → not a candidate.
+       redundancy() only penalizes (measured 0.0341), which bb_rdl beat by 0.027 — so Nina got
+       db_rdl for glutes AND bb_rdl for hamstrings: the same movement twice, which is exactly the
+       failure app.js:363 claims to prevent. [PUB] RP's real warning is against same-ANGLE
+       redundancy, not against repeating a lift across the WEEK — different session, different
+       `chosen`, still allowed. */
+    if ((session.chosen || []).some(c => c.family && c.family === ex.family &&
+        c.profile && ex.profile && c.profile.resistance_peak === ex.profile.resistance_peak &&
+        !(slot.allow_same_family))) continue;
     if (((user.overrides || {})[ex.id] || {}).blacklist) continue;
     if ((user.injuries || []).some(i => (i.blacklist || []).includes(ex.id))) continue;
     if (violatesGym(ex, gym)) continue;
@@ -1988,6 +2043,31 @@ function verify() {
     const lib0 = [{ id:"w", muscles:[{m:"chest",role:"primary"}] }];
     eq("warm-ups add no weekly volume",
        weeklyVolume([{ sets:[{exId:"w",load:100,reps:8,warmup:true},{exId:"w",load:200,reps:10}] }], lib0).chest, 1);
+  })();
+
+  /* ── QA round 2: bugs found by driving the app ── */
+  (() => {
+    // Bands: kind:"variable" carried levels+approx_lb, not min/max -> loadPlan returned {0,0} and
+    // canReach accepted ONLY 0, so a band exercise vanished the moment you logged a set on it.
+    // 20 exercises at Home, 19 at Hotel — the gyms where bands ARE the plan.
+    const b = loadPlan({ load:{ kind:"variable", levels:["light","medium","heavy"], approx_lb:[15,35,60] } });
+    eq("band plan reads approx_lb, not {0,0}", [b.min, b.max], [15, 60]);
+    ok("a logged band load is still reachable (it used to vanish)", b.canReach(35));
+    ok("...and 0 is not a band", !b.canReach(0));
+    eq("bands snap to the next rung up", b.nearestAtOrAbove(20), 35);
+    eq("bands snap to the rung at or below", b.nearestAtOrBelow(50), 35);
+    ok("a band ramp is computable", warmupSets(60, b, { ratings:{technique_demand:2}, fatigue:{systemic:2} }, true).length > 0);
+
+    // `simple` must be able to outvote a tier gap, or it's decoration. Its whole swing used to be
+    // W.context(.15)*W.c_technique(.15)=0.0225 against a tier gap of .40*.40*0.4=0.064.
+    ok("`simple` can outvote one RP-tier gap", Math.abs(W.m_simple) > 0.40 * W.q_tier * 0.4);
+
+    // Ceiling/noise constraints were unreachable: no exercise sets the flags, and the test was <96
+    // at a gym whose ceiling is exactly 96.
+    ok("a low ceiling blocks overhead work", violatesGym({ name:"Standing Overhead Press", pattern:"vertical_press" }, { constraints:{ ceiling_height_in:84 } }));
+    ok("...but not at a normal ceiling", !violatesGym({ name:"Standing Overhead Press", pattern:"vertical_press" }, { constraints:{ ceiling_height_in:108 } }));
+    ok("noise limits block deadlifts", violatesGym({ name:"Conventional Deadlift" }, { constraints:{ noise_limit:true } }));
+    ok("...but not curls", !violatesGym({ name:"Incline Dumbbell Curl" }, { constraints:{ noise_limit:true } }));
   })();
 
   // ── Plate inventory is a real ceiling; the floor binds too ──
