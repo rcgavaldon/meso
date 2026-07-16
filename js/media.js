@@ -38,6 +38,9 @@ window.MEDIA = (() => {
   const clipV = id => `${BASE}/video/upload/so_0,eo_6,w_400,q_auto,f_mp4/meso/exv/${id}.mp4`;
   const posterV = id => `${BASE}/video/upload/so_1,w_200,q_auto,f_jpg/meso/exv/${id}.jpg`;
   const poster = id => `${BASE}/image/upload/so_0,f_jpg,q_auto,w_200/${FOLDER}/${id}.gif`;
+  /* If an exercise has no clip of its own, borrow its movement sibling's — the name says the
+     implement, the clip shows the motion. So nothing renders "no demo" when a cousin exists. */
+  const demoId = id => (window.MESO_DEMO_ALIAS && window.MESO_DEMO_ALIAS[id]) || id;
   /** Machine photo for the "What's here?" checklist — a still is enough to recognize a machine. */
   const machine = key => `${BASE}/image/upload/f_auto,q_auto,w_320/meso/machine/${key}.jpg`;
   /* Upload helper — unsigned preset, same one Nina's garden app already uses from her phone.
@@ -100,8 +103,9 @@ window.MEDIA = (() => {
       } catch (_) {}
     }
     const urls = [];
-    // Both namespaces — whichever exists gets cached, the other just counts as missing.
-    for (const id of ids) { urls.push(clipV(id)); urls.push(clip(id)); urls.push(poster(id)); }
+    // Cache each exercise's RESOLVED demo (its own, or the movement sibling it borrows), both
+    // namespaces — so a borrowed clip is available offline in the gym too.
+    for (const id of ids) { const d = demoId(id); urls.push(clipV(d)); urls.push(clip(d)); urls.push(poster(d)); }
     const r = await precache(urls);
     return Object.assign({ exercises: ids.size }, r);
   }
@@ -112,5 +116,5 @@ window.MEDIA = (() => {
     try { const c = await caches.open(CACHE); return (await c.keys()).length; } catch (_) { return 0; }
   };
 
-  return { CLOUD, CACHE, clip, clipV, poster, posterV, machine, upload, has, precache, prefetchWeek, clear, size };
+  return { CLOUD, CACHE, clip, clipV, poster, posterV, demoId, machine, upload, has, precache, prefetchWeek, clear, size };
 })();

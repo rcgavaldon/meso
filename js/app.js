@@ -1245,18 +1245,26 @@ function toggleDemo(exId) {
   const vid = document.createElement("video");
   vid.muted = true; vid.loop = true; vid.autoplay = true; vid.playsInline = true;
   vid.setAttribute("playsinline", ""); vid.preload = "metadata";
-  vid.poster = MEDIA.poster(exId);
+  const mid = MEDIA.demoId(exId);   // this exercise, or its movement sibling if it has no clip
+  vid.poster = MEDIA.poster(mid);
   // Real footage first (meso/exv), then the Everkinetic illustration (meso/ex),
   // then the still, then a quiet note. Never an error.
-  vid.src = MEDIA.clipV(exId);
+  vid.src = MEDIA.clipV(mid);
   let fellBack = false;
   vid.onerror = () => {
-    if (!fellBack) { fellBack = true; vid.src = MEDIA.clip(exId); return; }
+    if (!fellBack) { fellBack = true; vid.src = MEDIA.clip(mid); return; }
     const img = document.createElement("img");
-    img.src = MEDIA.poster(exId); img.loading = "lazy"; img.className = "demo-img";
+    img.src = MEDIA.poster(mid); img.loading = "lazy"; img.className = "demo-img";
     img.onerror = () => { panel.innerHTML = '<div class="xs dim2" style="padding:8px 0">No demo for this one yet.</div>'; };
     panel.innerHTML = ""; panel.appendChild(img);
   };
+  // Borrowed a sibling's clip? Say so, quietly — the motion is right, the implement differs.
+  if (mid !== exId) {
+    const sib = (LIB().find(e => e.id === mid) || {}).name;
+    if (sib) { const n = document.createElement("div"); n.className = "xs dim2";
+      n.style.padding = "6px 0 2px"; n.textContent = "Same movement as " + sib + " — your version uses the setup in the name.";
+      panel.appendChild(n); }
+  }
   panel.innerHTML = ""; panel.appendChild(vid);
   /* Autoplay policies are moody even for muted video — nudge it, and if the browser still says
      no, the tap-to-toggle below means the user is one touch from motion instead of stuck on a
@@ -1449,7 +1457,7 @@ function swapSheet(exId, opts) {
     }
     $("#slist").innerHTML = rows.slice(0, 30).map((r, i) => `
       <div class="row pick" data-sub="${r.ex.id}" aria-pressed="${picked === r.ex.id}" style="${r.ok?"":"opacity:.4"}">
-        ${window.MEDIA ? `<img class="thumb" loading="lazy" src="${MEDIA.poster(r.ex.id)}" onerror="this.style.visibility='hidden'">` : ""}
+        ${window.MEDIA ? `<img class="thumb" loading="lazy" src="${MEDIA.poster(MEDIA.demoId(r.ex.id))}" onerror="this.style.visibility='hidden'">` : ""}
         <div class="grow" style="min-width:0"><div class="lead ell">${esc(r.ex.name)}</div>
         <div class="sm dim">${esc(equipLabel(r.ex))}${r.load ? ` · start ~${r.load} ${S.user.unit}` : ""}${r.ok?"":" · not here"}</div></div>
         ${i === 0 && r.best ? '<span class="badge b-up">BEST</span>' : ""}
@@ -2007,7 +2015,7 @@ function planDaySheet(ix) {
         const cap = Math.min(g.capPerSession || E.CFG.perSessionMax, E.CFG.perSessionMax);
         return `<div class="pick" style="padding:10px 12px">
           <div style="display:flex;gap:10px;align-items:center">
-            ${window.MEDIA ? `<img class="thumb" loading="lazy" src="${MEDIA.poster(sl.exId)}"
+            ${window.MEDIA ? `<img class="thumb" loading="lazy" src="${MEDIA.poster(MEDIA.demoId(sl.exId))}"
               onerror="this.style.visibility='hidden'">` : ""}
             <div class="grow" style="min-width:0">
               <div class="lead ell">${esc(ex.name)}</div>
