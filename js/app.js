@@ -640,7 +640,7 @@ function weekBoard() {
   const per = S.meso.days.length;
   const doneOn = (w, dn) => S.sessions.some(s => s.mesoId === S.meso.id && s.week === w && s.day === dn && s.finished);
   let week = 1;
-  for (; week <= S.meso.weeks; week++) {
+  for (; week <= totalWeeks(); week++) {
     if (S.meso.days.filter((_, i) => doneOn(week, i + 1)).length < per) break;
   }
   const days = S.meso.days.map((d, i) => ({
@@ -648,7 +648,7 @@ function weekBoard() {
     started: S.sessions.some(s => s.mesoId === S.meso.id && s.week === week && s.day === i + 1 &&
       !s.finished && (s.sets || []).some(x => x.done))
   }));
-  return { week, days, complete: week > S.meso.weeks, per };
+  return { week, days, complete: week > totalWeeks(), per };
 }
 function currentSlot() {
   if (!S.meso) return null;
@@ -662,6 +662,10 @@ function currentSlot() {
   return { week: b.week, day };
 }
 const sessionId = (w, d) => `${S.user.id}|${S.meso.id}|w${w}|d${d}`;
+// Total program length incl. optional maintenance weeks after the deload.
+const totalWeeks = () => S.meso.weeks + (S.meso.maint || 0);
+// What KIND of week: the accumulation block, its deload, or a post-deload maintenance week.
+const weekKind = w => w < S.meso.weeks ? "accum" : w === S.meso.weeks ? "deload" : "maint";
 
 async function ensureSession(w, d) {
   const id = sessionId(w, d);
@@ -700,8 +704,9 @@ async function ensureSession(w, d) {
     } else return s;
   }
   const day = S.meso.days[d - 1];
-  const rir = E.rirForWeek(w, S.meso.weeks);
+  const rir = (w > S.meso.weeks) ? 3 : E.rirForWeek(w, S.meso.weeks);
   const deload = E.isDeload(w, S.meso.weeks);
+  const maint = w > S.meso.weeks;   // post-deload holding week
   /* ⚠️ off_plan is a property of the GYM, not a comparison against the meso's birthplace.
    *
    * It used to be `S.gym.gym_id !== S.meso.homeGym`, which is catastrophically wrong for anyone
@@ -767,6 +772,13 @@ async function ensureSession(w, d) {
         const half = (d - 1) < Math.ceil(perWeek / 2) ? "first" : "second";
         const dp = E.deloadPrescription({ sets, reps, load: load || 0 }, g.m, half);
         sets = dp.sets; reps = dp.reps; load = dp.load || load;
+      } else if (maint) {
+        /* Maintenance: hold the muscle at its MV — the minimum to keep what you built — at a
+           comfortable RIR. Not a ramp, not a deload; a holding pattern for a break or a busy
+           stretch. [PUB] MV is "the amount you need to train to keep the muscle you have." */
+        const L = E.landmarks(g.m);
+        sets = Math.max(1, Math.min(sets, Math.ceil((L.mv[1] || 2) / Math.max(1, g.freq || 1))));
+        reps = (slot.repRange || [8,12])[1];
       } else if (recovery[g.m]) {
         /* [PUB] Recovery session: half sets AND half reps at the SAME load. The load holding is
            the point — you're cutting volume, not intensity. */
@@ -781,7 +793,7 @@ async function ensureSession(w, d) {
          leaving you to guess the ramp is the gap. Never logged, never counted toward volume:
          [PUB] a countable set is 5-30 reps at 0-4 RIR and these are nowhere near failure. */
       const firstForMuscle = !s.sets.some(x => x.muscle === g.m);
-      if (!deload) for (const w of E.warmupSets(load, bind.plan, ex, firstForMuscle)) {
+      if (!deload && !maint) for (const w of E.warmupSets(load, bind.plan, ex, firstForMuscle)) {
         s.sets.push({ id: uid(), slotId: slot.id, muscle: g.m, exId: ex.id, bucket,
           repRange: slot.repRange, sub: ex.id !== slot.exId ? { of: slot.exId, reason: "gym" } : undefined, warmup: true, pct: w.pct,
           instanceId: bind.ok && bind.carrier ? bind.carrier.instance_id : null,
@@ -845,7 +857,7 @@ async function viewToday() {
  *  · Bodyweight — zero engine call sites. Asking implies it does something.
  *  · Session length — only offered at the moment it binds (when a pick freezes something).
  * ================================================================ */
-const INTAKE = { days: 4, weeks: 5, focus: [], startDay: 0 };
+const INTAKE = { days: 4, weeks: 5, focus: [], startDay: 0, maint: 0 };
 /* One source of truth for which day counts a user may pick. The segment and the "Train N days"
    advice button both read it — they disagreed, and the button could set a value the segment
    couldn't render, leaving nothing selected and no way back. */
@@ -906,6 +918,11 @@ function drawIntake() {
       <div style="padding:0 14px 14px"><div class="seg" id="wseg">
         ${[4,5,6].map(w => `<button data-w="${w}" aria-selected="${w===INTAKE.weeks}">${w}</button>`).join("")}
       </div></div>
+      <div class="row"><div class="grow">Maintenance after
+        <span class="dim sm">— easy holding weeks post-deload, for a break or a busy stretch</span></div></div>
+      <div style="padding:0 14px 14px"><div class="seg" id="mwseg">
+        ${[0,1,2].map(w => `<button data-mw="${w}" aria-selected="${w===(INTAKE.maint||0)}">${w===0?"None":w+"wk"}</button>`).join("")}
+      </div></div>
     </div>
 
     <button class="btn wide" id="mk" style="margin-bottom:8px">${
@@ -919,6 +936,8 @@ function drawIntake() {
     INTAKE.days = +b.dataset.d; drawIntake(); };
   $("#wseg").onclick = e => { const b = e.target.closest("[data-w]"); if (!b) return;
     INTAKE.weeks = +b.dataset.w; drawIntake(); };
+  const mw = $("#mwseg"); if (mw) mw.onclick = e => { const b = e.target.closest("[data-mw]"); if (!b) return;
+    INTAKE.maint = +b.dataset.mw; drawIntake(); };
   const sd = $("#sdseg"); if (sd) sd.onclick = e => { const b = e.target.closest("[data-sd]"); if (!b) return;
     INTAKE.startDay = +b.dataset.sd; drawIntake(); };
   document.querySelectorAll("[data-f]").forEach(c => c.onclick = () => {
@@ -933,6 +952,7 @@ function drawIntake() {
     await DB.put("kv", { k: "users", v: S.users });
     const m = seedMeso(S.user, S.gym, INTAKE.days, INTAKE.weeks);
     m.startDay = INTAKE.startDay || 0;
+    m.maint = INTAKE.maint || 0;
     await DB.put("meso", m);
     if (S.coachingFor) {                            // built for her — give the app back to him
       const her = S.user.name, me = S.users.find(u => u.id === S.coachingFor.me);
@@ -1972,9 +1992,9 @@ async function viewPlan() {
 
     <h4 style="margin:18px 0 8px">RIR by week</h4>
     <div class="card"><div class="row"><div class="grow">
-      <div class="pills">${Array.from({length:S.meso.weeks},(_,i)=>i+1).map(w => {
-        const dl = E.isDeload(w, S.meso.weeks);
-        return `<span class="badge ${dl?"b-warn":w===cur.week?"b-up":"b-mid"}">${dl?"DELOAD":`WK${w} · ${E.rirForWeek(w,S.meso.weeks)} RIR`}</span>`;
+      <div class="pills">${Array.from({length:S.meso.weeks+(S.meso.maint||0)},(_,i)=>i+1).map(w => {
+        const dl = E.isDeload(w, S.meso.weeks), mt = w > S.meso.weeks;
+        return `<span class="badge ${dl?"b-warn":mt?"b-info":w===cur.week?"b-up":"b-mid"}">${dl?"DELOAD":mt?`MAINT · 3 RIR`:`WK${w} · ${E.rirForWeek(w,S.meso.weeks)} RIR`}</span>`;
       }).join("")}</div>
       <div class="sm dim" style="margin-top:8px">Reps stay put, RIR falls, and the weight is what moves to keep up. The last week is always the deload.</div>
     </div></div>
@@ -2367,67 +2387,13 @@ async function viewMore() {
       <div class="row tap" id="exp"><div class="grow">Export JSON</div></div>
     </div>
 
-    ${S.user.id === ADMIN_ID ? `
-    <h4 style="margin:6px 0 8px">Programs</h4>
-    <div class="card">
-      ${S.users.map(u => {
-        const mine = u.id === S.user.id;
-        const meso = mProg[u.id];
-        return `<div class="row"><div class="grow">
-          <div class="lead">${esc(u.name)}${mine ? ' <span class="badge b-up" style="margin-left:4px">YOU</span>' : ""}</div>
-          <div class="sm dim" style="margin-top:3px">${meso ? esc(meso.name) + " · week " + meso.week : "no plan yet"}</div>
-        </div>
-        <div style="display:flex;gap:6px;flex:none">
-          ${meso ? `<button class="swapb" data-editprog="${u.id}">Edit</button>` : ""}
-          <button class="swapb" data-newprog="${u.id}">New</button>
-        </div></div>`;
-      }).join("")}
-    </div>
-    <div class="card"><div class="row tap" data-review="nina"><div class="grow">
-      <div class="lead">Nina's last sessions</div>
-      <div class="sm dim" style="margin-top:3px">What she lifted, what she reported, and what Meso changed.</div>
-    </div><span class="dim2">›</span></div></div>
-    <div class="xs dim2" style="padding:2px 2px 14px">
-      <b>Edit</b> opens the plan day-by-day — sets, swaps, suggestions. <b>New</b> starts a fresh
-      mesocycle. You can see what Nina lifted, not her feedback answers: setDelta reads those
-      directly, so if she softens one because you'll read it, her progression runs on it.
-    </div>` : ""}
-
-    <h4 style="margin:6px 0 8px">Who's training</h4>
-    <div class="card">${S.users.map(u => `<div class="row tap" data-u="${u.id}">
-      <div class="grow"><div class="lead">${esc(u.name)}</div><div class="sm dim">${u.bodyweight} ${u.unit}</div></div>
-      ${S.user.id===u.id?'<span class="badge b-up">YOU</span>':""}</div>`).join("")}</div>
-    <div class="xs dim2" style="padding:2px 2px 14px">Separate histories and separate landmarks. Gyms are shared.</div>
-
-    <h4 style="margin:18px 0 8px">Training</h4>
-    <div class="card">
-      <div class="row"><div class="grow"><div>Goal</div>
-        <div class="xs dim2" style="margin-top:2px">Balanced trains everything evenly. Focus lets a
-          few grow and holds the rest — an hour only buys so many sets.</div></div></div>
-      <div style="padding:0 14px 14px"><div class="seg" id="goalseg">
-        <button data-goal="balanced" aria-selected="${(S.user.goal||"focus")==="balanced"}">Balanced</button>
-        <button data-goal="focus" aria-selected="${(S.user.goal||"focus")==="focus"}">Focus areas</button>
-      </div></div>
-      <div class="row tap" id="editFocus"><div class="grow">
-        <div>Focus areas</div>
-        <div class="sm dim" style="margin-top:3px">${
-          Object.keys(S.user.emphasis||{}).filter(m=>S.user.emphasis[m]==="emphasize").map(m=>esc(E.MG_LABEL[m])).join(", ") || "None — even coverage"}</div>
-      </div><span class="dim2">›</span></div>
-      <div class="row"><div class="grow"><div>Split</div>
-        <div class="xs dim2" style="margin-top:2px">Auto picks whatever gives your focus areas the most room.</div></div></div>
-      <div style="padding:0 14px 14px"><div class="seg" id="splitseg">
-        ${[["auto","Auto"]].concat(E.SPLITS.filter(x => x.days === (S.user.id===ADMIN_ID?4:2)).map(x=>[x.id,x.name.replace(/ ×/,"×")]))
-          .map(([v,l]) => `<button data-split="${v}" aria-selected="${(S.user.splitPref||"auto")===v}" style="font-size:.75rem">${esc(l)}</button>`).join("")}
-      </div></div>
-      <div class="row"><div class="grow"><div>Session length</div>
-        <div class="xs dim2" style="margin-top:2px">Warm-ups and rest included.</div></div></div>
-      <div style="padding:0 14px 14px"><div class="seg" id="minseg">
-        ${[45,60,75,90].map(m => `<button data-min="${m}" aria-selected="${(S.user.sessionMinutes||60)===m}">${m}m</button>`).join("")}
-      </div></div>
-    </div>
-    <div class="xs dim2" style="padding:2px 2px 14px">Changes apply to your NEXT mesocycle — the
-      current one was sized for its own last week, so re-cutting it mid-block would leave you on
-      days built for different muscles.</div>
+    <h4 style="margin:6px 0 8px">${S.user.id === ADMIN_ID ? "People" : "You"}</h4>
+    <div class="card">${(S.user.id === ADMIN_ID ? S.users : S.users.filter(u=>u.id===S.user.id)).map(u => `
+      <div class="row tap" data-person="${u.id}">
+        <div class="grow"><div class="lead">${esc(u.name)}${u.id===S.user.id?' <span class="badge b-up" style="margin-left:4px">YOU</span>':""}</div>
+          <div class="sm dim" style="margin-top:3px">${u.bodyweight} ${u.unit}${mProg[u.id] ? " · " + esc(mProg[u.id].name) + " · wk " + mProg[u.id].week : " · no plan yet"}</div></div>
+        <span class="dim2">›</span></div>`).join("")}</div>
+    <div class="xs dim2" style="padding:2px 2px 14px">Tap ${S.user.id === ADMIN_ID ? "anyone" : "yourself"} to see and change ${S.user.id === ADMIN_ID ? "their" : "your"} goal, focus, split, weight and plan — all in one place.</div>
 
     <h4 style="margin:18px 0 8px">Settings</h4>
     <div class="card">
@@ -2448,71 +2414,7 @@ async function viewMore() {
      see this. It's his household and her data already sits in the same Sheet as his, so a UI that
      hid it would be theatre. The read-only framing is deliberate: he can see the answers and the
      decision, and he changes her plan through the picker, not by editing what she reported. */
-  document.querySelectorAll("[data-review]").forEach(r => r.onclick = async () => {
-    const her = S.users.find(u => u.id === r.dataset.review);
-    const sess = (await DB.all("session", "user", her.id)).filter(x => x.finished)
-      .sort((a, b) => (b.week - a.week) || (b.day - a.day)).slice(0, 6);
-    if (!sess.length) return toast(`${her.name} hasn't finished a session yet`);
-    const FB = { soreness:"Soreness", pump:"Pump", workload:"Volume", jointPain:"Joint pain" };
-    sheet(`<h3>${esc(her.name)}'s last sessions</h3>` + sess.map(x => {
-      const done = (x.sets || []).filter(y => y.done && !y.warmup);
-      const dec = x.decision || {};
-      return `<div class="card" style="margin-top:10px"><div style="padding:12px 14px">
-        <div class="lead">Week ${x.week} Day ${x.day} <span class="dim2 sm">· ${esc(x.date)}${x.off_plan?" · travel":""}</span></div>
-        <div class="sm dim" style="margin:4px 0 8px">${done.length} sets · ${esc(x.gymId || "")}</div>
-        ${Object.keys(dec).map(m => {
-          const d = dec[m], fb = (x.feedback || {})[m] || {};
-          const n = d.applied != null ? d.applied : d.delta;
-          const lbl = d.action === "recovery" ? "RECOVERY" : n > 0 ? `+${n}` : n < 0 ? `${n}` : "HOLD";
-          const said = Object.keys(FB).map(k => fb[k] ? `${FB[k]}: ${esc(String(fb[k]).replace(/_/g," "))}` : null).filter(Boolean).join(" · ");
-          return `<div class="row" style="padding:8px 0"><div class="grow">
-            <div>${esc(E.MG_LABEL[m] || m)}</div>
-            <div class="xs dim2" style="margin-top:2px">${said || "skipped feedback — held"}</div>
-            <div class="xs dim" style="margin-top:2px">${esc((d.reasons||[]).join(" · "))}</div>
-          </div><span class="badge ${n>0?"b-up":n<0?"b-dn":"b-mid"}">${lbl}</span></div>`;
-        }).join("") || '<div class="xs dim2">No feedback recorded.</div>'}
-      </div></div>`;
-    }).join("") + `<div class="sheet-ft"><button id="rvC">Close</button></div>`);
-    $("#rvC").onclick = closeSheet;
-  });
-  // Edit a program → open its Plan tab. Your own: straight there. Someone else's: coach mode
-  //   (be them for the session, banner up, Done hands back).
-  document.querySelectorAll("[data-editprog]").forEach(r => r.onclick = async () => {
-    const uid = r.dataset.editprog;
-    if (uid === S.user.id) return go("plan");
-    const her = S.users.find(u => u.id === uid);
-    S.coachingFor = { her: her.id, me: S.user.id };
-    S.user = her; await loadUser(); renderTabs(); go("plan");
-  });
-  // New program → the intake, for that person.
-  document.querySelectorAll("[data-newprog]").forEach(r => r.onclick = async () => {
-    const uid = r.dataset.newprog, me = S.user;
-    if (uid !== S.user.id) {
-      const her = S.users.find(u => u.id === uid);
-      S.coachingFor = { her: her.id, me: me.id };
-      S.user = her; await loadUser();
-    }
-    INTAKE.focus = [...new Set(Object.keys(S.user.emphasis||{}).filter(m => S.user.emphasis[m] === "emphasize").map(E.groupOf))];
-    INTAKE.days = Math.min(INTAKE.days, maxDays());
-    S.meso = null; renderTabs(); go("today");   // viewToday → viewNoMeso → the intake
-  });
-  document.querySelectorAll("[data-coach]").forEach(r => r.onclick = async () => {
-    const her = S.users.find(u => u.id === r.dataset.coach);
-    const me = S.user;
-    S.user = her; await loadUser();
-    INTAKE.focus = [...new Set(Object.keys(her.emphasis || {}).filter(m => her.emphasis[m] === "emphasize").map(E.groupOf))];
-    INTAKE.days = Math.min(3, maxDays()); INTAKE.weeks = 5;
-    S.coachingFor = { her: her.id, me: me.id };
-    S.meso = null;                                  // force the picker
-    renderTabs(); go("today");
-    toast(`Building for ${her.name}`);
-  });
-  document.querySelectorAll("[data-u]").forEach(r => r.onclick = async () => {
-    S.user = S.users.find(u => u.id === r.dataset.u); DB.pref.set("user", S.user.id);
-    await loadUser();
-    renderTabs();                       // Robert and Nina have different tab bars
-    toast(`Now training as ${S.user.name}`); go("today");
-  });
+  document.querySelectorAll("[data-person]").forEach(r => r.onclick = () => viewPerson(r.dataset.person));
   $("#save").onclick = () => { DB.pref.set("syncUrl", $("#url").value.trim()); toast("Saved"); viewMore(); };
   $("#sn").onclick = () => syncNow().then(() => viewMore());
   $("#exp").onclick = async () => {
@@ -2522,32 +2424,11 @@ async function viewMore() {
   };
   $("#rst").onclick = async () => {
     const url = DB.pref.get("syncUrl", ""); if (!url) return toast("Add your Sheet link first");
-    if (!confirm("Restore from the Sheet? This merges the Sheet's data into this phone.")) return;
+    if (!confirm("Restore from the Sheet? This merges the Sheet’s data into this phone.")) return;
     try {
       const r = await fetch(url + "?user=" + encodeURIComponent(S.user.id));
       await DB.importUser(await r.json()); await loadUser(); toast("Restored"); go("today");
     } catch (e) { toast("Restore failed"); }
-  };
-  const save = async () => { await DB.put("kv", { k:"users", v: S.users }); viewMore(); };
-  document.querySelectorAll("[data-goal]").forEach(b => b.onclick = async () => {
-    S.user.goal = b.dataset.goal;
-    // Balanced IS a real plan: all-Maintain covers 15/15 at 4 days. It's the only setting that
-    // trains everything — all-Grow covers 11/15, because every muscle claims 2-3 day-slots and
-    // the binner spends them on the first few.
-    if (S.user.goal === "balanced") S.user.emphasis = E.buildEmphasis([]);
-    await save();
-  });
-  document.querySelectorAll("[data-split]").forEach(b => b.onclick = async () => {
-    S.user.splitPref = b.dataset.split; await save();
-  });
-  document.querySelectorAll("[data-min]").forEach(b => b.onclick = async () => {
-    S.user.sessionMinutes = +b.dataset.min; await save();
-  });
-  const ef = $("#editFocus"); if (ef) ef.onclick = () => {
-    const em = S.user.emphasis || {};
-    INTAKE.focus = [...new Set(Object.keys(em).filter(m => em[m] === "emphasize").map(E.groupOf))];
-    INTAKE.days = Math.min(INTAKE.days, maxDays());
-    S.editingFocus = true; drawIntake();
   };
   document.querySelectorAll("[data-th]").forEach(b => b.onclick = () => {
     const t = b.dataset.th; document.documentElement.dataset.theme = t;
@@ -2555,6 +2436,128 @@ async function viewMore() {
     DB.pref.set("theme", t); viewMore();
   });
   $("#ver").onclick = () => { const r = E.verify(); toast(r.pass ? `✅ all ${r.total} passed` : `❌ ${r.fails.length} failed — see console`); };
+}
+
+/* ================================================================
+ * ONE PERSON, ONE SCREEN. Reached by tapping a name in More. Everything about that person —
+ * weight, goal, focus, split, session length, their plan — under their NAME, so there is never a
+ * "whose settings am I changing?" moment. Scalar settings edit that user's record directly;
+ * focus + plan changes rebuild the meso, so those enter coach mode (banner) when it's not you.
+ * ================================================================ */
+async function viewPerson(uid) {
+  const u = S.users.find(x => x.id === uid); if (!u) return;
+  const self = uid === S.user.id;
+  const foc = Object.keys(u.emphasis || {}).filter(m => u.emphasis[m] === "emphasize");
+  const ms = (await DB.all("meso", "user", uid)).sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||""));
+  const meso = ms[0];
+  let week = null;
+  if (meso) { const per = meso.days.length;
+    const done = (await DB.all("session","user",uid)).filter(x=>x.mesoId===meso.id&&x.finished).length;
+    week = Math.min(Math.floor(done/per)+1, meso.weeks); }
+  const dc = (u.id === ADMIN_ID) ? [4] : [2];
+  $("#v").innerHTML = `
+    <div class="hd"><div class="hd-row">
+      <button class="chip" id="pBack" style="max-width:none">&lsaquo; More</button>
+      <h2 style="flex:1;text-align:center">${esc(u.name)}</h2>
+      <span style="width:60px;text-align:right">${self?'<span class="badge b-up">YOU</span>':""}</span>
+    </div></div>
+
+    <h4 style="margin:8px 0 8px">Plan</h4>
+    <div class="card"><div class="row">
+      <div class="grow"><div class="lead">${meso ? esc(meso.name) : "No plan yet"}</div>
+        <div class="sm dim" style="margin-top:3px">${meso ? "week " + week + " of " + meso.weeks : "build one to start"}</div></div>
+      <div style="display:flex;gap:6px;flex:none">
+        ${meso ? `<button class="swapb" id="pEdit">Edit</button>` : ""}
+        <button class="swapb" id="pNew">New</button>
+      </div></div></div>
+
+    <h4 style="margin:18px 0 8px">Bodyweight</h4>
+    <div class="card"><div class="row"><div class="grow">Current weight</div>
+      <div style="display:flex;align-items:center;gap:6px;flex:none">
+        <input id="pBw" inputmode="decimal" value="${u.bodyweight||""}"
+          style="width:72px;text-align:right;background:var(--b1);border:1px solid var(--line);border-radius:var(--r-btn);padding:9px;outline:none;font-size:1rem">
+        <span class="dim">${u.unit}</span>
+      </div></div></div>
+
+    <h4 style="margin:18px 0 8px">Goal</h4>
+    <div class="card">
+      <div style="padding:14px 14px 4px" class="xs dim2">Balanced trains everything evenly. Focus lets a few grow and holds the rest.</div>
+      <div style="padding:0 14px 14px"><div class="seg" id="pGoal">
+        <button data-g="balanced" aria-selected="${(u.goal||"focus")==="balanced"}">Balanced</button>
+        <button data-g="focus" aria-selected="${(u.goal||"focus")==="focus"}">Focus areas</button>
+      </div></div>
+      <div class="row tap" id="pFocus"><div class="grow"><div>Focus areas</div>
+        <div class="sm dim" style="margin-top:3px">${[...new Set(foc.map(E.groupOf))].map(g=>esc(E.groupLabel(g))).join(", ") || "None — even coverage"}</div>
+      </div><span class="dim2">&rsaquo;</span></div>
+    </div>
+
+    <h4 style="margin:18px 0 8px">Split &amp; length</h4>
+    <div class="card">
+      <div class="row"><div class="grow">Split</div></div>
+      <div style="padding:0 14px 14px"><div class="seg" id="pSplit">
+        ${[["auto","Auto"]].concat(E.SPLITS.filter(x=>dc.includes(x.days)).map(x=>[x.id,x.name.replace(/ ×/,"×")]))
+          .map(([v,l])=>`<button data-sp="${v}" aria-selected="${(u.splitPref||"auto")===v}" style="font-size:.72rem">${esc(l)}</button>`).join("")}
+      </div></div>
+      <div class="row"><div class="grow">Session length <span class="dim sm">(warm-ups + rest in)</span></div></div>
+      <div style="padding:0 14px 14px"><div class="seg" id="pMin">
+        ${[45,60,75,90].map(m=>`<button data-mn="${m}" aria-selected="${(u.sessionMinutes||60)===m}">${m}m</button>`).join("")}
+      </div></div>
+    </div>
+    <div class="xs dim2" style="padding:2px 2px 14px">Weight and length apply now; goal, focus and split shape the NEXT mesocycle.</div>
+
+    ${!self && S.user.id === ADMIN_ID ? `
+    <div class="card"><div class="row tap" id="pReview"><div class="grow">
+      <div class="lead">${esc(u.name)}&rsquo;s last sessions</div>
+      <div class="sm dim" style="margin-top:3px">What ${esc(u.name)} lifted and what Meso changed.</div>
+    </div><span class="dim2">&rsaquo;</span></div></div>` : ""}
+    <div style="height:20px"></div>`;
+
+  const persist = async (re) => { await DB.put("kv", { k:"users", v: S.users }); if (re) viewPerson(uid); };
+  $("#pBack").onclick = () => go("more");
+  $("#pBw").onchange = async e => { const v = parseFloat(e.target.value); if (v > 0) { u.bodyweight = v; await persist(false); toast(`${u.name}: ${v} ${u.unit}`); } };
+  document.querySelectorAll("#pGoal [data-g]").forEach(b => b.onclick = async () => {
+    u.goal = b.dataset.g;
+    if (u.goal === "balanced") u.emphasis = E.buildEmphasis([]);
+    await persist(true);
+  });
+  document.querySelectorAll("#pSplit [data-sp]").forEach(b => b.onclick = async () => { u.splitPref = b.dataset.sp; await persist(true); });
+  document.querySelectorAll("#pMin [data-mn]").forEach(b => b.onclick = async () => { u.sessionMinutes = +b.dataset.mn; await persist(true); });
+  const enter = async (then) => {
+    if (!self) { S.coachingFor = { her: uid, me: S.user.id }; S.user = u; await loadUser(); renderTabs(); }
+    then();
+  };
+  $("#pFocus").onclick = () => enter(() => { INTAKE.focus = [...new Set(foc.map(E.groupOf))]; INTAKE.days = Math.min(INTAKE.days, maxDays()); S.meso = null; go("today"); });
+  const en = $("#pNew"); if (en) en.onclick = () => enter(() => { INTAKE.focus = [...new Set(foc.map(E.groupOf))]; INTAKE.days = Math.min(INTAKE.days, maxDays()); S.meso = null; go("today"); });
+  const ee = $("#pEdit"); if (ee) ee.onclick = () => enter(() => go("plan"));
+  const pr = $("#pReview"); if (pr) pr.onclick = () => reviewSessions(uid);
+}
+
+async function reviewSessions(uid) {
+  const her = S.users.find(u => u.id === uid);
+  const sess = (await DB.all("session", "user", uid)).filter(x => x.finished)
+    .sort((a, b) => (b.week - a.week) || (b.day - a.day)).slice(0, 6);
+  if (!sess.length) return toast(`${her.name} hasn't finished a session yet`);
+  const FB = { soreness:"Soreness", pump:"Pump", workload:"Volume", jointPain:"Joint pain" };
+  sheet(`<h3>${esc(her.name)}&rsquo;s last sessions</h3>` + sess.map(x => {
+    const done = (x.sets || []).filter(y => y.done && !y.warmup);
+    const dec = x.decision || {};
+    return `<div class="card" style="margin-top:10px"><div style="padding:12px 14px">
+      <div class="lead">Week ${x.week} Day ${x.day} <span class="dim2 sm">· ${esc(x.date)}${x.off_plan?" · travel":""}</span></div>
+      <div class="sm dim" style="margin:4px 0 8px">${done.length} sets · ${esc(x.gymId || "")}</div>
+      ${Object.keys(dec).map(m => {
+        const d = dec[m], fb = (x.feedback || {})[m] || {};
+        const n = d.applied != null ? d.applied : d.delta;
+        const lbl = d.action === "recovery" ? "RECOVERY" : n > 0 ? `+${n}` : n < 0 ? `${n}` : "HOLD";
+        const said = Object.keys(FB).map(k => fb[k] ? `${FB[k]}: ${esc(String(fb[k]).replace(/_/g," "))}` : null).filter(Boolean).join(" · ");
+        return `<div class="row" style="padding:8px 0"><div class="grow">
+          <div>${esc(E.groupLabel(E.groupOf(m)))}</div>
+          <div class="xs dim2" style="margin-top:2px">${said || "skipped feedback — held"}</div>
+          <div class="xs dim" style="margin-top:2px">${esc((d.reasons||[]).join(" · "))}</div>
+        </div><span class="badge ${n>0?"b-up":n<0?"b-dn":"b-mid"}">${lbl}</span></div>`;
+      }).join("") || '<div class="xs dim2">No feedback recorded.</div>'}
+    </div></div>`;
+  }).join("") + `<div class="sheet-ft"><button id="rvC">Close</button></div>`);
+  $("#rvC").onclick = closeSheet;
 }
 
 /* ============ sheet ============ */
