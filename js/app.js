@@ -139,26 +139,49 @@ const SEED_GYMS = [
       // listed weights are "approximate" because the moving seat changes the ratio. Harmless
       // here: loadKey() scopes machine loads per-instance, so the scale never has to agree with
       // reality. add_on:[5] = Hoist's 5lb upgrade, which halves the step.
-      { instance_id:"cr_lat", type:"machine", machine_key:"lat_pulldown", caps:["machine"], brand:"Hoist",
-        load:{ kind:"selectorized_stack", min:15, max:335, increment:15 },
+      /* ✅ SEEN — the "JOIN THE PARTY" photo shows a long row of PLATE-LOADED ISO-LATERAL machines,
+         plates on the horns (45s/35s/25s legible), Hammer-Strength-style frames. This REPLACES the
+         selectorized Hoist circuit an earlier pass inferred from "half-hour circuit training" —
+         wrong category of machine entirely, and its min:10/inc:10/add_on:[5] were invented.
+         Plate-loaded changes the math that matters: loading is per side, so the smallest real jump
+         is a 2.5 pair = 5lb total, and there's no stack minimum — the empty arms are the floor. */
+      { instance_id:"cr_iso_row", type:"machine", machine_key:"machine_row", caps:["machine"], brand:"Hammer Strength",
+        load:{ kind:"plate_loaded", min:0, max:400, increment:5 },
+        load_portability:"machine_relative", count:2, contention:"high" },
+      { instance_id:"cr_iso_chest", type:"machine", machine_key:"chest_press", caps:["machine"], brand:"Hammer Strength",
+        load:{ kind:"plate_loaded", min:0, max:400, increment:5 },
         load_portability:"machine_relative", count:1, contention:"high" },
-      { instance_id:"cr_row", type:"machine", machine_key:"seated_row", caps:["machine"], brand:"Hoist",
-        load:{ kind:"selectorized_stack", min:15, max:335, increment:15 },
+      { instance_id:"cr_iso_incline", type:"machine", machine_key:"incline_press_machine", caps:["machine"], brand:"Hammer Strength",
+        load:{ kind:"plate_loaded", min:0, max:400, increment:5 },
         load_portability:"machine_relative", count:1, contention:"high" },
-      { instance_id:"cr_chest_press", type:"machine", machine_key:"chest_press", caps:["machine"], brand:"Hoist",
-        load:{ kind:"selectorized_stack", min:15, max:335, increment:15 },
+      { instance_id:"cr_iso_shoulder", type:"machine", machine_key:"shoulder_press_machine", caps:["machine"], brand:"Hammer Strength",
+        load:{ kind:"plate_loaded", min:0, max:300, increment:5 },
+        load_portability:"machine_relative", count:1, contention:"med" },
+      { instance_id:"cr_iso_lat", type:"machine", machine_key:"lat_pulldown", caps:["machine"], brand:"Hammer Strength",
+        load:{ kind:"plate_loaded", min:0, max:350, increment:5 },
         load_portability:"machine_relative", count:1, contention:"high" },
-      { instance_id:"cr_pecdeck", type:"machine", machine_key:"pec_deck", caps:["machine"], brand:"Hoist",
-        load:{ kind:"selectorized_stack", min:15, max:335, increment:15 },
-        load_portability:"machine_relative", count:1, contention:"high" },
-      { instance_id:"cr_legext", type:"machine", machine_key:"leg_extension", caps:["machine"], brand:"Hoist",
-        load:{ kind:"selectorized_stack", min:15, max:335, increment:15 },
-        load_portability:"machine_relative", count:1, contention:"high" },
-      // ⚠️ SEATED vs LYING is a guess and they're different library entries with different tiers
-      // (seated is S-tier hamstrings, lying is A). Crunch circuits are usually seated.
-      { instance_id:"cr_legcurl", type:"machine", machine_key:"leg_curl_seated", caps:["machine"], brand:"Hoist",
-        load:{ kind:"selectorized_stack", min:15, max:335, increment:15 },
-        load_portability:"machine_relative", count:1, contention:"high" },
+      /* ⚠️ NOT visible in any photo. Present because a 35,000 sqft club with a named circuit
+         essentially always has them, and Robert's rule is "go with the most common ones, the
+         questionnaire fills the gaps." Every one of these is one tap away in Gym → What's here?
+         Selectorized stacks: min 15 / inc 15 is the coarse-but-honest commercial default. */
+      { instance_id:"cr_pecdeck", type:"machine", machine_key:"pec_deck", caps:["machine"],
+        load:{ kind:"selectorized_stack", min:15, max:250, increment:15 },
+        load_portability:"machine_relative", count:1, contention:"med" },
+      { instance_id:"cr_legext", type:"machine", machine_key:"leg_extension", caps:["machine"],
+        load:{ kind:"selectorized_stack", min:15, max:250, increment:15 },
+        load_portability:"machine_relative", count:1, contention:"med" },
+      { instance_id:"cr_legcurl", type:"machine", machine_key:"leg_curl_seated", caps:["machine"],
+        load:{ kind:"selectorized_stack", min:15, max:200, increment:15 },
+        load_portability:"machine_relative", count:1, contention:"med" },
+      { instance_id:"cr_abd", type:"machine", machine_key:"abductor", caps:["machine"],
+        load:{ kind:"selectorized_stack", min:15, max:250, increment:15 },
+        load_portability:"machine_relative", count:1, contention:"low" },
+      { instance_id:"cr_add", type:"machine", machine_key:"adductor_machine", caps:["machine"],
+        load:{ kind:"selectorized_stack", min:15, max:250, increment:15 },
+        load_portability:"machine_relative", count:1, contention:"low" },
+      { instance_id:"cr_calf", type:"machine", machine_key:"calf_raise_seated", caps:["machine"],
+        load:{ kind:"plate_loaded", min:0, max:300, increment:10 },
+        load_portability:"machine_relative", count:1, contention:"low" },
       { instance_id:"cr_assist", type:"machine", machine_key:"assisted_pullup", caps:["machine_assistance","dip_station"],
         load:{ kind:"selectorized_stack", min:10, max:200, increment:10 },
         load_portability:"machine_relative", count:1, contention:"low" },
