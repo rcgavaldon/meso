@@ -235,6 +235,20 @@ input{font-size:max(1rem,16px)}
 /* The rest bar floats above the tab bar — give the page room so it never covers the last card. */
 body.resting{padding-bottom:calc(64px + 58px + var(--safe-b))}
 
+/* ============ Week board — the selectable workouts ============ */
+.wbrow{display:flex;gap:6px;padding:12px 12px 10px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.wbday{flex:1 0 auto;min-width:70px;display:flex;flex-direction:column;align-items:center;gap:5px;
+  padding:10px 8px;border-radius:var(--r-btn);border:1px solid var(--line);background:var(--b1)}
+.wbday .wbn{font-size:.75rem;font-weight:700;white-space:nowrap}
+.wbday .wbmark{font-size:.9rem;line-height:1;height:14px;color:var(--c)}
+.wbday[data-s=now]{border-color:var(--c);background:color-mix(in srgb,var(--c) 16%,var(--b1))}
+.wbday[data-s=now] .wbn{color:var(--c)}
+.wbday[data-s=done]{opacity:.5;border-style:solid}
+.wbday[data-s=done] .wbmark{color:var(--suc)}
+.wbday[data-s=part]{border-color:var(--wac)}
+.wbday[data-s=part] .wbmark{color:var(--wac)}
+.wbday:not([disabled]):active{transform:scale(.96)}
+
 /* ============ Exercise demos ============ */
 .demo-glyph{opacity:.4;font-size:.8em;margin-left:2px}
 .demo{padding:4px 0 2px}
@@ -283,11 +297,11 @@ body.resting{padding-bottom:calc(64px + 58px + var(--safe-b))}
 <section class="sheet" id="sheet" role="dialog" aria-modal="true"></section>
 <div class="toast" id="toast"></div>
 
-<script src="data/exercises.js?v=19"></script>
-<script src="js/db.js?v=19"></script>
-<script src="js/engine.js?v=19"></script>
-<script src="js/media.js?v=19"></script>
-<script src="js/app.js?v=19"></script>
+<script src="data/exercises.js?v=20"></script>
+<script src="js/db.js?v=20"></script>
+<script src="js/engine.js?v=20"></script>
+<script src="js/media.js?v=20"></script>
+<script src="js/app.js?v=20"></script>
 <script>
 if ("serviceWorker" in navigator) {
   addEventListener("load", () => navigator.serviceWorker.register("sw.js").then(reg => {

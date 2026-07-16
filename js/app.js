@@ -633,18 +633,33 @@ const kindColor = s => (S.meso && KIND_C[(S.meso.days[s.day - 1] || {}).kind]) |
 /* ================================================================
  * WORKOUT
  * ================================================================ */
+/* The week's workouts, done-state and all — the thing the Today strip renders and you tap.
+   Program week = the first week whose days aren't ALL finished. Within it you pick any undone day
+   in any order; the week only advances when every day is done. */
+function weekBoard() {
+  const per = S.meso.days.length;
+  const doneOn = (w, dn) => S.sessions.some(s => s.mesoId === S.meso.id && s.week === w && s.day === dn && s.finished);
+  let week = 1;
+  for (; week <= S.meso.weeks; week++) {
+    if (S.meso.days.filter((_, i) => doneOn(week, i + 1)).length < per) break;
+  }
+  const days = S.meso.days.map((d, i) => ({
+    day: i + 1, name: d.name, kind: d.kind, done: doneOn(week, i + 1),
+    started: S.sessions.some(s => s.mesoId === S.meso.id && s.week === week && s.day === i + 1 &&
+      !s.finished && (s.sets || []).some(x => x.done))
+  }));
+  return { week, days, complete: week > S.meso.weeks, per };
+}
 function currentSlot() {
   if (!S.meso) return null;
-  // Which week/day are we on? Count completed sessions — days aren't tied to dates [APP:
-  // "training days aren't tied to specific dates", missing a day carries no penalty].
-  const done = S.sessions.filter(s => s.mesoId === S.meso.id && s.finished).length;
-  const perWeek = S.meso.days.length;
-  /* startDay: begin the rotation anywhere. Robert just trained lower outside the app, so his
-     first session should be Upper — not whatever happens to be Day 1. Pure offset on the
-     PROGRAM clock; the week number still advances every perWeek sessions, so RIR and the
-     deload land exactly where they always did. */
+  const b = weekBoard();
+  if (b.complete) return { week: b.week, day: 1, complete: true };
+  // Day = your explicit pick (if still undone this week), else the first undone in start-day order.
   const off = S.meso.startDay || 0;
-  return { week: Math.floor(done / perWeek) + 1, day: ((done + off) % perWeek) + 1 };
+  const order = b.days.slice(off).concat(b.days.slice(0, off));
+  let day = (S.pickedDay && !b.days[S.pickedDay - 1].done) ? S.pickedDay
+          : (order.find(d => !d.done) || b.days[0]).day;
+  return { week: b.week, day };
 }
 const sessionId = (w, d) => `${S.user.id}|${S.meso.id}|w${w}|d${d}`;
 
@@ -792,7 +807,7 @@ async function ensureSession(w, d) {
 async function viewToday() {
   if (!S.meso) return viewNoMeso();
   const cur = currentSlot();
-  if (cur.week > S.meso.weeks) return viewMesoComplete();
+  if (cur.complete || cur.week > S.meso.weeks) return viewMesoComplete();
   S.session = await ensureSession(cur.week, cur.day);
   drawToday();
   wake();
@@ -1025,6 +1040,24 @@ function todayHeader(day) {
   </div></div>`;
 }
 
+/* Your N workouts for this program week, as a tappable row. Done ones carry a check; the one
+   you're on glows; tap any UNDONE one to switch to it. "keeps track through the week." */
+function weekBoardStrip() {
+  const b = weekBoard(); if (b.complete) return "";
+  const curDay = currentSlot().day;
+  return `<div class="card"><div class="wbrow">${b.days.map(d => {
+    const state = d.done ? "done" : d.day === curDay ? "now" : d.started ? "part" : "todo";
+    const c = E.CAT_COLOR[({ upper:"push", lower:"legs", push:"push", pull:"pull", legs:"legs", full:"acc", arms:"acc" })[d.kind]] || "var(--acc)";
+    return `<button class="wbday" data-wbday="${d.day}" data-s="${state}" ${d.done?"disabled":""}
+      style="--c:${c}">
+      <span class="wbn">${esc(d.name)}</span>
+      <span class="wbmark">${d.done ? "✓" : d.day === curDay ? "●" : d.started ? "◐" : ""}</span>
+    </button>`;
+  }).join("")}</div>
+  <div class="xs dim2" style="padding:0 14px 12px">Week ${b.week} of ${S.meso.weeks} · tap a workout to switch · ${b.days.filter(d=>d.done).length}/${b.per} done this week</div>
+  </div>`;
+}
+
 function weekStrip() {
   const w = weekStats(), p = pace();
   const L = ["M","T","W","T","F","S","S"];
@@ -1083,7 +1116,7 @@ function drawToday() {
   // Surface what the split planner had to give up — see meso.caps in seedMeso.
   const caps = (S.meso.caps || []).filter(c => groups.some(x => x.g.m === c.m) && c.status !== "ok");
 
-  $("#v").innerHTML = todayHeader(day) + weekStrip() + todayCard(day, s) +
+  $("#v").innerHTML = todayHeader(day) + weekBoardStrip() + weekStrip() + todayCard(day, s) +
     (deload ? `<div class="card"><div class="row"><div class="grow sm">Deload week — half the reps, lighter loads, 5+ RIR. Traps and forearms are out. Take it easy; this is where the growth actually lands.</div></div></div>` : "") +
     (s.off_plan ? `<div class="card"><div class="row"><div class="grow sm">Away from your home gym. These sets still count toward your weekly volume, but they're kept out of your strength trend — a hotel's 50lb dumbbell ceiling shouldn't read as detraining.</div></div></div>` : "") +
     (caps.length ? `<div class="card"><div class="row"><div class="grow sm dim">${esc(caps[0].why)}</div></div></div>` : "") +
@@ -1235,6 +1268,11 @@ function toggleDemo(exId) {
 
 function wireToday() {
   const v = $("#v");
+  v.querySelectorAll("[data-wbday]").forEach(b => b.onclick = async () => {
+    S.pickedDay = +b.dataset.wbday;
+    S.session = await ensureSession(currentSlot().week, S.pickedDay);
+    drawToday(); wake();
+  });
   v.querySelectorAll("[data-demo]").forEach(b => b.onclick = () => toggleDemo(b.dataset.demo));
   const st = $("#start");
   if (st) st.onclick = async () => { await askSorenessUpfront(); drawToday(); };
@@ -1855,6 +1893,7 @@ Unfinished sets don't count against you; the plan just picks up where you left o
   // Sets just changed, so the clock estimate did too. It was only ever computed at seed time,
   // so the Today card and Plan tab drifted low all block (54 stored vs 59 actual).
   for (const day of S.meso.days) day.estMinutes = E.sessionMinutes(day);
+  S.pickedDay = null;   // done — let Today advance to the next undone workout
   await DB.put("session", s);
   await DB.put("meso", S.meso);
   await loadUser();
