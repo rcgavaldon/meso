@@ -499,14 +499,22 @@ const TABS = [
    and the pref never heals itself. */
 const TAB_ALIAS = { workout:"today", mesos:"plan", gyms:"today", exercises:"today" };
 
+/* Nina's app is simpler, not degraded. She trains 2 days, full body, simple movements — Plan's
+   only unique content is the budget note and the "what didn't fit" card, whose entire payload is
+   an apology for a trade-off SHE didn't make and can't change (her day count is 2). That's
+   Robert's screen. Hers is: the workout, the reward, two settings. */
+const TABS_FOR = u => (u && u.id === ADMIN_ID) ? TABS : TABS.filter(t => t.k !== "plan");
+
 function renderTabs() {
-  $("#tabs").innerHTML = TABS.map(t =>
+  $("#tabs").innerHTML = TABS_FOR(S.user).map(t =>
     `<button data-tab="${t.k}" aria-selected="${S.tab===t.k}">${ICON[t.k]}<span>${t.t}</span></button>`).join("");
   $("#tabs").onclick = e => { const b = e.target.closest("[data-tab]"); if (b) go(b.dataset.tab); };
 }
 function go(tab) {
   tab = TAB_ALIAS[tab] || tab;
-  if (!TABS.some(t => t.k === tab)) tab = "today";
+  // Also heal a pref pointing at a tab this user doesn't have — otherwise Nina lands on a
+  // persisted "plan" and nothing is highlighted.
+  if (!TABS_FOR(S.user).some(t => t.k === tab)) tab = "today";
   S.tab = tab; DB.pref.set("tab", tab);
   document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
   ({ today: viewToday, plan: viewPlan, progress: viewProgress, more: viewMore }[tab])();
@@ -779,7 +787,7 @@ function drawIntake() {
   const mins = p.minutes && p.minutes.length ? Math.max.apply(null, p.minutes) : null;
 
   $("#v").innerHTML = `
-    <div class="hd"><div class="hd-row"><h2>Focus areas</h2></div>
+    <div class="hd"><div class="hd-row"><h2>${S.coachingFor ? esc(S.user.name) + "'s focus" : "Focus areas"}</h2></div>
       <div class="sm dim" style="margin-top:3px">Everything gets trained. Pick the few that get to grow.</div>
     </div>
 
@@ -832,7 +840,13 @@ function drawIntake() {
     S.user.emphasis = E.buildEmphasis(INTAKE.focus);
     await DB.put("kv", { k: "users", v: S.users });
     const m = seedMeso(S.user, S.gym, INTAKE.days, INTAKE.weeks);
-    await DB.put("meso", m); await loadUser(); go("today");
+    await DB.put("meso", m);
+    if (S.coachingFor) {                            // built for her — give the app back to him
+      const her = S.user.name, me = S.users.find(u => u.id === S.coachingFor.me);
+      S.coachingFor = null; S.user = me; await loadUser(); renderTabs(); go("more");
+      return toast(`${her}'s ${m.name} is ready`);
+    }
+    await loadUser(); go("today");
     toast(`${m.name} created`);
   };
 }
@@ -1903,7 +1917,7 @@ function viewProgress() {
     </div></div>
     <div class="xs dim2" style="padding:2px 2px 0">Measured at matched RIR. Deload and travel sessions are excluded. Strength is a proxy for size, not a synonym.</div>
 
-    <h4 style="margin:18px 0 8px">Volume this week</h4>
+    ${S.user.id !== ADMIN_ID ? "" : `<h4 style="margin:18px 0 8px">Volume this week</h4>
     <div class="card"><div style="padding:10px 14px 4px">
       ${Object.keys(vol).sort((a,b) => vol[b]-vol[a]).map(m => {
         const emph = mesoEmphasis(m);   // the block you're training, not the one you want next
@@ -1925,7 +1939,7 @@ function viewProgress() {
             <div class="xxs" style="margin-top:3px"><b class="num">${vol[m]}</b><span class="dim2"> sets · </span>${msg}${nx ? ' · ' + nx : ""}</div>
           </div></div>`;
       }).join("") || '<div class="empty">No sets this week.</div>'}
-    </div></div>
+    </div></div>`}
 
     <h4 style="margin:18px 0 8px">History</h4>
     ${calendarMonth()}
@@ -2079,6 +2093,22 @@ async function syncNow(quiet) {
 function viewMore() {
   $("#v").innerHTML = `
     <div class="hd"><div class="hd-row"><h2>More</h2></div></div>
+    ${S.user.id === ADMIN_ID ? `
+    <h4 style="margin:6px 0 8px">Coach</h4>
+    <div class="card">
+      ${S.users.filter(u => u.id !== ADMIN_ID).map(u => `
+        <div class="row tap" data-coach="${u.id}"><div class="grow">
+          <div class="lead">Build ${esc(u.name)}'s mesocycle</div>
+          <div class="sm dim" style="margin-top:3px">Pick her days and focus areas from here.</div>
+        </div><span class="dim2">›</span></div>`).join("")}
+    </div>
+    <div class="xs dim2" style="padding:2px 2px 14px">
+      You can build her plan and read what she lifted. You can't see her feedback answers —
+      soreness, pump, joint pain. That's not squeamishness: <b>setDelta reads those directly</b>,
+      and an answer she edits because you'll see it makes the whole autoregulator run on fiction.
+      It's an agreement, not a lock — her data is in the same Sheet as yours.
+    </div>` : ""}
+
     <h4 style="margin:6px 0 8px">Who's training</h4>
     <div class="card">${S.users.map(u => `<div class="row tap" data-u="${u.id}">
       <div class="grow"><div class="lead">${esc(u.name)}</div><div class="sm dim">${u.bodyweight} ${u.unit}</div></div>
@@ -2108,9 +2138,25 @@ function viewMore() {
     <div class="xs dim2" style="padding:14px 2px 24px">Meso · offline-first · your data stays yours.<br>
       Volume landmarks and the set-progression algorithm follow RP's published rules. Verify in the console with <span class="mono">ENGINE.verify()</span>.</div>`;
 
+  /* Coach mode: build for her, then hand the phone back. Everything the intake writes is keyed to
+     the user it's building for, so this is just "be her for the duration of the picker" — no
+     parallel code path, no second set of bugs to keep in sync. */
+  document.querySelectorAll("[data-coach]").forEach(r => r.onclick = async () => {
+    const her = S.users.find(u => u.id === r.dataset.coach);
+    const me = S.user;
+    S.user = her; await loadUser();
+    INTAKE.focus = Object.keys(her.emphasis || {}).filter(m => her.emphasis[m] === "emphasize");
+    INTAKE.days = Math.min(3, maxDays()); INTAKE.weeks = 5;
+    S.coachingFor = { her: her.id, me: me.id };
+    S.meso = null;                                  // force the picker
+    renderTabs(); go("today");
+    toast(`Building for ${her.name}`);
+  });
   document.querySelectorAll("[data-u]").forEach(r => r.onclick = async () => {
     S.user = S.users.find(u => u.id === r.dataset.u); DB.pref.set("user", S.user.id);
-    await loadUser(); toast(`Now training as ${S.user.name}`); go("today");
+    await loadUser();
+    renderTabs();                       // Robert and Nina have different tab bars
+    toast(`Now training as ${S.user.name}`); go("today");
   });
   $("#save").onclick = () => { DB.pref.set("syncUrl", $("#url").value.trim()); toast("Saved"); viewMore(); };
   $("#sn").onclick = () => syncNow().then(() => viewMore());
