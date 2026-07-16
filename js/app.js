@@ -507,7 +507,7 @@ const TAB_ALIAS = { workout:"today", mesos:"plan", gyms:"today", exercises:"toda
    only unique content is the budget note and the "what didn't fit" card, whose entire payload is
    an apology for a trade-off SHE didn't make and can't change (her day count is 2). That's
    Robert's screen. Hers is: the workout, the reward, two settings. */
-const TABS_FOR = u => (u && u.id === ADMIN_ID) ? TABS : TABS.filter(t => t.k !== "plan");
+const TABS_FOR = u => ((u && u.id === ADMIN_ID) || S.coachingFor) ? TABS : TABS.filter(t => t.k !== "plan");
 
 function renderTabs() {
   $("#tabs").innerHTML = TABS_FOR(S.user).map(t =>
@@ -522,6 +522,19 @@ function go(tab) {
   S.tab = tab; DB.pref.set("tab", tab);
   document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
   ({ today: viewToday, plan: viewPlan, progress: viewProgress, more: viewMore }[tab])();
+  // While coaching, pin a banner so there is never a moment of "wait, whose plan is this?"
+  const old = $("#coachbar"); if (old) old.remove();
+  if (S.coachingFor) {
+    const her = S.users.find(u => u.id === S.coachingFor.her) || S.user;
+    const bar = el("div", { id: "coachbar", class: "coachbar" },
+      `Editing <b>${esc(her.name)}</b>'s plan <button id="coachDone">Done</button>`);
+    document.body.appendChild(bar);
+    $("#coachDone").onclick = async () => {
+      const me = S.users.find(u => u.id === S.coachingFor.me);
+      S.coachingFor = null; S.user = me; await loadUser(); renderTabs(); go("more");
+      toast("Back to your own plan");
+    };
+  }
   scrollTo(0, 0);
 }
 
@@ -1040,12 +1053,13 @@ function drawExercise(g, e) {
   const feelOut = e.sets.length && !e.sets.some(x => x.warmup) && e.sets[0].targetLoad == null;
   return `<div class="card"><div class="ex">
     <div class="ex-hd">
-      <div class="grow">
-        <div class="ex-nm">${esc(ex.name)}</div>
+      <button class="grow exhd-tap" data-demo="${e.exId}" style="text-align:left">
+        <div class="ex-nm">${esc(ex.name)} <span class="demo-glyph">▸</span></div>
         <div class="sm dim" style="margin-top:2px">${esc(eq)}</div>
-      </div>
+      </button>
       <button class="swapb${(S.user.painFlags || {})[e.exId] ? " pain" : ""}" data-swap="${e.exId}">Swap</button>
     </div>
+    <div class="demo" data-demo-panel="${e.exId}" hidden></div>
     ${feelOut ? `<div class="note"><span>⌁</span><span><b>Pick your starting weight.</b> RP's ramp:
       12 reps with something you could do ~30 times, 8 reps at a ~20-rep weight, 4 reps at a
       ~10-rep weight — then choose a load you can hit for ${e.sets[0] ? e.sets[0].targetReps : 10}
@@ -1114,8 +1128,49 @@ function stepFor(field, st) {
   return bind && bind.ok && bind.plan ? bind.plan.stepAt(st.load || bind.plan.min) : 5;
 }
 
+/** Open/close an exercise demo. Video element exists ONLY while open — six autoplaying videos is
+    a battery heater and a decode stall on a mid phone. One at a time; a missing clip degrades to
+    the poster, then to a quiet one-liner, never an error. */
+function toggleDemo(exId) {
+  const panel = document.querySelector(`[data-demo-panel="${exId}"]`);
+  if (!panel) return;
+  const wasOpen = !panel.hidden;
+  document.querySelectorAll("[data-demo-panel]").forEach(p => {
+    const vid = p.querySelector("video"); if (vid) { vid.pause(); vid.removeAttribute("src"); vid.load(); }
+    p.innerHTML = ""; p.hidden = true;
+    const hd = p.previousElementSibling;
+    const g = hd && hd.querySelector ? hd.querySelector(".demo-glyph") : null;
+    if (g) g.textContent = "▸";
+  });
+  if (wasOpen) return;
+  panel.hidden = false;
+  const hd = panel.previousElementSibling;
+  const glyph = hd && hd.querySelector ? hd.querySelector(".demo-glyph") : null;
+  if (glyph) glyph.textContent = "▾";
+  if (!window.MEDIA) { panel.innerHTML = '<div class="xs dim2" style="padding:8px 0">No demo yet.</div>'; return; }
+  const vid = document.createElement("video");
+  vid.muted = true; vid.loop = true; vid.autoplay = true; vid.playsInline = true;
+  vid.setAttribute("playsinline", ""); vid.preload = "metadata";
+  vid.poster = MEDIA.poster(exId);
+  vid.src = MEDIA.clip(exId);
+  vid.onerror = () => {
+    const img = document.createElement("img");
+    img.src = MEDIA.poster(exId); img.loading = "lazy"; img.className = "demo-img";
+    img.onerror = () => { panel.innerHTML = '<div class="xs dim2" style="padding:8px 0">No demo for this one yet.</div>'; };
+    panel.innerHTML = ""; panel.appendChild(img);
+  };
+  panel.innerHTML = ""; panel.appendChild(vid);
+  /* Autoplay policies are moody even for muted video — nudge it, and if the browser still says
+     no, the tap-to-toggle below means the user is one touch from motion instead of stuck on a
+     frozen frame wondering if the app is broken. */
+  const kick = () => vid.play().catch(() => {});
+  kick(); vid.addEventListener("loadeddata", kick, { once: true });
+  vid.onclick = () => { vid.paused ? kick() : vid.pause(); };
+}
+
 function wireToday() {
   const v = $("#v");
+  v.querySelectorAll("[data-demo]").forEach(b => b.onclick = () => toggleDemo(b.dataset.demo));
   const st = $("#start");
   if (st) st.onclick = async () => { await askSorenessUpfront(); drawToday(); };
   const gc = $("#gymc"); if (gc) gc.onclick = gymSheet;
@@ -1291,7 +1346,8 @@ function swapSheet(exId, opts) {
     }
     $("#slist").innerHTML = rows.slice(0, 30).map((r, i) => `
       <div class="row pick" data-sub="${r.ex.id}" aria-pressed="${picked === r.ex.id}" style="${r.ok?"":"opacity:.4"}">
-        <div class="grow"><div class="lead">${esc(r.ex.name)}</div>
+        ${window.MEDIA ? `<img class="thumb" loading="lazy" src="${MEDIA.poster(r.ex.id)}" onerror="this.style.visibility='hidden'">` : ""}
+        <div class="grow" style="min-width:0"><div class="lead ell">${esc(r.ex.name)}</div>
         <div class="sm dim">${esc(equipLabel(r.ex))}${r.load ? ` · start ~${r.load} ${S.user.unit}` : ""}${r.ok?"":" · not here"}</div></div>
         ${i === 0 && r.best ? '<span class="badge b-up">BEST</span>' : ""}
       </div>`).join("") || '<div class="empty">Nothing else here hits that muscle.</div>';
@@ -1318,7 +1374,9 @@ async function substitute(fromId, toId, scope, opts) {
 
   if (scope === "replaced") {
     // PERMANENT — write the slot. Progression is untouched: sets/reps/position live on the slot.
-    const dayIx = S.session ? S.session.day - 1 : opts.dayIx;
+    // ⚠️ opts.dayIx WINS when given. This used to prefer the live session's day whenever one
+    // existed, so editing Thursday from the Plan tab silently rewrote today's plan instead.
+    const dayIx = opts.dayIx != null ? opts.dayIx : (S.session ? S.session.day - 1 : 0);
     const day = S.meso.days[dayIx];
     if (day) for (const g of day.muscles) for (const sl of g.slots) if (sl.exId === fromId) {
       sl.exId = toId; sl.replacedFrom = fromId; sl.replacedAt = today();
@@ -1337,7 +1395,10 @@ async function substitute(fromId, toId, scope, opts) {
 
   const bind = E.resolveEquipment(to, S.gym, S.occupied);
   // Both scopes retarget THIS session's pending sets — identical code, and that's the point.
-  const pending = S.session ? S.session.sets.filter(x => x.exId === fromId && !x.done && x.reps !== -1) : [];
+  // Unless we just edited a DIFFERENT day's plan: then today's sets are none of our business.
+  const touchesSession = S.session && !(scope === "replaced" && opts.dayIx != null
+    && opts.dayIx !== S.session.day - 1);
+  const pending = touchesSession ? S.session.sets.filter(x => x.exId === fromId && !x.done && x.reps !== -1) : [];
   for (const st of pending) {
     const tgt = E.targetLoad(S.user, to, bind, { repRange:[8,12], rir: st.rir, exId: fromId, muscle: st.muscle });
     st.exId = toId;
@@ -1491,6 +1552,7 @@ function stopRest() {
   if (S.restT) clearInterval(S.restT);
   S.restT = null; S.rest = null;
   const el = $("#rest"); if (el) el.classList.remove("on");
+  document.body.classList.remove("resting");
 }
 function tickRest() {
   const el = $("#rest");
@@ -1511,6 +1573,7 @@ function tickRest() {
                                   : `<b>Going cold</b> · past ${fmt(hi)}`;
   el.dataset.s = state;
   el.classList.add("on");
+  document.body.classList.add("resting");
   el.innerHTML = `<i class="bar" style="width:${Math.min(100, s / hi * 100)}%"></i>`
     + `<span class="t">${fmt(shown)}</span><span class="lab">${lab}</span>`
     + `<button id="restSkip">Done</button>`;
@@ -1660,6 +1723,10 @@ function askFeedback(muscle, qs, title) {
  * ================================================================ */
 async function finishWorkout() {
   const s = S.session;
+  const left = s.sets.filter(x => !x.done && x.reps !== -1 && !x.warmup).length;
+  if (left && !confirm(`${left} set${left>1?"s":""} still to go — finish anyway?
+
+Unfinished sets don't count against you; the plan just picks up where you left off.`)) return;
   s.finished = true; s.finishedAt = new Date().toISOString();
 
   const muscles = [...new Set(s.sets.map(x => x.muscle))];
@@ -1806,22 +1873,83 @@ async function viewPlan() {
 
 function planDaySheet(ix) {
   const d = S.meso.days[ix];
+  const maxMin = S.user.sessionMinutes || E.CFG.sessionMinutesMax;
+  const mins = E.sessionMinutes(d);
+  const over = mins > maxMin + 3;
+
+  /* Two alternates per slot, ranked by the real engine at the CURRENT gym — "easy to digest
+     things and suggestions", not a blank search box. Tap one and it's swapped for the meso. */
+  const suggest = (g, sl) => {
+    try {
+      const pick = E.selectForSlot(
+        { muscle: g.m, repRange: sl.repRange, rir: 2, position: 1, exId: sl.exId,
+          wanted_profile: sl.wanted_profile, wants_stretch: sl.wants_stretch },
+        S.gym, S.user, { chosen: [], fatigueSpent: .3, occupied: new Set() }, LIB());
+      return [pick.primary].concat(pick.backups || []).filter(Boolean)
+        .filter(c => c.ex.id !== sl.exId).slice(0, 2);
+    } catch (_) { return []; }
+  };
+
   sheet(`<h3>${esc(d.name)}</h3>
-    <div class="sm dim" style="margin:6px 0 10px">${d.estMinutes ? `~${d.estMinutes} min · ` : ""}tap an exercise to swap it for the rest of the meso.</div>
-    ${d.muscles.map(g => `
+    <div class="sm dim" style="margin:6px 0 10px">
+      <span id="pdMin" style="${over ? "color:var(--wac)" : ""}">~${mins} min</span> of ${maxMin} ·
+      sets apply from your next ${esc(d.name)} · swaps stick for the meso.</div>
+    ${d.muscles.map((g, gi) => `
       <div style="margin:14px 0 6px">${mgPill(g.m, g.emphasis)}
         <span class="xs dim2" style="margin-left:6px">${g.freq ? `${g.freq}× a week` : ""}</span></div>
-      ${g.slots.map(sl => {
+      ${g.slots.map((sl, si) => {
         const ex = LIB().find(x => x.id === sl.exId) || { name: sl.exId };
-        return `<div class="row pick" data-pswap="${sl.exId}" data-day="${ix}">
-          <div class="grow"><div class="lead">${esc(ex.name)}</div>
-          <div class="sm dim">${sl.sets} × ${sl.repRange[0]}-${sl.repRange[1]} · ${esc(equipLabel(ex))}</div></div>
-          <span class="dim2">⇄</span></div>`;
+        const alts = suggest(g, sl);
+        const cap = Math.min(g.capPerSession || E.CFG.perSessionMax, E.CFG.perSessionMax);
+        return `<div class="pick" style="padding:10px 12px">
+          <div style="display:flex;gap:10px;align-items:center">
+            ${window.MEDIA ? `<img class="thumb" loading="lazy" src="${MEDIA.poster(sl.exId)}"
+              onerror="this.style.visibility='hidden'">` : ""}
+            <div class="grow" style="min-width:0">
+              <div class="lead ell">${esc(ex.name)}</div>
+              <div class="sm dim">${sl.repRange[0]}-${sl.repRange[1]} reps · ${esc(equipLabel(ex))}</div>
+            </div>
+            <button class="swapb" data-pswap="${sl.exId}" data-day="${ix}">Swap</button>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;margin-top:9px">
+            <div class="stp" style="height:42px;max-width:150px">
+              <button data-pset="${gi}|${si}|-1">−</button>
+              <input data-pval="${gi}|${si}" value="${sl.sets}" readonly style="pointer-events:none">
+              <button data-pset="${gi}|${si}|1">+</button>
+            </div>
+            <span class="xs dim2">sets · max ${cap} (your hour)</span>
+          </div>
+          ${alts.length ? `<div class="pills" style="margin-top:9px">
+            ${alts.map(c => `<button class="fchip" data-palt="${sl.exId}|${c.ex.id}|${ix}" style="opacity:.8">
+              ↷ ${esc(c.ex.name)}</button>`).join("")}</div>` : ""}
+        </div>`;
       }).join("")}`).join("")}
-    <div class="sheet-ft"><button id="pdc">Close</button></div>`);
-  $("#pdc").onclick = closeSheet;
+    <div class="sheet-ft"><button class="btn" id="pdc">Done</button></div>`);
+
+  $("#pdc").onclick = () => { closeSheet(); if (S.tab === "plan") viewPlan(); };
   document.querySelectorAll("[data-pswap]").forEach(r => r.onclick = () =>
     swapSheet(r.dataset.pswap, { dayIx: +r.dataset.day }));
+  document.querySelectorAll("[data-palt]").forEach(b => b.onclick = () => {
+    const [from, to, di] = b.dataset.palt.split("|");
+    substitute(from, to, "replaced", { dayIx: +di });
+  });
+  document.querySelectorAll("[data-pset]").forEach(b => b.onclick = async () => {
+    const [gi, si, dir] = b.dataset.pset.split("|").map(Number);
+    const g = d.muscles[gi], sl = g.slots[si];
+    const cap = Math.min(g.capPerSession || E.CFG.perSessionMax, E.CFG.perSessionMax);
+    const next = Math.max(1, Math.min(cap, sl.sets + dir));
+    if (next === sl.sets) {
+      return toast(dir > 0 ? `${cap} is the ceiling — that's your ${maxMin}-minute session, not fatigue`
+                           : "One set is the floor");
+    }
+    sl.sets = next;
+    d.estMinutes = E.sessionMinutes(d);
+    await DB.put("meso", S.meso);
+    const inp = document.querySelector(`[data-pval="${gi}|${si}"]`); if (inp) inp.value = next;
+    const mm = $("#pdMin");
+    if (mm) { mm.textContent = `~${d.estMinutes} min`;
+      mm.style.color = d.estMinutes > maxMin + 3 ? "var(--wac)" : ""; }
+  });
 }
 
 /* ================================================================
@@ -2111,6 +2239,13 @@ function viewMore() {
           <div class="sm dim" style="margin-top:3px">Pick her days and focus areas from here.</div>
         </div><span class="dim2">›</span></div>`).join("")}
     </div>
+    ${(() => {
+      const others = S.users.filter(u => u.id !== ADMIN_ID);
+      return others.map(u => `<div class="row tap" data-coachplan="${u.id}"><div class="grow">
+        <div class="lead">Edit ${esc(u.name)}'s current plan</div>
+        <div class="sm dim" style="margin-top:3px">Sets, swaps and suggestions, day by day.</div>
+      </div><span class="dim2">›</span></div>`).join("");
+    })()}
     <div class="row tap" data-review="nina"><div class="grow">
       <div class="lead">Nina's last sessions</div>
       <div class="sm dim" style="margin-top:3px">What she lifted, what she reported, and what Meso changed.</div>
@@ -2213,6 +2348,12 @@ function viewMore() {
       </div></div>`;
     }).join("") + `<div class="sheet-ft"><button id="rvC">Close</button></div>`);
     $("#rvC").onclick = closeSheet;
+  });
+  document.querySelectorAll("[data-coachplan]").forEach(r => r.onclick = async () => {
+    const her = S.users.find(u => u.id === r.dataset.coachplan);
+    if (!(await DB.all("meso", "user", her.id)).length) return toast(`${her.name} has no mesocycle yet — build one first`);
+    S.coachingFor = { her: her.id, me: S.user.id };
+    S.user = her; await loadUser(); renderTabs(); go("plan");
   });
   document.querySelectorAll("[data-coach]").forEach(r => r.onclick = async () => {
     const her = S.users.find(u => u.id === r.dataset.coach);
