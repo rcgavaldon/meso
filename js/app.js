@@ -1108,7 +1108,7 @@ function weekBoardStrip() {
       <span class="wbmark">${d.done ? "✓" : d.day === curDay ? "●" : d.started ? "◐" : ""}</span>
     </button>`;
   }).join("")}</div>
-  <div class="xs dim2" style="padding:0 14px 12px">Week ${b.week} of ${S.meso.weeks} · ${b.days.filter(d=>d.done).length}/${b.per} done · ${anyLeft ? "tap a workout to switch" : "tap a ✓ workout to do it again"}</div>
+  <div class="xs dim2" style="padding:0 14px 12px">Week ${b.week} of ${S.meso.weeks} · ${b.days.filter(d=>d.done).length}/${b.per} done · ${anyLeft ? "which day today? tap to pick (✓ = done)" : "tap a ✓ workout to do it again"}</div>
   </div>`;
 }
 
@@ -1134,9 +1134,10 @@ function weekStrip() {
 }
 
 function todayCard(day, s) {
-  // beganAt (set by tapping Start) counts as started too — otherwise the clock stays hidden until
-  // the first set is logged, which reads as "I hit Start and nothing happened".
-  const started = s.sets.some(x => x.done) || !!s.beganAt;
+  // The clock (beganAt) is the single source of "started". Tapping Start stamps it → the timer and
+  // control bar appear immediately, before any set is logged. Exit clears it → back to this picker.
+  const started = !!s.beganAt;
+  const hasProgress = s.sets.some(x => x.done);
   const done = s.sets.filter(x => x.done || x.reps === -1).length;
   const nEx = new Set(s.sets.map(x => x.exId)).size;
   const deload = E.isDeload(s.week, S.meso.weeks);
@@ -1151,13 +1152,16 @@ function todayCard(day, s) {
     </div></div>
     ${started
       ? `<div class="row wkclock-row">
-           <div class="wkclock-box"><span id="wkclock" class="wkclock">0:00</span><span id="wkpace" class="wkpace">~${S.user.sessionMinutes || E.CFG.sessionMinutesMax} min budget</span></div>
+           <div class="wkclock-box${s.pausedAt ? " paused" : ""}"><span id="wkclock" class="wkclock">${fmtClock(elapsedSec(s))}</span><span id="wkpace" class="wkpace">${s.pausedAt ? "paused" : "~" + (S.user.sessionMinutes || E.CFG.sessionMinutesMax) + " min budget"}</span></div>
            <div class="grow">
              <div class="pbar"><i style="width:${Math.round(done / s.sets.length * 100)}%"></i></div>
              <div class="xs dim2" style="margin-top:6px">${done} of ${s.sets.length} sets logged</div>
            </div>
          </div>`
-      : `<div style="padding:0 14px 14px"><button class="btn wide" id="start">Start ${esc(day.name)}</button></div>`}
+      : `<div style="padding:0 14px 14px">
+           <button class="btn wide" id="start">${hasProgress ? "Resume" : "Start"} ${esc(day.name)}</button>
+           <button class="btn ghost wide" id="markdone" style="margin-top:8px">Did it but didn't log? Mark done</button>
+         </div>`}
   </div>`;
 }
 
@@ -1168,6 +1172,23 @@ function todayCard(day, s) {
  * the session record — so a reload mid-workout keeps counting, it doesn't restart the clock. */
 function beginClock() {
   if (!S.session.beganAt) { S.session.beganAt = new Date().toISOString(); DB.put("session", S.session); }
+}
+/* Elapsed accounts for pause: total wall time since beganAt, minus the accumulated paused span
+   (pausedMs), minus the CURRENT open pause (now − pausedAt) which we freeze by measuring to
+   pausedAt instead of now. */
+function elapsedSec(s) {
+  if (!s || !s.beganAt) return 0;
+  const end = s.pausedAt ? new Date(s.pausedAt).getTime() : Date.now();
+  return Math.max(0, (end - new Date(s.beganAt).getTime() - (s.pausedMs || 0)) / 1000);
+}
+function pauseClock() {
+  const s = S.session; if (!s.beganAt || s.pausedAt) return;
+  s.pausedAt = new Date().toISOString(); DB.put("session", s); drawToday();
+}
+function resumeClock() {
+  const s = S.session; if (!s.pausedAt) return;
+  s.pausedMs = (s.pausedMs || 0) + (Date.now() - new Date(s.pausedAt).getTime());
+  delete s.pausedAt; DB.put("session", s); drawToday();
 }
 function fmtClock(sec) {
   sec = Math.max(0, Math.round(sec));
@@ -1189,9 +1210,10 @@ function exMinutes(e, muscle, isFirst) {
 function tickClock() {
   const el = $("#wkclock"); if (!el || !S.session || !S.session.beganAt) return stopClock();
   const s = S.session;
-  const elapsed = (Date.now() - new Date(s.beganAt).getTime()) / 1000;
+  const elapsed = elapsedSec(s);
   el.textContent = fmtClock(elapsed);
   const pace = $("#wkpace"); if (!pace) return;
+  if (s.pausedAt) { pace.textContent = "paused"; pace.className = "wkpace paused"; return; }
   const budget = (S.user.sessionMinutes || E.CFG.sessionMinutesMax);
   const work = s.sets.filter(x => !x.warmup);
   const doneN = work.filter(x => x.done || x.reps === -1).length;
@@ -1202,15 +1224,50 @@ function tickClock() {
   else if (drift < -3) { pace.textContent = `${Math.round(-drift)} min ahead`; pace.className = "wkpace ahead"; }
   else { pace.textContent = "on pace"; pace.className = "wkpace ok"; }
 }
-function startClock() { stopClock(); tickClock(); S._clockIv = setInterval(tickClock, 1000); }
+function startClock() { stopClock(); tickClock(); if (!S.session.pausedAt) S._clockIv = setInterval(tickClock, 1000); }
 function stopClock() { if (S._clockIv) { clearInterval(S._clockIv); S._clockIv = null; } }
+
+/* Leave a workout without finishing. Logged sets are already in IndexedDB, so this just stops the
+   clock and drops the started state — Today returns to the day picker, and the day's Start button
+   becomes "Resume". Non-destructive: nothing logged is lost. */
+async function exitWorkout() {
+  const s = S.session;
+  const hasProgress = s.sets.some(x => x.done);
+  if (!confirm(hasProgress
+    ? "Leave this workout?\n\nYour logged sets are saved — tap Resume to pick it back up. The timer resets."
+    : "Leave this workout?")) return;
+  stopClock();
+  delete s.beganAt; delete s.pausedAt; s.pausedMs = 0;
+  await DB.put("session", s);
+  S.pickedDay = null;                 // let the picker choose the day again
+  drawToday();
+}
+
+/* "I did this day but didn't log it." Marks the day finished so it counts for the week and the
+   program advances — but with nothing logged, autoregulation has no data to act on, so it neither
+   updates weights nor touches Progress. Kept OUT of finishWorkout so it skips the decision/summary. */
+async function markDayDone() {
+  const s = S.session;
+  if (!confirm(`Mark ${S.meso.days[s.day - 1].name} done without logging?\n\nIt counts toward your week, but won't update your weights or Progress.`)) return;
+  s.finished = true; s.finishedAt = new Date().toISOString(); s.date = today(); s.unlogged = true;
+  delete s.beganAt; delete s.pausedAt;
+  await DB.put("session", s);
+  for (const day of S.meso.days) day.estMinutes = E.sessionMinutes(day);
+  S.pickedDay = null;
+  await loadUser(); stopRest();
+  if (wl) { try { wl.release(); } catch (_) {} wl = null; }
+  // Advance the UI immediately; push to the Sheet in the background so the screen doesn't hang on
+  // a network round-trip after a single tap.
+  toast("Marked done — no volume logged"); go("today");
+  syncNow(true).catch(() => {});
+}
 
 function drawToday() {
   stopClock();
   const s = S.session;
   const day = S.meso.days[s.day - 1];
   const deload = E.isDeload(s.week, S.meso.weeks);
-  const started = s.sets.some(x => x.done) || !!s.beganAt;
+  const started = !!s.beganAt;   // the clock is running → show timer + controls
 
   const groups = [];
   for (const g of day.muscles) {
@@ -1227,7 +1284,11 @@ function drawToday() {
     (s.tapered && Object.keys(s.tapered).length ? `<div class="card"><div class="row"><div class="grow sm">
       Still sore in <b>${Object.keys(s.tapered).map(m => esc(E.MG_LOWER(m))).join(", ")}</b> — trimmed a set today so you recover. Your plan for next time is unchanged.</div></div></div>` : "") +
     `<div id="gs">${groups.map((x, i) => drawGroup(x.g, x.sets, i > 0 && E.groupOf(groups[i-1].g.m) === E.groupOf(x.g.m))).join("")}</div>
-     ${started ? `<button class="btn wide" id="fin" style="margin:14px 0 20px">${s.sets.every(x => x.done || x.reps === -1) ? "Finish workout" : "Finish early"}</button>` : `<div style="height:16px"></div>`}
+     ${started ? `<div class="wkctl">
+        <button class="btn ghost" id="pause">${s.pausedAt ? "▶ Resume" : "❚❚ Pause"}</button>
+        <button class="btn ghost" id="exit">Exit</button>
+        <button class="btn" id="fin">${s.sets.every(x => x.done || x.reps === -1) ? "Finish" : "Finish early"}</button>
+      </div>` : `<div style="height:16px"></div>`}
      <div class="sync ${syncClass()}"><span class="dot"></span>${syncLabel()}</div>`;
 
   wireToday();
@@ -1456,6 +1517,9 @@ Extra session at this week's level — it counts toward your volume and won't sk
   });
   v.querySelectorAll("[data-swap]").forEach(b => b.onclick = () => swapSheet(b.dataset.swap));
   const fin = $("#fin"); if (fin) fin.onclick = finishWorkout;
+  const pz = $("#pause"); if (pz) pz.onclick = () => S.session.pausedAt ? resumeClock() : pauseClock();
+  const ex = $("#exit"); if (ex) ex.onclick = exitWorkout;
+  const md = $("#markdone"); if (md) md.onclick = markDayDone;
 }
 
 /* [PUB] RP's predictive matching: override the load → recompute target reps to hold equal
