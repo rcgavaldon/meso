@@ -182,9 +182,17 @@ const SEED_GYMS = [
         load_portability:"machine_relative", count:2, contention:"high" },
       // ⚠️ min/max UNREAD. 5-120 is the Crunch chain norm, not something anyone saw. This caps
       // Nina's progression AND sets her floor — highest-value thing to verify.
+      /* ✅ SEEN — Google Maps place photo (the "PERSPIRE TO GREATNESS" wall). A two-row rack
+         running the length of the wall, ~50 pairs. 30 / 35 / 37.5 / 40 / 45 are legible on the
+         heads, so 2.5lb increments are REAL here — not a guess — and that's exactly the range
+         where granularity decides whether progression exists. The top end isn't legible; 120 for
+         a rack that size is plausible and stays UNVERIFIED. Understating max is the safer error:
+         canReach() excludes above max, so a low guess only costs the heaviest DB work, which the
+         barbell covers anyway. contention: the same photo shows the rack is the centrepiece of
+         the floor, and Google popular times put this club at 98-100% Mon-Wed 6PM. */
       { instance_id:"cr_db", type:"dumbbell_set", caps:["dumbbell"],
-        load:{ kind:"fixed_pairs", min:5, max:120, increment:5, per_hand:true, pairs:true, range_estimated:true },
-        load_portability:"absolute", contention:"low" },
+        load:{ kind:"fixed_pairs", min:5, max:120, increment:2.5, per_hand:true, pairs:true },
+        load_portability:"absolute", contention:"med" },
       { instance_id:"cr_bench_adj", type:"bench", caps:["bench","adjustable_bench"],
         attrs:{ adjustable:true, angles:[0,15,30,45,60,75,85] }, count:6, contention:"low" },
       { instance_id:"cr_bench_flat", type:"bench", caps:["bench"], count:4, contention:"low" }
