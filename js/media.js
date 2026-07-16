@@ -30,6 +30,13 @@ window.MEDIA = (() => {
      f_mp4 transcodes them on delivery. Verified on this cloud: a 12-frame probe came back
      9,429b as gif and 3,539b as mp4 (2.7x smaller), with a 1,508b jpg poster. */
   const clip = id => `${BASE}/image/upload/f_mp4,q_auto,w_400/${FOLDER}/${id}.gif`;
+  /* Real FOOTAGE lives in a second namespace: video/upload at meso/exv/{id}. Pexels/Pixabay/
+     YouTube-CC captures are true mp4s — the image endpoint won't take them, and they deserve
+     better than being squashed into 2-frame gifs. toggleDemo tries footage first, then the
+     illustration, then the poster, then a quiet note. eo_6 caps every clip at 6 seconds: a demo
+     is a loop, not a lecture, and phone cache space is a budget. */
+  const clipV = id => `${BASE}/video/upload/so_0,eo_6,w_400,q_auto,f_mp4/meso/exv/${id}.mp4`;
+  const posterV = id => `${BASE}/video/upload/so_1,w_200,q_auto,f_jpg/meso/exv/${id}.jpg`;
   const poster = id => `${BASE}/image/upload/so_0,f_jpg,q_auto,w_200/${FOLDER}/${id}.gif`;
   /** Machine photo for the "What's here?" checklist — a still is enough to recognize a machine. */
   const machine = key => `${BASE}/image/upload/f_auto,q_auto,w_320/meso/machine/${key}.jpg`;
@@ -93,7 +100,8 @@ window.MEDIA = (() => {
       } catch (_) {}
     }
     const urls = [];
-    for (const id of ids) { urls.push(clip(id)); urls.push(poster(id)); }
+    // Both namespaces — whichever exists gets cached, the other just counts as missing.
+    for (const id of ids) { urls.push(clipV(id)); urls.push(clip(id)); urls.push(poster(id)); }
     const r = await precache(urls);
     return Object.assign({ exercises: ids.size }, r);
   }
@@ -104,5 +112,5 @@ window.MEDIA = (() => {
     try { const c = await caches.open(CACHE); return (await c.keys()).length; } catch (_) { return 0; }
   };
 
-  return { CLOUD, CACHE, clip, poster, machine, upload, has, precache, prefetchWeek, clear, size };
+  return { CLOUD, CACHE, clip, clipV, poster, posterV, machine, upload, has, precache, prefetchWeek, clear, size };
 })();

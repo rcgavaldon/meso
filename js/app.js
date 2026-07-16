@@ -627,7 +627,12 @@ function currentSlot() {
   // "training days aren't tied to specific dates", missing a day carries no penalty].
   const done = S.sessions.filter(s => s.mesoId === S.meso.id && s.finished).length;
   const perWeek = S.meso.days.length;
-  return { week: Math.floor(done / perWeek) + 1, day: (done % perWeek) + 1 };
+  /* startDay: begin the rotation anywhere. Robert just trained lower outside the app, so his
+     first session should be Upper — not whatever happens to be Day 1. Pure offset on the
+     PROGRAM clock; the week number still advances every perWeek sessions, so RIR and the
+     deload land exactly where they always did. */
+  const off = S.meso.startDay || 0;
+  return { week: Math.floor(done / perWeek) + 1, day: ((done + off) % perWeek) + 1 };
 }
 const sessionId = (w, d) => `${S.user.id}|${S.meso.id}|w${w}|d${d}`;
 
@@ -781,7 +786,7 @@ async function viewToday() {
  *  · Bodyweight — zero engine call sites. Asking implies it does something.
  *  · Session length — only offered at the moment it binds (when a pick freezes something).
  * ================================================================ */
-const INTAKE = { days: 4, weeks: 5, focus: [] };
+const INTAKE = { days: 4, weeks: 5, focus: [], startDay: 0 };
 /* One source of truth for which day counts a user may pick. The segment and the "Train N days"
    advice button both read it — they disagreed, and the button could set a value the segment
    couldn't render, leaving nothing selected and no way back. */
@@ -829,6 +834,15 @@ function drawIntake() {
 
     <div id="advice" style="margin-top:14px"></div>
 
+    ${p.plan && p.plan.days.length > 1 ? `
+    <div class="card" style="margin-top:14px"><div class="row"><div class="grow">Start with
+      <span class="dim sm">— already trained this week? Skip ahead.</span></div></div>
+      <div style="padding:0 14px 14px"><div class="seg" id="sdseg">
+        ${p.plan.days.map((d2, i) => `<button data-sd="${i}" aria-selected="${(INTAKE.startDay||0)===i}">
+          ${esc(E.DAY_LABEL[d2.kind] || d2.kind)}${p.plan.days.filter(x=>x.kind===d2.kind).length>1 ? " " + "ABCDEF"[p.plan.days.slice(0,i+1).filter(x=>x.kind===d2.kind).length-1] : ""}</button>`).join("")}
+      </div></div>
+    </div>` : ""}
+
     <div class="card" style="margin-top:14px"><div class="row"><div class="grow">Weeks <span class="dim sm">(last is the deload)</span></div></div>
       <div style="padding:0 14px 14px"><div class="seg" id="wseg">
         ${[4,5,6].map(w => `<button data-w="${w}" aria-selected="${w===INTAKE.weeks}">${w}</button>`).join("")}
@@ -846,6 +860,8 @@ function drawIntake() {
     INTAKE.days = +b.dataset.d; drawIntake(); };
   $("#wseg").onclick = e => { const b = e.target.closest("[data-w]"); if (!b) return;
     INTAKE.weeks = +b.dataset.w; drawIntake(); };
+  const sd = $("#sdseg"); if (sd) sd.onclick = e => { const b = e.target.closest("[data-sd]"); if (!b) return;
+    INTAKE.startDay = +b.dataset.sd; drawIntake(); };
   document.querySelectorAll("[data-f]").forEach(c => c.onclick = () => {
     const m = c.dataset.f;
     const i = INTAKE.focus.indexOf(m);
@@ -857,6 +873,7 @@ function drawIntake() {
     S.user.emphasis = E.buildEmphasis(INTAKE.focus);
     await DB.put("kv", { k: "users", v: S.users });
     const m = seedMeso(S.user, S.gym, INTAKE.days, INTAKE.weeks);
+    m.startDay = INTAKE.startDay || 0;
     await DB.put("meso", m);
     if (S.coachingFor) {                            // built for her — give the app back to him
       const her = S.user.name, me = S.users.find(u => u.id === S.coachingFor.me);
@@ -1152,8 +1169,12 @@ function toggleDemo(exId) {
   vid.muted = true; vid.loop = true; vid.autoplay = true; vid.playsInline = true;
   vid.setAttribute("playsinline", ""); vid.preload = "metadata";
   vid.poster = MEDIA.poster(exId);
-  vid.src = MEDIA.clip(exId);
+  // Real footage first (meso/exv), then the Everkinetic illustration (meso/ex),
+  // then the still, then a quiet note. Never an error.
+  vid.src = MEDIA.clipV(exId);
+  let fellBack = false;
   vid.onerror = () => {
+    if (!fellBack) { fellBack = true; vid.src = MEDIA.clip(exId); return; }
     const img = document.createElement("img");
     img.src = MEDIA.poster(exId); img.loading = "lazy"; img.className = "demo-img";
     img.onerror = () => { panel.innerHTML = '<div class="xs dim2" style="padding:8px 0">No demo for this one yet.</div>'; };
