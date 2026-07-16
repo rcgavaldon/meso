@@ -891,7 +891,8 @@ function viewNoMeso() {
 }
 
 function drawIntake() {
-  const p = E.previewFocus(INTAKE.focus, INTAKE.days, { sessionMinutes: S.user.sessionMinutes });
+  const p = E.previewFocus(INTAKE.focus, INTAKE.days,
+    { sessionMinutes: S.user.sessionMinutes, splitPref: S.user.splitPref, trainingAge: S.user.trainingAge });
   const byCat = { push: [], pull: [], legs: [], acc: [] };
   for (const g of E.GROUPS) (byCat[g.cat] || byCat.acc).push(g.key);   // coarse groups, not 15 muscles
   const CATN = { push: "Push", pull: "Pull", legs: "Legs", acc: "Core & grip" };
