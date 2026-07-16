@@ -47,11 +47,11 @@ function doPost(e) {
                    x.sub ? ('sub for ' + x.sub.of) : '']);
       });
     });
-    table_(ss, 'Sets — ' + user,
+    table_(ss, 'Sets - ' + user,
       ['Date', 'Week', 'Day', 'Muscle', 'Exercise', 'Weight', 'Reps', 'RIR', 'Gym', 'Off plan', 'Note'], rows);
 
     // Load state = the progression memory that must survive a lost phone.
-    table_(ss, 'Loads — ' + user, ['Key', 'Exercise', 'Weight', 'Reps', 'RIR', 'e1RM', 'Updated'],
+    table_(ss, 'Loads - ' + user, ['Key', 'Exercise', 'Weight', 'Reps', 'RIR', 'e1RM', 'Updated'],
       (data.loadState || []).map(function (l) {
         return [l.k, l.exId || '', l.load || '', l.reps || '', l.rir == null ? '' : l.rir,
                 l.e1rm ? Math.round(l.e1rm) : '', l.at || ''];

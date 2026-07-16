@@ -306,13 +306,17 @@ const SEED_GYMS = [
 const ADMIN_ID = "rob";
 
 const SEED_USERS = [
-  { id:"rob", name:"Robert", unit:"lb", bodyweight:185, trainingAge:"advanced",
+  { id:"rob", name:"Robert", unit:"lb", bodyweight:185,
+    // His words: "all upper all lower, 2 of each". scoreSplit prefers fb4; this is his call to make.
+    splitPref:"ul2", goal:"focus", sessionMinutes:60, trainingAge:"advanced",
     emphasis:{ chest:"emphasize", back:"emphasize", side_delt:"emphasize",
                triceps:"grow", biceps:"grow", quads:"grow",
                hamstrings:"maintain", glutes:"maintain", rear_delt:"maintain", front_delt:"maintain",
                calves:"maintain", traps:"maintain", forearms:"maintain", abs:"maintain", adductors:"maintain" },
     overrides:{}, injuries:[], learned_ratios:{}, painFlags:{} },
-  { id:"nina", name:"Nina", unit:"lb", bodyweight:132, trainingAge:"intermediate",
+  { id:"nina", name:"Nina", unit:"lb", bodyweight:132,
+    // "for 2 days a week we focus on full body, keep at an hour, simple movements nothing fancy"
+    splitPref:"fb2", goal:"balanced", sessionMinutes:60, trainingAge:"intermediate",
     emphasis:{ glutes:"emphasize", hamstrings:"emphasize",
                quads:"grow", back:"grow", abs:"grow",
                chest:"maintain", side_delt:"maintain", triceps:"maintain", biceps:"maintain",
@@ -326,7 +330,7 @@ const SEED_USERS = [
  * @param splitId optional — omit and it takes recommendSplit()'s pick.
  */
 function seedMeso(user, gym, days, weeks, splitId) {
-  const rec = E.recommendSplit(user, days);
+  const rec = E.recommendSplit(user, days);   // reads user.splitPref
   const split = (splitId && E.splitById(splitId)) || rec.best;
   if (!split) throw new Error(rec.why);
 
@@ -2090,6 +2094,11 @@ async function syncNow(quiet) {
   }
 }
 
+/* ⚠️ Deliberately NOT a constant in this file. This repo goes to GitHub, and this URL is an
+   UNAUTHENTICATED endpoint: doPost appends to the Sheet, doGet(?user=) returns anyone's full
+   training history. Public repo + baked-in URL = the household's log is world-readable and
+   world-writable. It lives in localStorage, typed once per device.
+   Robert's is set up and live (deployed 2026-07-15, "Anyone" access, per-user keyed). */
 function viewMore() {
   $("#v").innerHTML = `
     <div class="hd"><div class="hd-row"><h2>More</h2></div></div>
@@ -2102,11 +2111,14 @@ function viewMore() {
           <div class="sm dim" style="margin-top:3px">Pick her days and focus areas from here.</div>
         </div><span class="dim2">›</span></div>`).join("")}
     </div>
+    <div class="row tap" data-review="nina"><div class="grow">
+      <div class="lead">Nina's last sessions</div>
+      <div class="sm dim" style="margin-top:3px">What she lifted, what she reported, and what Meso changed.</div>
+    </div><span class="dim2">›</span></div>
     <div class="xs dim2" style="padding:2px 2px 14px">
-      You can build her plan and read what she lifted. You can't see her feedback answers —
-      soreness, pump, joint pain. That's not squeamishness: <b>setDelta reads those directly</b>,
-      and an answer she edits because you'll see it makes the whole autoregulator run on fiction.
-      It's an agreement, not a lock — her data is in the same Sheet as yours.
+      Her feedback drives her plan automatically — you don't have to do anything with it. One
+      thing worth knowing: <b>setDelta reads those answers directly</b>. If she ever softens one
+      because you'll read it, her whole progression runs on it. Coach the numbers, not the answers.
     </div>` : ""}
 
     <h4 style="margin:6px 0 8px">Who's training</h4>
@@ -2126,6 +2138,36 @@ function viewMore() {
       <div class="row tap" id="exp"><div class="grow">Export JSON</div></div>
     </div>
 
+    <h4 style="margin:18px 0 8px">Training</h4>
+    <div class="card">
+      <div class="row"><div class="grow"><div>Goal</div>
+        <div class="xs dim2" style="margin-top:2px">Balanced trains everything evenly. Focus lets a
+          few grow and holds the rest — an hour only buys so many sets.</div></div></div>
+      <div style="padding:0 14px 14px"><div class="seg" id="goalseg">
+        <button data-goal="balanced" aria-selected="${(S.user.goal||"focus")==="balanced"}">Balanced</button>
+        <button data-goal="focus" aria-selected="${(S.user.goal||"focus")==="focus"}">Focus areas</button>
+      </div></div>
+      <div class="row tap" id="editFocus"><div class="grow">
+        <div>Focus areas</div>
+        <div class="sm dim" style="margin-top:3px">${
+          Object.keys(S.user.emphasis||{}).filter(m=>S.user.emphasis[m]==="emphasize").map(m=>esc(E.MG_LABEL[m])).join(", ") || "None — even coverage"}</div>
+      </div><span class="dim2">›</span></div>
+      <div class="row"><div class="grow"><div>Split</div>
+        <div class="xs dim2" style="margin-top:2px">Auto picks whatever gives your focus areas the most room.</div></div></div>
+      <div style="padding:0 14px 14px"><div class="seg" id="splitseg">
+        ${[["auto","Auto"]].concat(E.SPLITS.filter(x => x.days === (S.user.id===ADMIN_ID?4:2)).map(x=>[x.id,x.name.replace(/ ×/,"×")]))
+          .map(([v,l]) => `<button data-split="${v}" aria-selected="${(S.user.splitPref||"auto")===v}" style="font-size:.75rem">${esc(l)}</button>`).join("")}
+      </div></div>
+      <div class="row"><div class="grow"><div>Session length</div>
+        <div class="xs dim2" style="margin-top:2px">Warm-ups and rest included.</div></div></div>
+      <div style="padding:0 14px 14px"><div class="seg" id="minseg">
+        ${[45,60,75,90].map(m => `<button data-min="${m}" aria-selected="${(S.user.sessionMinutes||60)===m}">${m}m</button>`).join("")}
+      </div></div>
+    </div>
+    <div class="xs dim2" style="padding:2px 2px 14px">Changes apply to your NEXT mesocycle — the
+      current one was sized for its own last week, so re-cutting it mid-block would leave you on
+      days built for different muscles.</div>
+
     <h4 style="margin:18px 0 8px">Settings</h4>
     <div class="card">
       <div class="row"><div class="grow">Theme</div>
@@ -2141,6 +2183,37 @@ function viewMore() {
   /* Coach mode: build for her, then hand the phone back. Everything the intake writes is keyed to
      the user it's building for, so this is just "be her for the duration of the picker" — no
      parallel code path, no second set of bugs to keep in sync. */
+  /* Her sessions, her feedback, and — the point — what the engine DID with it. Robert asked to
+     see this. It's his household and her data already sits in the same Sheet as his, so a UI that
+     hid it would be theatre. The read-only framing is deliberate: he can see the answers and the
+     decision, and he changes her plan through the picker, not by editing what she reported. */
+  document.querySelectorAll("[data-review]").forEach(r => r.onclick = async () => {
+    const her = S.users.find(u => u.id === r.dataset.review);
+    const sess = (await DB.all("session", "user", her.id)).filter(x => x.finished)
+      .sort((a, b) => (b.week - a.week) || (b.day - a.day)).slice(0, 6);
+    if (!sess.length) return toast(`${her.name} hasn't finished a session yet`);
+    const FB = { soreness:"Soreness", pump:"Pump", workload:"Volume", jointPain:"Joint pain" };
+    sheet(`<h3>${esc(her.name)}'s last sessions</h3>` + sess.map(x => {
+      const done = (x.sets || []).filter(y => y.done && !y.warmup);
+      const dec = x.decision || {};
+      return `<div class="card" style="margin-top:10px"><div style="padding:12px 14px">
+        <div class="lead">Week ${x.week} Day ${x.day} <span class="dim2 sm">· ${esc(x.date)}${x.off_plan?" · travel":""}</span></div>
+        <div class="sm dim" style="margin:4px 0 8px">${done.length} sets · ${esc(x.gymId || "")}</div>
+        ${Object.keys(dec).map(m => {
+          const d = dec[m], fb = (x.feedback || {})[m] || {};
+          const n = d.applied != null ? d.applied : d.delta;
+          const lbl = d.action === "recovery" ? "RECOVERY" : n > 0 ? `+${n}` : n < 0 ? `${n}` : "HOLD";
+          const said = Object.keys(FB).map(k => fb[k] ? `${FB[k]}: ${esc(String(fb[k]).replace(/_/g," "))}` : null).filter(Boolean).join(" · ");
+          return `<div class="row" style="padding:8px 0"><div class="grow">
+            <div>${esc(E.MG_LABEL[m] || m)}</div>
+            <div class="xs dim2" style="margin-top:2px">${said || "skipped feedback — held"}</div>
+            <div class="xs dim" style="margin-top:2px">${esc((d.reasons||[]).join(" · "))}</div>
+          </div><span class="badge ${n>0?"b-up":n<0?"b-dn":"b-mid"}">${lbl}</span></div>`;
+        }).join("") || '<div class="xs dim2">No feedback recorded.</div>'}
+      </div></div>`;
+    }).join("") + `<div class="sheet-ft"><button id="rvC">Close</button></div>`);
+    $("#rvC").onclick = closeSheet;
+  });
   document.querySelectorAll("[data-coach]").forEach(r => r.onclick = async () => {
     const her = S.users.find(u => u.id === r.dataset.coach);
     const me = S.user;
@@ -2172,6 +2245,26 @@ function viewMore() {
       const r = await fetch(url + "?user=" + encodeURIComponent(S.user.id));
       await DB.importUser(await r.json()); await loadUser(); toast("Restored"); go("today");
     } catch (e) { toast("Restore failed"); }
+  };
+  const save = async () => { await DB.put("kv", { k:"users", v: S.users }); viewMore(); };
+  document.querySelectorAll("[data-goal]").forEach(b => b.onclick = async () => {
+    S.user.goal = b.dataset.goal;
+    // Balanced IS a real plan: all-Maintain covers 15/15 at 4 days. It's the only setting that
+    // trains everything — all-Grow covers 11/15, because every muscle claims 2-3 day-slots and
+    // the binner spends them on the first few.
+    if (S.user.goal === "balanced") S.user.emphasis = E.buildEmphasis([]);
+    await save();
+  });
+  document.querySelectorAll("[data-split]").forEach(b => b.onclick = async () => {
+    S.user.splitPref = b.dataset.split; await save();
+  });
+  document.querySelectorAll("[data-min]").forEach(b => b.onclick = async () => {
+    S.user.sessionMinutes = +b.dataset.min; await save();
+  });
+  const ef = $("#editFocus"); if (ef) ef.onclick = () => {
+    INTAKE.focus = Object.keys(S.user.emphasis||{}).filter(m => S.user.emphasis[m] === "emphasize");
+    INTAKE.days = Math.min(INTAKE.days, maxDays());
+    S.editingFocus = true; drawIntake();
   };
   document.querySelectorAll("[data-th]").forEach(b => b.onclick = () => {
     const t = b.dataset.th; document.documentElement.dataset.theme = t;

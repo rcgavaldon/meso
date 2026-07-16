@@ -16,6 +16,56 @@
     "cloudinary_public_id": "meso/ex/ab_wheel",
     "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
   },
+  "abductor_machine": {
+    "source": "wikimedia_commons",
+    "source_name": "Thigh abductor",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Thigh-abductor-1.gif",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/2/29/Thigh-abductor-1.gif",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/2/29/Thigh-abductor-1.gif",
+      "https://upload.wikimedia.org/wikipedia/commons/0/0c/Thigh-abductor-2.gif"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/abductor_machine",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "adductor_machine": {
+    "source": "wikimedia_commons",
+    "source_name": "Thigh adductor",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Thigh-adductor-1.gif",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/1/1c/Thigh-adductor-1.gif",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/1/1c/Thigh-adductor-1.gif",
+      "https://upload.wikimedia.org/wikipedia/commons/5/59/Thigh-adductor-2.gif"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/adductor_machine",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "assisted_pullup": {
+    "source": "wikimedia_commons",
+    "source_name": "Francis practicando pullups asistido con liga - Crossfit",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Francis_practicando_pullups_asistido_con_liga_-_Crossfit.JPG",
+    "license": "CC-BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "author": "Teran61",
+    "author_url": "https://commons.wikimedia.org/wiki/User:Teran61",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/0/0a/Francis_practicando_pullups_asistido_con_liga_-_Crossfit.JPG",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/0/0a/Francis_practicando_pullups_asistido_con_liga_-_Crossfit.JPG"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/assisted_pullup",
+    "derivative": "resized to 400px wide, assembled into a two-frame animated GIF"
+  },
   "back_extension_45": {
     "source": "wger",
     "source_id": 301,
@@ -33,6 +83,106 @@
     "frames": 2,
     "cloudinary_public_id": "meso/ex/back_extension_45",
     "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "band_chest_press": {
+    "source": "wikimedia_commons",
+    "source_name": "Bench press with bands",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Bench-press-with-bands-1.png",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/f/f5/Bench-press-with-bands-1.png",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/f/f5/Bench-press-with-bands-1.png",
+      "https://upload.wikimedia.org/wikipedia/commons/f/f3/Bench-press-with-bands-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/band_chest_press",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "band_curl": {
+    "source": "wikimedia_commons",
+    "source_name": "Quick alternating bicep curls with band",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Quick_alternating_bicep_curls_with_band_1.svg",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/7/7f/Quick_alternating_bicep_curls_with_band_1.svg",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/7/7f/Quick_alternating_bicep_curls_with_band_1.svg",
+      "https://upload.wikimedia.org/wikipedia/commons/6/6d/Quick_alternating_bicep_curls_with_band_2.svg"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/band_curl",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "band_fly": {
+    "source": "wikimedia_commons",
+    "source_name": "Crossover with bands",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Crossover-with-bands-1.png",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/8/85/Crossover-with-bands-1.png",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/8/85/Crossover-with-bands-1.png",
+      "https://upload.wikimedia.org/wikipedia/commons/5/59/Crossover-with-bands-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/band_fly",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "band_ohp": {
+    "source": "wikimedia_commons",
+    "source_name": "Overhead press demonstration with resistance bands",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Overhead_press_demonstration_with_resistance_bands.gif",
+    "license": "CC-BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "author": "GyorgyGajdos",
+    "author_url": "https://commons.wikimedia.org/wiki/User:GyorgyGajdos",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/9/92/Overhead_press_demonstration_with_resistance_bands.gif",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/9/92/Overhead_press_demonstration_with_resistance_bands.gif"
+    ],
+    "frames": 22,
+    "cloudinary_public_id": "meso/ex/band_ohp",
+    "derivative": "video frames sampled, resized to 400px wide, re-assembled into an animated GIF"
+  },
+  "band_pull_apart": {
+    "source": "wikimedia_commons",
+    "source_name": "Back flyes with resistance bands",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Back-flyes-with-resistance-bands-1.png",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/7/72/Back-flyes-with-resistance-bands-1.png",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/7/72/Back-flyes-with-resistance-bands-1.png",
+      "https://upload.wikimedia.org/wikipedia/commons/e/ea/Back-flyes-with-resistance-bands-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/band_pull_apart",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "band_row": {
+    "source": "wikimedia_commons",
+    "source_name": "Bent over rows with resistance bands 01",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Bent_over_rows_with_resistance_bands_01.gif",
+    "license": "CC-BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "author": "GyorgyGajdos",
+    "author_url": "https://commons.wikimedia.org/wiki/User:GyorgyGajdos",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/5/5e/Bent_over_rows_with_resistance_bands_01.gif",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/5/5e/Bent_over_rows_with_resistance_bands_01.gif"
+    ],
+    "frames": 26,
+    "cloudinary_public_id": "meso/ex/band_row",
+    "derivative": "video frames sampled, resized to 400px wide, re-assembled into an animated GIF"
   },
   "bb_back_squat": {
     "source": "wger",
@@ -160,6 +310,40 @@
     "cloudinary_public_id": "meso/ex/bb_ohp",
     "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
   },
+  "bb_rdl": {
+    "source": "wikimedia_commons",
+    "source_name": "Romanian deadlift",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Romanian-deadlift-1.png",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/e/e8/Romanian-deadlift-1.png",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/e/e8/Romanian-deadlift-1.png",
+      "https://upload.wikimedia.org/wikipedia/commons/5/58/Romanian-deadlift-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/bb_rdl",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "bb_reverse_curl": {
+    "source": "wikimedia_commons",
+    "source_name": "Biceps curl reverse",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Biceps-curl-reverse-1.png",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/7/7a/Biceps-curl-reverse-1.png",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/7/7a/Biceps-curl-reverse-1.png",
+      "https://upload.wikimedia.org/wikipedia/commons/9/90/Biceps-curl-reverse-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/bb_reverse_curl",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
   "bb_row": {
     "source": "wger",
     "source_id": 83,
@@ -214,6 +398,23 @@
     "cloudinary_public_id": "meso/ex/bench_dip",
     "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
   },
+  "cable_crunch": {
+    "source": "wikimedia_commons",
+    "source_name": "Seated ab crunch",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Seated-ab-crunch-1.gif",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/0/05/Seated-ab-crunch-1.gif",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/0/05/Seated-ab-crunch-1.gif",
+      "https://upload.wikimedia.org/wikipedia/commons/9/99/Seated-ab-crunch-2.gif"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/cable_crunch",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
   "cable_curl": {
     "source": "wger",
     "source_id": 95,
@@ -250,6 +451,23 @@
     "cloudinary_public_id": "meso/ex/cable_fly",
     "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
   },
+  "cable_kickback": {
+    "source": "wikimedia_commons",
+    "source_name": "One legged kickback",
+    "source_page": "https://commons.wikimedia.org/wiki/File:One-legged-kickback-1.png",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/8/88/One-legged-kickback-1.png",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/8/88/One-legged-kickback-1.png",
+      "https://upload.wikimedia.org/wikipedia/commons/b/b6/One-legged-kickback-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/cable_kickback",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
   "cable_lateral_raise": {
     "source": "wger",
     "source_id": 349,
@@ -267,6 +485,23 @@
     ],
     "frames": 3,
     "cloudinary_public_id": "meso/ex/cable_lateral_raise",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "cable_overhead_extension": {
+    "source": "wikimedia_commons",
+    "source_name": "Kneeling triceps extension with cable",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Kneeling_triceps_extension_with_cable_1.svg",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/5/56/Kneeling_triceps_extension_with_cable_1.svg",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/5/56/Kneeling_triceps_extension_with_cable_1.svg",
+      "https://upload.wikimedia.org/wikipedia/commons/a/a1/Kneeling_triceps_extension_with_cable_2.svg"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/cable_overhead_extension",
     "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
   },
   "cable_pushdown": {
@@ -320,6 +555,40 @@
     ],
     "frames": 2,
     "cloudinary_public_id": "meso/ex/cable_rope_hammer_curl",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "cable_row": {
+    "source": "wikimedia_commons",
+    "source_name": "Cable seated rows",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Cable-seated-rows-1.png",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/2/2d/Cable-seated-rows-1.png",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/2/2d/Cable-seated-rows-1.png",
+      "https://upload.wikimedia.org/wikipedia/commons/4/4d/Cable-seated-rows-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/cable_row",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "cable_shrug": {
+    "source": "wikimedia_commons",
+    "source_name": "Cable shrugs",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Cable-shrugs-1.png",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/a/a1/Cable-shrugs-1.png",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/a/a1/Cable-shrugs-1.png",
+      "https://upload.wikimedia.org/wikipedia/commons/4/44/Cable-shrugs-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/cable_shrug",
     "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
   },
   "chinup": {
@@ -500,6 +769,23 @@
     "cloudinary_public_id": "meso/ex/db_lateral_raise",
     "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
   },
+  "db_overhead_extension": {
+    "source": "wikimedia_commons",
+    "source_name": "Seated triceps press",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Seated-triceps-press-1.gif",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/2/2d/Seated-triceps-press-1.gif",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/2/2d/Seated-triceps-press-1.gif",
+      "https://upload.wikimedia.org/wikipedia/commons/9/92/Seated-triceps-press-2.gif"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/db_overhead_extension",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
   "db_pullover": {
     "source": "wger",
     "source_id": 161,
@@ -515,6 +801,23 @@
     ],
     "frames": 2,
     "cloudinary_public_id": "meso/ex/db_pullover",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "db_rdl": {
+    "source": "wikimedia_commons",
+    "source_name": "Dumbbell dead lifts",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Dumbbell_dead_lifts_1.svg",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/d/da/Dumbbell_dead_lifts_1.svg",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/d/da/Dumbbell_dead_lifts_1.svg",
+      "https://upload.wikimedia.org/wikipedia/commons/c/c3/Dumbbell_dead_lifts_2.svg"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/db_rdl",
     "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
   },
   "db_rear_delt_fly": {
@@ -533,6 +836,23 @@
     ],
     "frames": 2,
     "cloudinary_public_id": "meso/ex/db_rear_delt_fly",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "db_row": {
+    "source": "wikimedia_commons",
+    "source_name": "Rear deltoid row dumbbell",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Rear_deltoid_row_dumbbell_1.svg",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/0/0e/Rear_deltoid_row_dumbbell_1.svg",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/0/0e/Rear_deltoid_row_dumbbell_1.svg",
+      "https://upload.wikimedia.org/wikipedia/commons/c/c5/Rear_deltoid_row_dumbbell_2.svg"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/db_row",
     "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
   },
   "db_shoulder_press": {
@@ -605,6 +925,23 @@
     "cloudinary_public_id": "meso/ex/dip",
     "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
   },
+  "ez_curl": {
+    "source": "wikimedia_commons",
+    "source_name": "Ez bar curl",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Ez-bar-curl-1.gif",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/5/5e/Ez-bar-curl-1.gif",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/5/5e/Ez-bar-curl-1.gif",
+      "https://upload.wikimedia.org/wikipedia/commons/7/7a/Ez-bar-curl-2.gif"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/ez_curl",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
   "ez_preacher_curl": {
     "source": "wger",
     "source_id": 465,
@@ -641,6 +978,23 @@
     "cloudinary_public_id": "meso/ex/ez_skullcrusher",
     "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
   },
+  "glute_bridge": {
+    "source": "wikimedia_commons",
+    "source_name": "Bridging",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Bridging_1.svg",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/c/cd/Bridging_1.svg",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/c/cd/Bridging_1.svg",
+      "https://upload.wikimedia.org/wikipedia/commons/0/06/Bridging_2.svg"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/glute_bridge",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
   "goblet_squat": {
     "source": "wger",
     "source_id": 203,
@@ -659,6 +1013,57 @@
     "cloudinary_public_id": "meso/ex/goblet_squat",
     "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
   },
+  "hack_squat": {
+    "source": "wikimedia_commons",
+    "source_name": "Hack squats",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Hack-squats-1.gif",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/f/f4/Hack-squats-1.gif",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/f/f4/Hack-squats-1.gif",
+      "https://upload.wikimedia.org/wikipedia/commons/9/98/Hack-squats-2.gif"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/hack_squat",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "incline_db_curl": {
+    "source": "wikimedia_commons",
+    "source_name": "Incline biceps curl",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Incline-biceps-curl-1.gif",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/8/81/Incline-biceps-curl-1.gif",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/8/81/Incline-biceps-curl-1.gif",
+      "https://upload.wikimedia.org/wikipedia/commons/3/38/Incline-biceps-curl-2.gif"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/incline_db_curl",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "incline_press_machine": {
+    "source": "wikimedia_commons",
+    "source_name": "Incline chest press",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Incline-chest-press-1.png",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/3/31/Incline-chest-press-1.png",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/3/31/Incline-chest-press-1.png",
+      "https://upload.wikimedia.org/wikipedia/commons/f/f5/Incline-chest-press-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/incline_press_machine",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
   "inverted_row": {
     "source": "wger",
     "source_id": 1198,
@@ -674,6 +1079,23 @@
     ],
     "frames": 2,
     "cloudinary_public_id": "meso/ex/inverted_row",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "lat_pulldown": {
+    "source": "wikimedia_commons",
+    "source_name": "Wide grip lat pull down",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Wide-grip-lat-pull-down-1.gif",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/8/82/Wide-grip-lat-pull-down-1.gif",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/8/82/Wide-grip-lat-pull-down-1.gif",
+      "https://upload.wikimedia.org/wikipedia/commons/7/79/Wide-grip-lat-pull-down-2.gif"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/lat_pulldown",
     "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
   },
   "leg_curl_lying": {
@@ -710,6 +1132,74 @@
     ],
     "frames": 2,
     "cloudinary_public_id": "meso/ex/leg_curl_seated",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "leg_extension": {
+    "source": "wikimedia_commons",
+    "source_name": "Leg extensions 1 672x1024",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Leg-extensions-1-672x1024.png",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/b/b1/Leg-extensions-1-672x1024.png",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/b/b1/Leg-extensions-1-672x1024.png",
+      "https://upload.wikimedia.org/wikipedia/commons/5/58/Leg-extensions-2-672x1024.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/leg_extension",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "leg_press": {
+    "source": "wikimedia_commons",
+    "source_name": "Leg press 1 1024x670",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Leg-press-1-1024x670.png",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/0/0c/Leg-press-1-1024x670.png",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/0/0c/Leg-press-1-1024x670.png",
+      "https://upload.wikimedia.org/wikipedia/commons/0/04/Leg-press-2-1024x670.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/leg_press",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "leg_press_calf_raise": {
+    "source": "wikimedia_commons",
+    "source_name": "Calves press on leg machine",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Calves-press-on-leg-machine-1.png",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/1/1d/Calves-press-on-leg-machine-1.png",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/1/1d/Calves-press-on-leg-machine-1.png",
+      "https://upload.wikimedia.org/wikipedia/commons/6/61/Calves-press-on-leg-machine-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/leg_press_calf_raise",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "machine_chest_press": {
+    "source": "wikimedia_commons",
+    "source_name": "Machine bench press",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Machine_bench_press_1.svg",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/a/a9/Machine_bench_press_1.svg",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/a/a9/Machine_bench_press_1.svg",
+      "https://upload.wikimedia.org/wikipedia/commons/4/4d/Machine_bench_press_2.svg"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/machine_chest_press",
     "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
   },
   "machine_shoulder_press": {
@@ -782,6 +1272,23 @@
     "cloudinary_public_id": "meso/ex/pike_pushup",
     "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
   },
+  "preacher_curl_machine": {
+    "source": "wikimedia_commons",
+    "source_name": "Preacher curl with machine",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Preacher_curl_with_machine_1.svg",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/b/ba/Preacher_curl_with_machine_1.svg",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/b/ba/Preacher_curl_with_machine_1.svg",
+      "https://upload.wikimedia.org/wikipedia/commons/8/89/Preacher_curl_with_machine_2.svg"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/preacher_curl_machine",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
   "pullup": {
     "source": "wger",
     "source_id": 475,
@@ -852,6 +1359,40 @@
     "cloudinary_public_id": "meso/ex/reverse_lunge",
     "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
   },
+  "seated_calf_raise": {
+    "source": "wikimedia_commons",
+    "source_name": "Seated calf raise",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Seated-calf-raise-1.gif",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/a/ae/Seated-calf-raise-1.gif",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/a/ae/Seated-calf-raise-1.gif",
+      "https://upload.wikimedia.org/wikipedia/commons/6/6b/Seated-calf-raise-2.gif"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/seated_calf_raise",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "sissy_squat": {
+    "source": "wikimedia_commons",
+    "source_name": "Weighted sissy squat",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Weighted-sissy-squat-1.gif",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/b/b7/Weighted-sissy-squat-1.gif",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/b/b7/Weighted-sissy-squat-1.gif",
+      "https://upload.wikimedia.org/wikipedia/commons/5/55/Weighted-sissy-squat-2.gif"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/sissy_squat",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
   "smith_incline_press": {
     "source": "wger",
     "source_id": 925,
@@ -886,6 +1427,40 @@
     "cloudinary_public_id": "meso/ex/smith_ohp",
     "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
   },
+  "smith_squat": {
+    "source": "wikimedia_commons",
+    "source_name": "Smith machine squats",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Smith_machine_squats_1.svg",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/b/bb/Smith_machine_squats_1.svg",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/b/bb/Smith_machine_squats_1.svg",
+      "https://upload.wikimedia.org/wikipedia/commons/8/8b/Smith_machine_squats_2.svg"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/smith_squat",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "standing_calf_raise": {
+    "source": "wikimedia_commons",
+    "source_name": "Standing calf raises using machine",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Standing_calf_raises_using_machine_1.svg",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/4/4a/Standing_calf_raises_using_machine_1.svg",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/4/4a/Standing_calf_raises_using_machine_1.svg",
+      "https://upload.wikimedia.org/wikipedia/commons/1/1a/Standing_calf_raises_using_machine_2.svg"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/standing_calf_raise",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
   "step_up": {
     "source": "wger",
     "source_id": 981,
@@ -901,6 +1476,23 @@
     ],
     "frames": 2,
     "cloudinary_public_id": "meso/ex/step_up",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "straight_arm_pulldown": {
+    "source": "wikimedia_commons",
+    "source_name": "Straight arm push down",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Straight-arm-push-down-1.png",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/d/d6/Straight-arm-push-down-1.png",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/d/d6/Straight-arm-push-down-1.png",
+      "https://upload.wikimedia.org/wikipedia/commons/c/cc/Straight-arm-push-down-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/straight_arm_pulldown",
     "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
   },
   "t_bar_row": {
@@ -919,6 +1511,40 @@
     ],
     "frames": 2,
     "cloudinary_public_id": "meso/ex/t_bar_row",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "triceps_extension_machine": {
+    "source": "wikimedia_commons",
+    "source_name": "Triceps extensions",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Triceps-extensions-1.gif",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/d/d5/Triceps-extensions-1.gif",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/d/d5/Triceps-extensions-1.gif",
+      "https://upload.wikimedia.org/wikipedia/commons/4/4d/Triceps-extensions-2.gif"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/triceps_extension_machine",
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "upright_row": {
+    "source": "wikimedia_commons",
+    "source_name": "Barbell upright rows",
+    "source_page": "https://commons.wikimedia.org/wiki/File:Barbell-upright-rows-1.png",
+    "license": "CC-BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "author": "Everkinetic",
+    "author_url": "http://everkinetic.com/",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/b/bf/Barbell-upright-rows-1.png",
+    "source_urls": [
+      "https://upload.wikimedia.org/wikipedia/commons/b/bf/Barbell-upright-rows-1.png",
+      "https://upload.wikimedia.org/wikipedia/commons/3/34/Barbell-upright-rows-2.png"
+    ],
+    "frames": 2,
+    "cloudinary_public_id": "meso/ex/upright_row",
     "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
   },
   "walking_lunge": {

@@ -887,9 +887,22 @@ function splitsFor(days, user) {
 
 /** The pick, the runners-up, the rejects with reasons — plus the one thing that is NOT a property
  *  of any split: whether the emphasis spread fits the week at all. */
+/**
+ * @param user.splitPref  a split id ("ul2", "fb4", …) or "auto"/undefined.
+ *   A preference is not a mistake to be corrected. Robert wants Upper/Lower ×2 — all upper, all
+ *   lower, two of each — while scoreSplit prefers fb4 because it hands his emphasized back 3
+ *   sessions instead of 2. Both are VALID; one is his. Honour it whenever it isn't rejected, and
+ *   let the ledger show what it costs. We only overrule a preference that can't carry his muscles.
+ */
 function recommendSplit(user, days) {
   const opts = splitsFor(days, user);
   const valid = opts.filter(o => o.valid);
+  const want = user && user.splitPref && user.splitPref !== "auto" ? user.splitPref : null;
+  const pref = want ? valid.find(o => o.split.id === want) : null;
+  if (pref) {
+    valid.splice(valid.indexOf(pref), 1); valid.unshift(pref);
+    opts.splice(opts.indexOf(pref), 1); opts.unshift(pref);
+  }
   // The weekly budget is a property of DAYS, not of the split — so it can't be a filter and must
   // not be reported per-option. [PUB] ~30 hard sets/session × N sessions is all there is.
   // Demand counts ONLY the groups above Maintain. Summing all 15 would fire this note on every
@@ -921,6 +934,9 @@ function recommendSplit(user, days) {
   return {
     best: best && best.split, options: opts, valid, forced,
     rejected: opts.filter(o => !o.valid),
+    prefHonoured: !!pref, prefWanted: want,
+    // A preference we couldn't honour is a thing to SAY, not to silently ignore.
+    prefRejected: (want && !pref) ? (opts.find(o => o.split.id === want) || null) : null,
     // On a forced pick the rejects ARE the caps — those muscles will be under-trained, and the
     // workout screen has to say which.
     caps: best ? (forced ? best.rejects.concat(best.crowded) : best.crowded) : [],
