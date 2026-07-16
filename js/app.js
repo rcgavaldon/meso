@@ -328,7 +328,7 @@ const SEED_USERS = [
     overrides:{}, injuries:[], learned_ratios:{}, painFlags:{} },
   { id:"nina", name:"Nina", unit:"lb", bodyweight:132,
     // "for 2 days a week we focus on full body, keep at an hour, simple movements nothing fancy"
-    splitPref:"fb2", goal:"balanced", sessionMinutes:60, trainingAge:"intermediate",
+    splitPref:"fb2", goal:"focus", sessionMinutes:60, trainingAge:"intermediate",
     emphasis:{ glutes:"emphasize", hamstrings:"emphasize",
                quads:"grow", back:"grow", abs:"grow",
                chest:"maintain", side_delt:"maintain", triceps:"maintain", biceps:"maintain",
@@ -835,7 +835,7 @@ async function ensureSession(w, d) {
 async function viewToday() {
   if (!S.meso) return viewNoMeso();
   const cur = currentSlot();
-  if (cur.complete || cur.week > S.meso.weeks) return viewMesoComplete();
+  if (cur.complete) return viewMesoComplete();   // weekBoard's complete already counts maint weeks
   S.session = await ensureSession(cur.week, cur.day);
   drawToday();
   wake();
@@ -1159,17 +1159,18 @@ function drawToday() {
     (deload ? `<div class="card"><div class="row"><div class="grow sm">Deload week — half the reps, lighter loads, 5+ RIR. Traps and forearms are out. Take it easy; this is where the growth actually lands.</div></div></div>` : "") +
     (s.off_plan ? `<div class="card"><div class="row"><div class="grow sm">Away from your home gym. These sets still count toward your weekly volume, but they're kept out of your strength trend — a hotel's 50lb dumbbell ceiling shouldn't read as detraining.</div></div></div>` : "") +
     (caps.length ? `<div class="card"><div class="row"><div class="grow sm dim">${esc(caps[0].why)}</div></div></div>` : "") +
-    `<div id="gs">${groups.map(x => drawGroup(x.g, x.sets)).join("")}</div>
+    `<div id="gs">${groups.map((x, i) => drawGroup(x.g, x.sets, i > 0 && E.groupOf(groups[i-1].g.m) === E.groupOf(x.g.m))).join("")}</div>
      ${started ? `<button class="btn wide" id="fin" style="margin:14px 0 20px">${s.sets.every(x => x.done || x.reps === -1) ? "Finish workout" : "Finish early"}</button>` : `<div style="height:16px"></div>`}
      <div class="sync ${syncClass()}"><span class="dot"></span>${syncLabel()}</div>`;
 
   wireToday();
 }
 
-function drawGroup(g, sets) {
+function drawGroup(g, sets, sameAsPrev) {
   const byEx = [];
   for (const st of sets) { let e = byEx.find(x => x.exId === st.exId); if (!e) byEx.push(e = { exId: st.exId, sets: [] }); e.sets.push(st); }
-  return `<div style="margin:16px 0 4px">${mgPill(g.m, g.emphasis)}</div>` +
+  // Only one "Shoulders" header even if the day has separate front/side-delt slots.
+  return (sameAsPrev ? "" : `<div style="margin:16px 0 4px">${mgPill(g.m, g.emphasis)}</div>`) +
     byEx.map(e => drawExercise(g, e)).join("");
 }
 
@@ -2008,8 +2009,8 @@ async function viewPlan() {
     <div class="hd"><div class="hd-row"><div class="grow">
       <div class="eyebrow">MESOCYCLE</div><h2>${esc(S.meso.name)}</h2>
     </div></div>
-    <div class="sm dim" style="margin-top:4px">${S.meso.weeks} weeks · ${S.meso.days.length} days/wk ·
-      week ${Math.min(cur.week, S.meso.weeks)} of ${S.meso.weeks} · started ${esc(S.meso.startedAt)}</div></div>
+    <div class="sm dim" style="margin-top:4px">${S.meso.weeks + (S.meso.maint||0)} weeks${S.meso.maint?` (+${S.meso.maint} maint)`:""} · ${S.meso.days.length} days/wk ·
+      week ${Math.min(cur.week, S.meso.weeks + (S.meso.maint||0))} of ${S.meso.weeks + (S.meso.maint||0)} · started ${esc(S.meso.startedAt)}</div></div>
 
     ${rec && rec.note ? `<div class="card"><div class="row"><div class="grow sm">${esc(rec.note)}</div></div></div>` : ""}
     ${(S.meso.caps || []).length ? `<div class="card">
@@ -2444,7 +2445,7 @@ async function viewMore() {
           <button data-th="dark" aria-selected="${document.documentElement.dataset.theme!=="light"}">Dark</button>
           <button data-th="light" aria-selected="${document.documentElement.dataset.theme==="light"}">Light</button>
         </div></div>
-      <div class="row tap" id="ver"><div class="grow">Run engine self-check</div><span class="sm dim">50 tests</span></div>
+      <div class="row tap" id="ver"><div class="grow">Run engine self-check</div><span class="sm dim">159 tests</span></div>
     </div>
     <div class="xs dim2" style="padding:14px 2px 24px">Meso · offline-first · your data stays yours.<br>
       Volume landmarks and the set-progression algorithm follow RP's published rules. Verify in the console with <span class="mono">ENGINE.verify()</span>.</div>`;
