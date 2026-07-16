@@ -231,9 +231,12 @@ function seedMeso(user, gym, days, weeks, splitId) {
     // hamstrings followed by dumbbell RDL for glutes — the same movement twice in one session.
     const chosen = [];
     // [PUB] ≥5 groups in a session → the CLOCK is the binding constraint, not recovery.
-    // scoreExercise already weights setup_cost 3× when timeboxed and nothing ever set this flag.
-    // Sets are cheap; SETUPS are what turn a full-body day into three hours.
+    // scoreExercise weights setup_cost 3× when timeboxed. Sets are cheap; SETUPS are what turn a
+    // full-body day into three hours.
     const timeboxed = ordered.length >= 5;
+    // "Simple movements, nothing fancy." On a short week the whole body has to fit in an hour,
+    // twice — that's no place for a low-bar squat. Drives scoreExercise's technique penalty.
+    const simple = pd.kind === "full" && plan.days.length <= 3;
 
     ordered.forEach((m, mi) => {
       const emph = user.emphasis[m] || "grow";
@@ -242,11 +245,18 @@ function seedMeso(user, gym, days, weeks, splitId) {
       const freq = rep ? Math.max(1, rep.freq) : 1;
       // occ = which session of the WEEK this is for THIS muscle — the axis heavy/light lives on.
       const occ = plan.days.filter(d => d.i < i && d.muscles.includes(m)).length;
-      const perSession = Math.max(2, Math.min(E.CFG.perSessionMax, Math.round(b.start / freq)));
+      /* Two different numbers doing two different jobs:
+       *   seed  = MEV (b.start) — where WEEK 1 starts.
+       *   cap   = assignDays' clock-trimmed per-session value — where the RAMP must stop.
+       * assignDays plans against end-of-block volume and shaves it to fit the hour; without
+       * carrying that cap onto the slot, autoregulation ramps toward the band ceiling anyway and
+       * week 4 runs 90 minutes. The trim would be decorative. */
+      const cap = Math.max(1, Math.min(E.CFG.perSessionMax, (rep && rep.perSession) || E.CFG.perSessionMax));
+      const perSession = Math.max(1, Math.min(cap, Math.round(b.start / freq)));
       // [PUB] ≥3 sets per exercise on average → 1-2 exercises per muscle per session.
       const nEx = (perSession >= 6 && !timeboxed) ? 2 : 1;
-      const g = { m, emphasis: emph, freq, slots: [] };
-      const sess = { chosen, timeboxed, fatigueSpent: mi / Math.max(1, ordered.length), occupied: new Set() };
+      const g = { m, emphasis: emph, freq, capPerSession: cap, slots: [] };
+      const sess = { chosen, timeboxed, simple, fatigueSpent: mi / Math.max(1, ordered.length), occupied: new Set() };
       for (let k = 0; k < nEx; k++) {
         const sets = k === 0 ? Math.ceil(perSession / nEx) : Math.floor(perSession / nEx);
         if (sets < 1) continue;
@@ -1142,11 +1152,19 @@ async function finishWorkout() {
     if (g && d.action !== E.ACTION.RECOVERY && d.delta !== 0) {
       const cur = g.slots.reduce((a, x) => a + x.sets, 0);
       const ap = E.applyDelta(cur, d.delta, m, emph);
-      let diff = ap.sets - cur;
+      /* THE CLOCK CAPS THE RAMP. assignDays shaved this muscle's per-session sets to keep the
+         session near an hour; without honoring that here, autoregulation ramps to the band
+         ceiling regardless and week 4 runs 90 minutes — the trim would be decorative.
+         And say WHY: "why won't it add sets" has a real answer, and it isn't fatigue. */
+      const cap = g.capPerSession || E.CFG.perSessionMax;
+      let target = Math.min(ap.sets, cap);
+      let diff = target - cur;
       // Add to the first slot, remove from the last — keeps the primary exercise's volume.
       while (diff > 0) { g.slots[0].sets++; diff--; }
       while (diff < 0) { const last = g.slots[g.slots.length-1]; if (last.sets > 1) last.sets--; else break; diff++; }
-      if (ap.atCeiling) notes.push(`${E.MG_LABEL[m]} is at your ceiling`);
+      if (target < ap.sets && d.delta > 0)
+        notes.push(`${E.MG_LABEL[m]} is capped by your ${E.CFG.sessionMinutesMax}-min session, not by fatigue`);
+      else if (ap.atCeiling) notes.push(`${E.MG_LABEL[m]} is at your ceiling`);
     }
     if (d.action === E.ACTION.RECOVERY) notes.push(`${E.MG_LABEL[m]}: recovery session next time`);
     if (d.swapExercise) notes.push(`${E.MG_LABEL[m]}: consider swapping that exercise`);

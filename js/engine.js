@@ -41,9 +41,14 @@ const CFG = {
                            // minFrequency(). This is the PLANNING capacity of one session;
                            // perSessionMax (12) is the PHYSICAL ceiling. Both published, not the
                            // same number — the gap between them is what we call "crowded".
-  sessionSetMax: 30,       // [PUB] hard sets per session. At RP's own published rest times this
-                           // lands at ~75-90 min: the 30-set ceiling and "don't train for three
-                           // hours" are the same constraint. See sessionMinutes().
+  /* ⭐ THE REAL CONSTRAINT IS TIME, NOT SETS.
+   * [PUB] RP's ceiling is ~30 hard sets/session, which at their own published rest times is
+   * 75-90 min — and that's BEFORE warm-ups, which they don't count at all.
+   * Robert's actual constraint is "about an hour, warm-ups included". So the planner budgets
+   * MINUTES and lets the set count fall out. sessionSetMax stays as a secondary [PUB] backstop,
+   * but on a 60-minute budget the clock binds first and the set cap almost never fires. */
+  sessionMinutesMax: 60,   // hard budget, INCLUDING warm-up ramps and setup
+  sessionSetMax: 30,       // [PUB] secondary backstop; past this it's junk volume regardless of time
   groupsPerSession: [4, 6],// [PUB] muscle groups per session
   splitPlanTarget: "mav"   // ⚠️ THE AMBIGUOUS CALL, surfaced not buried. Frequency is planned
                            // against MAV/MAV*P — where an accumulation block realistically LANDS
@@ -549,7 +554,7 @@ function splitStatus(muscle, emphasis, freq) {
  * produce a bad plan — it produces a REPORTED shortfall. Tell the user; don't quietly under-train.
  */
 function assignDays(user, split) {
-  const days = split.pattern.map((kind, i) => ({ kind, i, muscles: [], projSets: 0 }));
+  const days = split.pattern.map((kind, i) => ({ kind, i, muscles: [], rows: [], projSets: 0, projMin: 0 }));
   const emph = m => (user.emphasis || {})[m] || "grow";
 
   /* TWO PASSES — most-constrained-first. This ordering is the whole correctness of the function.
@@ -581,18 +586,77 @@ function assignDays(user, split) {
     const per = Math.min(CFG.perSessionMax, Math.max(1, Math.round(vol / want)));
     const elig = days
       .filter(d => (DAY_MUSCLES[d.kind] || []).includes(m) || SPREADABLE.has(m))
-      .sort((a, b) => a.projSets - b.projSets || a.i - b.i);
+      .sort((a, b) => a.projMin - b.projMin || a.i - b.i);   // least-loaded BY THE CLOCK
     const got = [];
     for (const d of elig) {
       if (got.length >= want) break;
       if (d.muscles.length >= CFG.groupsPerSession[1]) continue;   // [PUB] ≤6 groups/session
-      if (d.projSets + per > CFG.sessionSetMax) continue;          // [PUB] ≤30 hard sets/session
-      d.muscles.push(m); d.projSets += per; got.push(d);
+      d.muscles.push(m); d.rows.push({ m, per, emphasis: e }); d.projSets += per;
+      d.projMin = planMinutes(d.rows);
+      got.push(d);
     }
     if (!got.length) { report.push(Object.assign({ m, emphasis:e, dropped:true }, splitStatus(m, e, 0))); continue; }
     report.push(Object.assign({ m, emphasis:e, perSession:per }, splitStatus(m, e, got.length)));
   }
-  return { days, muscles: report };
+
+  /* ⭐ FIT TO THE CLOCK — shrink, don't drop.
+   * Placing against a hard time bin (the obvious approach) silently DROPS whatever doesn't fit,
+   * and what doesn't fit is always the Maintain muscles — so "hit everything, with focus areas"
+   * quietly becomes "train three muscles". Wrong trade: the ask is even coverage.
+   * So place everything first, then shave sets to fit the hour, cheapest priority first
+   * (Maintain → Grow → Emphasize), never below a floor of 2 working sets. A muscle only gets
+   * dropped if it can't fit at 2 sets, which on a 60-minute budget essentially never happens.
+   * Everything shaved is reported, so week 4's "why won't it add sets" has an answer. */
+  /* Each muscle's per-session FLOOR — the point below which trimming stops meaning anything.
+   * [PUB] Below MEV is not a small growth dose, it's not a growth dose. So a Grow or Emphasize
+   * muscle never gets trimmed under MEV; if the clock can't afford it, the honest move is to say
+   * so (see recommendSplit().budget) rather than quietly starve it. Maintain floors at MV, which
+   * is what Maintain means: hold the tissue, free the recovery (and the minutes) for the focus. */
+  const floorFor = (m, e, freq) => Math.max(1, Math.ceil(band(m, e).floor / Math.max(1, freq)));
+  const trims = [], dropped = [];
+  for (const d of days) {
+    const freqOf = m => (report.find(r => r.m === m) || {}).freq || 1;
+    let guard = 0;
+    while (d.rows.length && planMinutes(d.rows) > CFG.sessionMinutesMax && guard++ < 400) {
+      const cand = d.rows.filter(r => r.per > floorFor(r.m, r.emphasis, freqOf(r.m)));
+      if (cand.length) {
+        // Lowest priority gives first, biggest first within a tier.
+        cand.sort((a, b) => EMPHASIS.indexOf(a.emphasis) - EMPHASIS.indexOf(b.emphasis) || b.per - a.per);
+        cand[0].per--; d.projSets--;
+        const t = trims.find(x => x.m === cand[0].m); t ? t.n++ : trims.push({ m: cand[0].m, n: 1 });
+        continue;
+      }
+      // Everything is at its floor and the day still doesn't fit. Now something has to GO, and
+      // it's a Maintain muscle — never a focus area. That's the whole point of Maintain.
+      const give = d.rows.filter(r => r.emphasis === "maintain")
+                         .sort((a, b) => a.per - b.per)[0];
+      if (!give) break;                              // only focus areas left; let it run a little long
+      d.rows.splice(d.rows.indexOf(give), 1);
+      d.muscles.splice(d.muscles.indexOf(give.m), 1);
+      d.projSets -= give.per;
+      dropped.push(give.m);
+    }
+    d.projMin = Math.round(planMinutes(d.rows));
+    d.rows.forEach(r => { const rep = report.find(x => x.m === r.m); if (rep) rep.perSession = r.per; });
+  }
+  for (const t of trims) {
+    const rep = report.find(x => x.m === t.m);
+    if (rep && rep.status === "ok") {
+      rep.status = "crowded";
+      rep.why = `${MG_LOWER(t.m)} is trimmed by ${t.n} set${t.n>1?"s":""} a session to keep you near `
+              + `${CFG.sessionMinutesMax} minutes. It still grows — there's just a clock.`;
+    }
+  }
+  for (const m of new Set(dropped)) {
+    const rep = report.find(x => x.m === m);
+    if (!rep) continue;
+    const stillIn = days.some(d => d.muscles.includes(m));
+    if (stillIn) continue;
+    rep.status = "reject"; rep.dropped = true; rep.freq = 0;
+    rep.why = `${MG_LABEL[m]} didn't fit in ${CFG.sessionMinutesMax}-minute sessions and it's on `
+            + `Maintain, so it gave way to your focus areas. Add a day or drop a focus to get it back.`;
+  }
+  return { days, muscles: report, trims, droppedForTime: [...new Set(dropped)] };
 }
 
 /**
@@ -632,14 +696,62 @@ function repRangeFor(occ, freq, k) {
  * THE SAME CONSTRAINT. 30 sets at their own rest times is ~75-90 min. They never say it out loud;
  * it falls straight out of two tables they both published.
  */
+/* ================================================================
+ * THE CLOCK
+ *
+ * [PUB] REST is RP's own published per-muscle rest table (the numbers the timer already runs on).
+ * ~45s under the bar per working set and ~90s of setup per exercise are [RECON].
+ *
+ * ⚠️ WARM-UPS ARE NOT FREE AND RP NEVER COUNTS THEM. Their guidance is a real ramp — [PUB]
+ * "12 reps @ 30RM → 8 @ 20RM → 4 @ 10RM, then pick your working weight" — which is three
+ * additional sets with rest before your first hard set of a muscle. Omitting that is how an
+ * app promises "about an hour" and delivers ninety minutes.
+ *
+ * The ramp scales with technique demand: a heavy squat needs the full build-up; a cable fly
+ * needs one feeler. And it's per MUSCLE, not per exercise — your second chest movement doesn't
+ * re-warm a warm chest.
+ * ================================================================ */
+const SETUP_SEC = 90;          // walk over, adjust the bench, load the bar, clip the handle
+const WORK_SEC = 45;           // time under the bar for one working set
+
+/** Warm-up ramp for the FIRST exercise of a muscle. Later exercises for it are already warm. */
+function warmupSeconds(ex, isFirstForMuscle) {
+  if (!isFirstForMuscle) return 40;                       // one feeler, you're already warm
+  const td = (ex && ex.ratings && ex.ratings.technique_demand) || 3;
+  return 60 + 40 * td;                                    // squat (5) → 260s · cable fly (2) → 140s
+}
+
+/** Minutes for a fully-built day (exercises known). */
 function sessionMinutes(day) {
   let sec = 0;
+  const seen = new Set();
   for (const g of day.muscles || []) {
     const r = REST[g.m] || [60, 120];
-    const sets = (g.slots || []).reduce((s, x) => s + x.sets, 0);
-    sec += sets * ((r[0] + r[1]) / 2 + 45) + (g.slots || []).length * 90;
+    for (const sl of (g.slots || [])) {
+      const ex = (window.MESO_EXERCISES || []).find(e => e.id === sl.exId);
+      const first = !seen.has(g.m); seen.add(g.m);
+      sec += SETUP_SEC + warmupSeconds(ex, first);
+      sec += sl.sets * ((r[0] + r[1]) / 2 + WORK_SEC);
+    }
   }
   return Math.round(sec / 60);
+}
+
+/**
+ * Minutes for a PLANNED day — muscles and set counts only, no exercises chosen yet.
+ * assignDays runs before selection (it's pure planning, no gym), so it can't know technique
+ * demand. Assume one exercise per muscle at an average ramp; selection can only make it shorter,
+ * because a 2nd exercise for a muscle costs a setup but no fresh ramp.
+ * @param rows [{m, per}] — muscle id + working sets this session
+ */
+function planMinutes(rows) {
+  let sec = 0;
+  for (const row of rows || []) {
+    const r = REST[row.m] || [60, 120];
+    sec += SETUP_SEC + 180;                               // setup + an average first-exercise ramp
+    sec += row.per * ((r[0] + r[1]) / 2 + WORK_SEC);
+  }
+  return sec / 60;
 }
 
 /** Reward frequency HEADROOM on the muscles the user cares about — headroom is what a split IS.
@@ -699,12 +811,20 @@ function recommendSplit(user, days) {
   // The actionable number is what you asked to GROW.
   const above = Object.keys(LANDMARKS).filter(m => ((user.emphasis || {})[m] || "grow") !== "maintain");
   const demand = above.reduce((t, m) => t + planVolume(m, (user.emphasis || {})[m] || "grow"), 0);
-  const budget = days * CFG.sessionSetMax;
+  /* ⭐ The budget is the CLOCK, not a set count. An hour buys ~18 working sets once you've paid
+     for setup, warm-up ramps and RP's own published rest times. Quoting the [PUB] 30-set ceiling
+     here would promise volume the hour cannot actually deliver. */
+  const setsPerSession = Math.max(6, Math.round(
+    (CFG.sessionMinutesMax * 60 - 5 * (SETUP_SEC + 180)) / 135));   // ≈18 at 60 min, 5 groups
+  const budget = days * setsPerSession;
   const note = demand <= budget ? null
-    : `By your last hard week your emphasis settings ask for about ${demand} sets a week. ${days} `
-    + `session${days>1?"s":""} hold about ${budget}. You've got ${above.length} groups above `
-    + `Maintain — move two or three down, or add a day. Maintain isn't giving up; it's what frees `
-    + `the recovery for the groups you actually picked.`;
+    : `By your last hard week your focus areas ask for about ${demand} sets a week. ${days} `
+    + `session${days>1?"s":""} of ${CFG.sessionMinutesMax} minutes hold about ${budget} — an hour `
+    + `buys roughly ${setsPerSession} working sets once you've paid for warm-ups and rest. You have `
+    + `${above.length} groups above Maintain. At ${days} hour${days>1?"s":""} a week you can `
+    + `properly grow three or four and maintain the rest; spreading wider just makes everything `
+    + `maintenance. Move some down, or add a day. Maintain isn't giving up — it's what buys the `
+    + `minutes for the groups you actually picked.`;
   // Always return SOMETHING buildable. When nothing is valid — which happens honestly, e.g. 11
   // groups above Maintain on 2 days a week — fall back to the least-bad split and say so loudly.
   // A dead end here means a real person cannot start training, and "your emphasis spread doesn't
@@ -835,7 +955,7 @@ const W = {
   q_tier:.40, q_sfr:.35, q_target:.15, q_rom:.10,
   f_profile:.35, f_stretch:.25, f_reps:.20, f_stability:.20,
   p_gran:.60, p_head:.40,
-  c_systemic:.30, c_redundancy:.40, c_setup:.10, c_risk:.20,
+  c_systemic:.30, c_redundancy:.35, c_setup:.10, c_technique:.15, c_risk:.20,
   m_continuity:+.30, m_joint:-.50, m_stale:-.15, m_contention:-.12, m_untested:-.08
 };
 
@@ -936,7 +1056,14 @@ function scoreExercise(c, slot, gym, user, session) {
   const X = clamp(1
     - W.c_systemic * n5(ex.fatigue.systemic) * (session.fatigueSpent || 0)
     - W.c_redundancy * redundancy(session.chosen, ex)
+    // Setups are what actually eat the hour — sets are cheap, walking across the gym to load a
+    // bar is not. On a timeboxed day the selector should reach for the machine over the thing
+    // that needs a rack, a bench and two collars.
     - W.c_setup * n5(ex.ratings.setup_cost) * (session.timeboxed ? 1 : .3)
+    // "Simple movements, nothing fancy." A technical lift costs a longer warm-up ramp (see
+    // warmupSeconds) AND attention you don't have on a packed full-body day. This is the term
+    // that keeps a 2-day plan on goblet squats instead of the low-bar back squat.
+    - W.c_technique * n5(ex.ratings.technique_demand) * (session.simple ? 1 : session.timeboxed ? .5 : .15)
     - W.c_risk * n5(ex.ratings.injury_risk) * riskMult, 0, 1);
 
   let s = W.quality * Q + W.slotFit * F + W.progression * P + W.context * X;
@@ -1434,6 +1561,41 @@ function verify() {
   ok("Maintain holds at MV", band("chest","maintain").ceil === 4);
   ok("rear-delt MAV*P discontinuity is clamped, not propagated", band("rear_delt","grow").ceil === 12);
 
+  /* ── ⭐ THE CLOCK — an hour means an hour, warm-ups included ──
+   * [PUB] RP's ceiling is ~30 sets/session ≈ 75-90 min at their own rest times, and that's BEFORE
+   * warm-ups, which they never count. Robert's constraint is "about an hour with warm-ups", so the
+   * planner budgets MINUTES and lets the set count fall out. */
+  ok("a warm-up ramp costs real time and scales with technique demand",
+     warmupSeconds({ ratings:{ technique_demand:5 } }, true) > warmupSeconds({ ratings:{ technique_demand:2 } }, true));
+  ok("the 2nd exercise for a muscle doesn't re-warm a warm muscle",
+     warmupSeconds({ ratings:{ technique_demand:5 } }, false) < 60);
+  (() => {
+    const SEED_USERS = [
+      { id:"r", trainingAge:"advanced", emphasis:{ chest:"emphasize", back:"emphasize", side_delt:"emphasize",
+        triceps:"grow", biceps:"grow", quads:"grow", hamstrings:"maintain", glutes:"maintain",
+        rear_delt:"maintain", front_delt:"maintain", calves:"maintain", traps:"maintain",
+        forearms:"maintain", abs:"maintain", adductors:"maintain" } },
+      { id:"n", trainingAge:"intermediate", emphasis:{ glutes:"emphasize", hamstrings:"emphasize",
+        quads:"grow", back:"grow", chest:"grow" } }
+    ];
+    for (const u of SEED_USERS) for (const d of [2,3,4,5]) {
+      const rec = recommendSplit(u, d); if (!rec.best) continue;
+      const plan = assignDays(u, rec.best);
+      ok(`${u.id} ${d}d: every session fits the ${CFG.sessionMinutesMax}-minute budget`,
+         plan.days.every(x => x.projMin <= CFG.sessionMinutesMax + 1));
+      // Below MEV is not a small growth dose — it's not a growth dose. The clock must never
+      // trim a focus area under it; it drops a Maintain muscle instead.
+      ok(`${u.id} ${d}d: nothing above Maintain is trimmed below MEV`,
+         plan.muscles.filter(r => r.emphasis !== "maintain" && !r.dropped)
+           .every(r => (r.perSession || 0) * (r.freq || 0) >= landmarks(r.m).mev[0]));
+      ok(`${u.id} ${d}d: when the clock forces a cut, it's a Maintain muscle — never a focus area`,
+         (plan.droppedForTime || []).every(m => (u.emphasis[m] || "grow") === "maintain"));
+    }
+  })();
+  ok("the weekly budget is quoted in CLOCK terms, not the 30-set ceiling",
+     /minutes|hour/.test(recommendSplit({ emphasis:{ chest:"emphasize", back:"emphasize", side_delt:"emphasize",
+       biceps:"grow", triceps:"grow", quads:"grow" } }, 4).budget.note || ""));
+
   // ── Frequency is FORCED by volume ──
   eq("20 weekly sets forces >=3 sessions", minFrequency(20), 3);
   eq("8 weekly sets needs only 1", minFrequency(8), 1);
@@ -1724,6 +1886,7 @@ return {
   assignDays, orderDay, repRangeFor, sessionMinutes, fullBodyRationale,
   // selection
   loadPlan, resolveEquipment, selectForSlot, pickBackups, scoreExercise,
+  planMinutes, warmupSeconds, SETUP_SEC, WORK_SEC,
   loadKey, ratio, targetLoad, learnRatio, weeklyVolume, repBucket, minUsableLoad, floorPenalty,
   // progress
   countableSet, trendKey, e1rmSeries, keysForMuscle, smooth3, trendFit,
