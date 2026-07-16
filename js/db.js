@@ -113,7 +113,13 @@ window.DB = (() => {
       mesos, sessions,
       loadState: loads.filter(l => l.k.startsWith(userId + "|")),
       gyms: (kv.find(x => x.k === "gyms") || {}).v || [],
-      users: (kv.find(x => x.k === "users") || {}).v || []
+      // ⚠️ A per-user export must be per-user ALL THE WAY DOWN. This used to ship the whole
+      // users array — both people — and importUser replaced it wholesale. Net effect: Robert
+      // taps "Restore from Sheet", Nina's blob lands, and HIS emphasis map is silently
+      // overwritten with whatever was current when HER phone last synced. That is exactly the
+      // bug apps-script.gs documents fixing on the server ("two phones... last writer wins").
+      // The Sheet was keyed by user correctly; the client wasn't.
+      users: ((kv.find(x => x.k === "users") || {}).v || []).filter(u => u.id === userId)
     };
   }
 
@@ -122,8 +128,20 @@ window.DB = (() => {
     for (const m of blob.mesos || []) await put("meso", m);
     for (const s of blob.sessions || []) await put("session", s);
     for (const l of blob.loadState || []) await put("loadState", l);
-    if (blob.gyms && blob.gyms.length) await put("kv", { k: "gyms", v: blob.gyms });
-    if (blob.users && blob.users.length) await put("kv", { k: "users", v: blob.users });
+    // MERGE BY ID — never replace the array. Restoring one person must not reach across and
+    // rewrite the other. Same reasoning for gyms: they're scope:"household" and shared, so a
+    // stale gym blob would quietly undo a freshly-corrected dumbbell range.
+    const mergeById = async (key, incoming, idOf) => {
+      if (!incoming || !incoming.length) return;
+      const cur = ((await get("kv", key)) || { k: key, v: [] }).v;
+      for (const item of incoming) {
+        const i = cur.findIndex(x => idOf(x) === idOf(item));
+        if (i < 0) cur.push(item); else cur[i] = item;
+      }
+      await put("kv", { k: key, v: cur });
+    };
+    await mergeById("users", blob.users, u => u.id);
+    await mergeById("gyms", blob.gyms, g => g.gym_id);
     return true;
   }
 

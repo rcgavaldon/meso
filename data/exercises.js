@@ -1980,7 +1980,7 @@ window.MESO_EXERCISES = [
       { m: "glutes", role: "secondary", contribution: 0.6 },
       { m: "adductors", role: "secondary", contribution: 0.3 }
     ],
-    requires: { any: [ { all: [ {cap:"machine", machine_key:"hack_squat"} ] }, { all: [ {cap:"machine"} ] } ] },
+    requires: { any: [ { all: [ {cap:"machine", machine_key:"hack_squat"} ] } ] },
     load_unit: "stack_pin",
     load_portability: "machine_relative",
     profile: { resistance_peak: "stretch", stretch_emphasis: 4, rom_score: 4, shortened_overload: 2 },
@@ -2393,7 +2393,7 @@ window.MESO_EXERCISES = [
       { m: "glutes", role: "primary", contribution: 0.8 },
       { m: "back", role: "secondary", contribution: 0.5 }
     ],
-    requires: { any: [ { all: [ {cap:"ghd"} ] }, { all: [ {cap:"machine"} ] } ] },
+    requires: { any: [ { all: [ {cap:"ghd"} ] }, { all: [ {cap:"machine", machine_key:"back_extension"} ] } ] },
     load_unit: "bodyweight_plus",
     load_portability: "absolute",
     profile: { resistance_peak: "shortened", stretch_emphasis: 3, rom_score: 3, shortened_overload: 5 },
@@ -2668,7 +2668,7 @@ window.MESO_EXERCISES = [
       { m: "glutes", role: "primary", contribution: 1.0 },
       { m: "hamstrings", role: "secondary", contribution: 0.3 }
     ],
-    requires: { any: [ { all: [ {cap:"cable"}, {cap:"low_pulley"} ] }, { all: [ {cap:"machine"} ] } ] },
+    requires: { any: [ { all: [ {cap:"cable"}, {cap:"low_pulley"} ] } ] },
     load_unit: "stack_pin",
     load_portability: "machine_relative",
     profile: { resistance_peak: "shortened", stretch_emphasis: 3, rom_score: 4, shortened_overload: 5 },

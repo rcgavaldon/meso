@@ -554,6 +554,9 @@ function splitStatus(muscle, emphasis, freq) {
  * produce a bad plan — it produces a REPORTED shortfall. Tell the user; don't quietly under-train.
  */
 function assignDays(user, split) {
+  // Per-user session length. The "make it 75 minutes" escape hatch in the focus picker is
+  // only honest if the engine actually reads it.
+  const maxMin = (user && user.sessionMinutes) || CFG.sessionMinutesMax;
   const days = split.pattern.map((kind, i) => ({ kind, i, muscles: [], rows: [], projSets: 0, projMin: 0 }));
   const emph = m => (user.emphasis || {})[m] || "grow";
 
@@ -617,7 +620,7 @@ function assignDays(user, split) {
   for (const d of days) {
     const freqOf = m => (report.find(r => r.m === m) || {}).freq || 1;
     let guard = 0;
-    while (d.rows.length && planMinutes(d.rows) > CFG.sessionMinutesMax && guard++ < 400) {
+    while (d.rows.length && planMinutes(d.rows) > maxMin && guard++ < 400) {
       const cand = d.rows.filter(r => r.per > floorFor(r.m, r.emphasis, freqOf(r.m)));
       if (cand.length) {
         // Lowest priority gives first, biggest first within a tier.
@@ -653,7 +656,7 @@ function assignDays(user, split) {
     const stillIn = days.some(d => d.muscles.includes(m));
     if (stillIn) continue;
     rep.status = "reject"; rep.dropped = true; rep.freq = 0;
-    rep.why = `${MG_LABEL[m]} didn't fit in ${CFG.sessionMinutesMax}-minute sessions and it's on `
+    rep.why = `${MG_LABEL[m]} didn't fit in ${maxMin}-minute sessions and it's on `
             + `Maintain, so it gave way to your focus areas. Add a day or drop a focus to get it back.`;
   }
   return { days, muscles: report, trims, droppedForTime: [...new Set(dropped)] };
@@ -814,12 +817,13 @@ function recommendSplit(user, days) {
   /* ⭐ The budget is the CLOCK, not a set count. An hour buys ~18 working sets once you've paid
      for setup, warm-up ramps and RP's own published rest times. Quoting the [PUB] 30-set ceiling
      here would promise volume the hour cannot actually deliver. */
+  const maxMin = (user && user.sessionMinutes) || CFG.sessionMinutesMax;
   const setsPerSession = Math.max(6, Math.round(
-    (CFG.sessionMinutesMax * 60 - 5 * (SETUP_SEC + 180)) / 135));   // ≈18 at 60 min, 5 groups
+    (maxMin * 60 - 5 * (SETUP_SEC + 180)) / 135));   // ≈18 at 60 min, 5 groups
   const budget = days * setsPerSession;
   const note = demand <= budget ? null
     : `By your last hard week your focus areas ask for about ${demand} sets a week. ${days} `
-    + `session${days>1?"s":""} of ${CFG.sessionMinutesMax} minutes hold about ${budget} — an hour `
+    + `session${days>1?"s":""} of ${maxMin} minutes hold about ${budget} — an hour `
     + `buys roughly ${setsPerSession} working sets once you've paid for warm-ups and rest. You have `
     + `${above.length} groups above Maintain. At ${days} hour${days>1?"s":""} a week you can `
     + `properly grow three or four and maintain the rest; spreading wider just makes everything `
@@ -845,6 +849,67 @@ function recommendSplit(user, days) {
        : forced ? `${best.split.name} — the best fit at ${days} days, but ${best.rejects.length} `
                 + `muscle${best.rejects.length>1?"s":""} can't get enough frequency. ${best.rejects[0].why}`
        : `${best.split.name} — ${best.why}`
+  };
+}
+
+/* ================================================================
+ * FOCUS AREAS — the intake, and the only question worth asking.
+ *
+ * ⚠️ `grow` is never emitted, and that's a measured fact, not a style call:
+ *   planVolume(m,"grow") === planVolume(m,"emphasize")  for 12 of 15 muscles
+ *   targetFreq(m,"grow") === targetFreq(m,"emphasize")  for all 15
+ * So at PLANNING time — the only time the split is decided — Grow and Emphasize claim the same
+ * sets and the same day-slots. They differ only in band().ceil, and under a 60-minute clock the
+ * trim caps below BOTH ceilings anyway. Tagging a muscle Grow vs Emphasize produces an identical
+ * prescription. The tier that costs anything is Maintain vs not-Maintain.
+ * The tier stays in the engine (it's RP's published model and band() uses it correctly), but no
+ * human is ever asked for it. verify() asserts this so the day someone recalibrates the tables,
+ * the premise fails loudly instead of the picker quietly lying.
+ *
+ * ⚠️ "Even coverage" does NOT mean everything on Grow. That's the intuitive default and it's the
+ * worst option on the board: it trains FEWER muscles than doing nothing special, because every
+ * muscle claims 2-3 day-slots and the greedy binner spends them all on the first few.
+ *   all Maintain → 15/15 covered at 4 days · all Grow → 11/15 · at 2 days: 12/15 vs 6/15
+ * Maintain is what buys COVERAGE. Focus is what buys GROWTH.
+ * ================================================================ */
+function buildEmphasis(focus) {
+  const em = {};
+  const f = focus || [];
+  for (const m of Object.keys(LANDMARKS)) em[m] = f.includes(m) ? "emphasize" : "maintain";
+  return em;      // always all 15 keys — never rely on a `|| "grow"` fallback downstream
+}
+
+/**
+ * The honest live meter for the focus picker. ~0.1ms, so it can run on every tap.
+ *
+ * ⚠️ recommendSplit().budget is NOT the gate and must not be used as one. It reports Nina's
+ * glutes+hamstrings at 2 days as demand 32 / budget 34 → "fits!" — while assignDays actually
+ * freezes BOTH at MEV with zero ramp room for the entire mesocycle. `demand` counts only
+ * non-Maintain groups; `budget` counts all the time in the week. Apples to oranges.
+ *
+ * `room` is the number that tells the truth: what the block can actually ADD before the clock
+ * caps it. room <= 0 means that muscle does the same sets in week 5 as in week 1 — a focus area
+ * that cannot grow. [RECON] — assembled from published quantities, not an RP metric.
+ */
+function previewFocus(focus, days, opts) {
+  const user = Object.assign({ emphasis: buildEmphasis(focus) }, opts || {});
+  const rec = recommendSplit(user, days);
+  if (!rec.best) return { emphasis: user.emphasis, split: null, rows: [], frozen: [], covered: 0, missing: [], budget: rec.budget };
+  const plan = assignDays(user, rec.best);
+  const rows = plan.muscles.map(r => {
+    const start = band(r.m, user.emphasis[r.m]).start;
+    const cap = (r.freq || 0) * (r.perSession || 0);
+    return Object.assign({}, r, { cap, start, room: cap - start });
+  });
+  const f = focus || [];
+  return {
+    emphasis: user.emphasis, split: rec.best, forced: rec.forced, plan, rows,
+    // The whole point: focus areas that CANNOT grow. This is what the picker must surface.
+    frozen: f.filter(m => { const r = rows.find(x => x.m === m); return !r || r.room <= 0; }),
+    covered: rows.filter(r => r.freq > 0).length,
+    missing: rows.filter(r => !r.freq).map(r => r.m),
+    minutes: plan.days.map(d => d.projMin),
+    budget: rec.budget
   };
 }
 
@@ -1886,7 +1951,7 @@ return {
   assignDays, orderDay, repRangeFor, sessionMinutes, fullBodyRationale,
   // selection
   loadPlan, resolveEquipment, selectForSlot, pickBackups, scoreExercise,
-  planMinutes, warmupSeconds, SETUP_SEC, WORK_SEC,
+  planMinutes, warmupSeconds, SETUP_SEC, WORK_SEC, buildEmphasis, previewFocus,
   loadKey, ratio, targetLoad, learnRatio, weeklyVolume, repBucket, minUsableLoad, floorPenalty,
   // progress
   countableSet, trendKey, e1rmSeries, keysForMuscle, smooth3, trendFit,

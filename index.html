@@ -204,6 +204,13 @@ input{font:inherit;color:inherit}
 .rest[data-s=cold] .t{color:var(--wac)}
 .rest .bar{position:absolute;left:0;top:0;height:2px;background:var(--suc);opacity:.85;transition:width .5s linear}
 
+/* ============ Focus picker ============ */
+.fchip{display:inline-flex;align-items:center;gap:7px;padding:11px 13px;border-radius:var(--r-btn);
+       border:1px solid var(--line);font-size:.8125rem;font-weight:600;min-height:44px}
+.fchip b{font-family:"Martian Mono",ui-monospace,monospace;font-size:.75rem;opacity:.85}
+.fchip[aria-pressed=true]{opacity:1}
+.fchip:active{transform:scale(.96)}
+
 /* ============ Bits ============ */
 .badge{font-size:.66rem;padding:3px 7px;border-radius:var(--r-btn);font-weight:700;letter-spacing:.04em}
 .b-up{background:var(--su);color:var(--suc)} .b-mid{background:var(--b1);color:var(--bc)}
@@ -235,10 +242,10 @@ input{font:inherit;color:inherit}
 <section class="sheet" id="sheet" role="dialog" aria-modal="true"></section>
 <div class="toast" id="toast"></div>
 
-<script src="data/exercises.js?v=5"></script>
-<script src="js/db.js?v=5"></script>
-<script src="js/engine.js?v=5"></script>
-<script src="js/app.js?v=5"></script>
+<script src="data/exercises.js?v=7"></script>
+<script src="js/db.js?v=7"></script>
+<script src="js/engine.js?v=7"></script>
+<script src="js/app.js?v=7"></script>
 <script>
 if ("serviceWorker" in navigator) {
   addEventListener("load", () => navigator.serviceWorker.register("sw.js").then(reg => {

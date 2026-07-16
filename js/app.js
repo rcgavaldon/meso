@@ -50,6 +50,9 @@ const SEED_GYMS = [
   { gym_id:"home", name:"Home Garage", scope:"household",
     constraints:{ ceiling_height_in:96, noise_limit:true, solo_training:true },
     equipment:[
+      // Every gym has a floor. Without this you cannot do a PUSH-UP here — bodyweight_only
+      // gates pushup / bw_squat / pike / diamond / sissy_squat / nordic / copenhagen.
+      { instance_id:"h_bw", type:"floor", caps:["bodyweight_only"], count:1, contention:"low" },
       { instance_id:"h_bb", type:"barbell", caps:["barbell"], bar_weight:45,
         plates:{ unit:"lb", inventory:{ "45":4, "25":2, "10":4, "5":4, "2.5":2 } },
         load:{ kind:"plate_loaded", min:45, max:9999, increment:5 }, load_portability:"absolute", count:1, contention:"low" },
@@ -81,6 +84,67 @@ const SEED_GYMS = [
     address:"9155 Dyer St, El Paso TX 79924",
     constraints:{ solo_training:false },
     equipment:[
+      // Every gym has a floor. Without this you cannot do a PUSH-UP here — bodyweight_only
+      // gates pushup / bw_squat / pike / diamond / sissy_squat / nordic / copenhagen.
+      { instance_id:"cr_bw", type:"floor", caps:["bodyweight_only"], count:1, contention:"low" },
+      /* ⚠️ Crunch — Dyer is 35,000 sq ft / $5M (PRWeb opening release + the club's own Facebook
+         announcement). The previous inventory modelled it as a garage: it resolved 63/130 while
+         the SMALL Anytime franchise resolved 105. The app believed the little 24h gym was twice
+         the big-box. That's backwards, and "it knows what your gym actually has" is the whole
+         product.
+         Everything below is SOURCED, not photographed at this club:
+           · cable / resistance bands / TRX / Olympic half-rack platform — crunch.com's own
+             "What Equipment Does Crunch Fitness Provide?" page names them explicitly.
+           · Smith + selectorized circuit — the PRWeb release names "half-hour circuit training",
+             and Crunch's own FB states the Power Half Hour circuit IS the Hoist line.
+         TODO(Robert): five minutes with a phone camera at Dyer beats every hour of desk research.
+         Photograph the machine row and the top of the dumbbell rack. Until then this is a
+         high-prior hypothesis, not a measurement.
+         DELIBERATELY OMITTED (a coin-flip, and a wrong entry is worse than a missing one):
+         hack squat, hip thrust machine, GHD, pullover, preacher, abductor/adductor, calf
+         machines, ab crunch machine, t-bar row. */
+      // The single highest-leverage omission: unlocks ~22 cable exercises. min:5 matters more
+      // than max — it's Nina's floor on flyes and lateral raises.
+      { instance_id:"cr_cable", type:"cable_station", caps:["cable","high_pulley","low_pulley","functional_trainer"],
+        attachments:["rope","straight_bar","d_handle","ez_bar","lat_bar","ankle_strap"],
+        load:{ kind:"selectorized_stack", min:5, max:200, increment:5 },
+        load_portability:"machine_relative", count:2, contention:"med" },
+      // Smith bar is counterbalanced ~20lb — matches the library's own smith_squat
+      // min_effective_load_hint of bar_lb:20. Sole unlock for smith_squat/ohp/incline.
+      { instance_id:"cr_smith", type:"machine", caps:["smith","bench"], bar_weight:20,
+        load:{ kind:"plate_loaded", min:20, max:495, increment:5 },
+        load_portability:"machine_relative", count:2, contention:"med" },
+      // Hoist ROC-IT selectorized. ⚠️ The pin number is NOT pounds — Hoist's own manual says the
+      // listed weights are "approximate" because the moving seat changes the ratio. Harmless
+      // here: loadKey() scopes machine loads per-instance, so the scale never has to agree with
+      // reality. add_on:[5] = Hoist's 5lb upgrade, which halves the step.
+      { instance_id:"cr_lat", type:"machine", machine_key:"lat_pulldown", caps:["machine"], brand:"Hoist",
+        load:{ kind:"selectorized_stack", min:10, max:200, increment:10, add_on:[5] },
+        load_portability:"machine_relative", count:1, contention:"med" },
+      { instance_id:"cr_row", type:"machine", machine_key:"seated_row", caps:["machine"], brand:"Hoist",
+        load:{ kind:"selectorized_stack", min:10, max:200, increment:10, add_on:[5] },
+        load_portability:"machine_relative", count:1, contention:"med" },
+      { instance_id:"cr_chest_press", type:"machine", machine_key:"chest_press", caps:["machine"], brand:"Hoist",
+        load:{ kind:"selectorized_stack", min:10, max:200, increment:10, add_on:[5] },
+        load_portability:"machine_relative", count:1, contention:"med" },
+      { instance_id:"cr_pecdeck", type:"machine", machine_key:"pec_deck", caps:["machine"], brand:"Hoist",
+        load:{ kind:"selectorized_stack", min:10, max:180, increment:10, add_on:[5] },
+        load_portability:"machine_relative", count:1, contention:"med" },
+      { instance_id:"cr_legext", type:"machine", machine_key:"leg_extension", caps:["machine"], brand:"Hoist",
+        load:{ kind:"selectorized_stack", min:10, max:200, increment:10, add_on:[5] },
+        load_portability:"machine_relative", count:1, contention:"med" },
+      // ⚠️ SEATED vs LYING is a guess and they're different library entries with different tiers
+      // (seated is S-tier hamstrings, lying is A). Crunch circuits are usually seated.
+      { instance_id:"cr_legcurl", type:"machine", machine_key:"leg_curl_seated", caps:["machine"], brand:"Hoist",
+        load:{ kind:"selectorized_stack", min:10, max:200, increment:10, add_on:[5] },
+        load_portability:"machine_relative", count:1, contention:"med" },
+      { instance_id:"cr_assist", type:"machine", machine_key:"assisted_pullup", caps:["machine_assistance","dip_station"],
+        load:{ kind:"selectorized_stack", min:10, max:200, increment:10 },
+        load_portability:"machine_relative", count:1, contention:"low" },
+      // source: "Resistance Bands" named on crunch.com's own equipment page.
+      { instance_id:"cr_band", type:"band_set", caps:["band"],
+        load:{ kind:"variable", levels:["light","medium","heavy"], approx_lb:[15,35,60] },
+        load_portability:"absolute", contention:"low" },
       { instance_id:"cr_rack", type:"rack", caps:["squat_rack","barbell","safety_arms","bench","pullup_bar"],
         attrs:{ safety_arms:true }, bar_weight:45,
         load:{ kind:"plate_loaded", min:45, max:495, increment:5 },
@@ -120,13 +184,16 @@ const SEED_GYMS = [
     address:"10641 Kenworthy St, El Paso TX 79924",
     constraints:{ solo_training:true },   // 24h franchise — often genuinely alone at 5am
     equipment:[
+      // Every gym has a floor. Without this you cannot do a PUSH-UP here — bodyweight_only
+      // gates pushup / bw_squat / pike / diamond / sissy_squat / nordic / copenhagen.
+      { instance_id:"af_bw", type:"floor", caps:["bodyweight_only"], count:1, contention:"low" },
       { instance_id:"af_legpress", type:"machine", machine_key:"leg_press", caps:["machine","leg_press"],
         brand:"Precor",
-        load:{ kind:"selectorized_stack", min:10, max:400, increment:10, increment_estimated:true },
+        load:{ kind:"selectorized_stack", min:10, max:400, increment:10, add_on:[5] },   // RSL0602
         load_portability:"machine_relative", count:1, contention:"med" },
       { instance_id:"af_legcurl", type:"machine", machine_key:"leg_curl_lying", caps:["machine","leg_curl_lying"],
         brand:"Precor",
-        load:{ kind:"selectorized_stack", min:10, max:200, increment:10, increment_estimated:true },
+        load:{ kind:"selectorized_stack", min:10, max:200, increment:10, add_on:[5] },   // RSL0606 prone
         load_portability:"machine_relative", count:1, contention:"med" },
       // ⚠️ range_estimated — no number was legible. 5-75 is a guess at a small-franchise norm.
       { instance_id:"af_db", type:"dumbbell_set", caps:["dumbbell"],
@@ -134,10 +201,10 @@ const SEED_GYMS = [
         load_portability:"absolute", contention:"med" },
       { instance_id:"af_rack", type:"rack", caps:["squat_rack","barbell","safety_arms"],
         attrs:{ safety_arms:true }, bar_weight:45,
-        load:{ kind:"plate_loaded", min:45, max:300, increment:5, max_estimated:true },
+        load:{ kind:"plate_loaded", min:45, max:495, increment:5 },   // 5 pairs of 45s + bar
         load_portability:"absolute", count:1, count_estimated:true, contention:"high" },
       { instance_id:"af_bench_press", type:"rack", caps:["barbell","bench"], bar_weight:45,
-        load:{ kind:"plate_loaded", min:45, max:300, increment:5, max_estimated:true },
+        load:{ kind:"plate_loaded", min:45, max:495, increment:5 },   // 5 pairs of 45s + bar
         load_portability:"absolute", count:1, contention:"med" },
       { instance_id:"af_bench_adj", type:"bench", caps:["bench","adjustable_bench"],
         attrs:{ adjustable:true, angles:[0,30,45,60,85] }, count:2, count_estimated:true, contention:"med" },
@@ -158,6 +225,9 @@ const SEED_GYMS = [
   { gym_id:"hotel", name:"Hotel / Travel", scope:"household", travel:true,
     constraints:{ solo_training:true, ceiling_height_in:84 },
     equipment:[
+      // Every gym has a floor. Without this you cannot do a PUSH-UP here — bodyweight_only
+      // gates pushup / bw_squat / pike / diamond / sissy_squat / nordic / copenhagen.
+      { instance_id:"t_bw", type:"floor", caps:["bodyweight_only"], count:1, contention:"low" },
       { instance_id:"t_db", type:"dumbbell_set", caps:["dumbbell"],
         load:{ kind:"fixed_pairs", min:5, max:50, increment:5, per_hand:true, pairs:true },
         load_portability:"absolute", contention:"low" },
@@ -172,6 +242,17 @@ const SEED_GYMS = [
    Emphasize — asks for ~168 sets a week against a ~120-set 4-day budget, and the planner correctly
    refuses to build it. Maintain isn't giving up; it's what frees the recovery for the groups you
    actually picked. Change these in More → and recommendSplit() will tell you if they stop fitting. */
+/* Admin is not a role, it's an identity. Two users, forever.
+ * ⚠️ This is a claim the CLIENT makes about itself — localStorage on a phone, no server, no
+ * password, ever. It protects against the only failure that actually happens in a two-person
+ * household: mis-taps. The wrong link in a text thread. The family iPad. Opening the app in the
+ * parking lot and not noticing it's logged in as the other person. Accident, not adversary.
+ * It does NOT protect against Robert deciding to look — the Apps Script /exec URL is in his own
+ * More screen and doGet(?user=nina) returns her whole blob. That's the right trade: a credential
+ * would lock someone out in a gym with no signal, which is the exact failure this app exists to
+ * prevent. The boundary is a product commitment, not a security control. */
+const ADMIN_ID = "rob";
+
 const SEED_USERS = [
   { id:"rob", name:"Robert", unit:"lb", bodyweight:185, trainingAge:"advanced",
     emphasis:{ chest:"emphasize", back:"emphasize", side_delt:"emphasize",
@@ -306,6 +387,29 @@ async function boot() {
 
   await loadUser();
   renderTabs(); go(DB.pref.get("tab", "workout"));
+}
+
+/**
+ * The emphasis the CURRENT mesocycle was BUILT from — not the user's live intent.
+ *
+ * ⚠️ These are two different things and conflating them silently desyncs the engine.
+ * seedMeso freezes emphasis onto every muscle group (g.emphasis) and derives the day structure,
+ * frequencies and slot.capPerSession from it — all planned against END-OF-BLOCK volume. If
+ * autoregulation reads the LIVE map instead, editing your focus areas mid-meso instantly re-aims
+ * setDelta at a plan whose days and caps were computed from the old map. Nothing errors; the
+ * volume decisions just quietly stop matching the block you're training.
+ *
+ *   user.emphasis                    = INTENT.   Editable any time. Read only by seedMeso.
+ *   meso.days[].muscles[].emphasis   = CONTRACT. Read by autoregulation and progress.
+ *
+ * The contract is already stored — no new field, no pending-state machinery.
+ */
+function mesoEmphasis(m) {
+  if (S.meso) for (const d of S.meso.days) {
+    const g = (d.muscles || []).find(x => x.m === m);
+    if (g && g.emphasis) return g.emphasis;
+  }
+  return (S.user.emphasis || {})[m] || "maintain";
 }
 
 async function loadUser() {
@@ -511,35 +615,161 @@ async function viewToday() {
   // Same data, same batching, no ambush.
 }
 
+/* ================================================================
+ * THE INTAKE — days · focus areas · weeks
+ *
+ * Three questions, and only the middle one is interesting.
+ *
+ * Deliberately NOT asked:
+ *  · Goal (aesthetics/strength/general) — the engine has no knob for it. RIR is a fixed calendar,
+ *    reps are fixed by repRangeFor, load is the solved variable. A goal question would collect an
+ *    answer nothing reads. "Focus areas" IS the goal, fully expressed, landing on the one field
+ *    the engine actually uses.
+ *  · Experience level — one call site, worth ±0.3 on a split score. Training age already drives
+ *    the split THROUGH volume; a second pathway double-counts. It's a constant, not intake.
+ *  · Bodyweight — zero engine call sites. Asking implies it does something.
+ *  · Session length — only offered at the moment it binds (when a pick freezes something).
+ * ================================================================ */
+const INTAKE = { days: 4, weeks: 5, focus: [] };
+
 function viewNoMeso() {
+  const admin = S.user.id === ADMIN_ID;
+  if (!INTAKE.focus.length && S.user.emphasis)
+    INTAKE.focus = Object.keys(S.user.emphasis).filter(m => S.user.emphasis[m] === "emphasize");
+  if (!admin) INTAKE.days = Math.min(INTAKE.days, 3);
+  drawIntake();
+}
+
+function drawIntake() {
+  const p = E.previewFocus(INTAKE.focus, INTAKE.days, { sessionMinutes: S.user.sessionMinutes });
+  const byCat = { push: [], pull: [], legs: [], acc: [] };
+  for (const m of Object.keys(E.LANDMARKS)) (byCat[E.CATEGORY[m]] || byCat.acc).push(m);
+  const CATN = { push: "Push", pull: "Pull", legs: "Legs", acc: "Core & grip" };
+  const mins = p.minutes && p.minutes.length ? Math.max.apply(null, p.minutes) : null;
+
   $("#v").innerHTML = `
-    <div class="hd"><div class="hd-row"><h2>Plan a mesocycle</h2></div></div>
-    <div class="card"><div class="row"><div class="grow">
-      <div class="lead">No mesocycle yet</div>
-      <div class="sm dim" style="margin-top:4px">Pick your days per week and Meso builds it from your emphasis settings and the RP volume landmarks.</div>
-    </div></div></div>
-    <div class="card"><div class="row"><div class="grow">Days per week</div></div>
+    <div class="hd"><div class="hd-row"><h2>Focus areas</h2></div>
+      <div class="sm dim" style="margin-top:3px">Everything gets trained. Pick the few that get to grow.</div>
+    </div>
+
+    <div class="card"><div class="row"><div class="grow">Days a week</div></div>
       <div style="padding:0 14px 14px"><div class="seg" id="dseg">
-        ${[2,3,4,5,6].map(d => `<button data-d="${d}" aria-selected="${d===4}">${d}</button>`).join("")}
-      </div></div>
-      <div class="row"><div class="grow">Weeks <span class="dim sm">(last one is the deload)</span></div></div>
-      <div style="padding:0 14px 14px"><div class="seg" id="wseg">
-        ${[4,5,6].map(w => `<button data-w="${w}" aria-selected="${w===5}">${w}</button>`).join("")}
+        ${(S.user.id === ADMIN_ID ? [2,3,4,5,6] : [2,3]).map(d =>
+          `<button data-d="${d}" aria-selected="${d===INTAKE.days}">${d}</button>`).join("")}
       </div></div>
     </div>
-    <button class="btn wide" id="mk">Create mesocycle</button>
-    <div class="sync"><span class="dot"></span> Training as ${esc(S.user.name)} · ${esc(S.gym.name)}</div>`;
-  let d = 4, w = 5;
-  $("#dseg").onclick = e => { const b = e.target.closest("[data-d]"); if (!b) return; d = +b.dataset.d;
-    document.querySelectorAll("#dseg button").forEach(x => x.setAttribute("aria-selected", x === b)); };
-  $("#wseg").onclick = e => { const b = e.target.closest("[data-w]"); if (!b) return; w = +b.dataset.w;
-    document.querySelectorAll("#wseg button").forEach(x => x.setAttribute("aria-selected", x === b)); };
+
+    <div class="card" id="ledger">
+      <div class="row"><div class="grow">
+        <div class="lead">${INTAKE.focus.length} focus area${INTAKE.focus.length===1?"":"s"}${p.split ? ` · ${esc(p.split.name)}` : ""}</div>
+        <div class="sm dim" style="margin-top:3px">
+          ${p.covered}/15 groups trained${mins ? ` · ~${mins} min a day` : ""}</div>
+      </div>${p.frozen.length ? '<span class="badge b-warn">FROZEN</span>' : '<span class="badge b-up">OK</span>'}</div>
+    </div>
+
+    ${Object.keys(byCat).map(c => `
+      <div class="xxs dim2" style="margin:14px 2px 6px;letter-spacing:.08em;font-weight:700">${CATN[c].toUpperCase()}</div>
+      <div class="pills">${byCat[c].map(m => focusChip(m, p)).join("")}</div>`).join("")}
+
+    <div id="advice" style="margin-top:14px"></div>
+
+    <div class="card" style="margin-top:14px"><div class="row"><div class="grow">Weeks <span class="dim sm">(last is the deload)</span></div></div>
+      <div style="padding:0 14px 14px"><div class="seg" id="wseg">
+        ${[4,5,6].map(w => `<button data-w="${w}" aria-selected="${w===INTAKE.weeks}">${w}</button>`).join("")}
+      </div></div>
+    </div>
+
+    <button class="btn wide" id="mk" style="margin-bottom:8px">${
+      p.frozen.length && p.frozen.length === INTAKE.focus.length && INTAKE.focus.length
+        ? "Create anyway — nothing will grow" : "Create mesocycle"}</button>
+    <div class="sync"><span class="dot"></span> ${esc(S.user.name)} · ${esc(S.gym.name)}</div>
+    <div style="height:14px"></div>`;
+
+  drawAdvice(p);
+  $("#dseg").onclick = e => { const b = e.target.closest("[data-d]"); if (!b) return;
+    INTAKE.days = +b.dataset.d; drawIntake(); };
+  $("#wseg").onclick = e => { const b = e.target.closest("[data-w]"); if (!b) return;
+    INTAKE.weeks = +b.dataset.w; drawIntake(); };
+  document.querySelectorAll("[data-f]").forEach(c => c.onclick = () => {
+    const m = c.dataset.f;
+    const i = INTAKE.focus.indexOf(m);
+    i < 0 ? INTAKE.focus.push(m) : INTAKE.focus.splice(i, 1);
+    drawIntake();
+  });
   $("#mk").onclick = async () => {
     if (!LIB().length) return toast("Exercise library hasn't loaded");
-    const m = seedMeso(S.user, S.gym, d, w);
+    S.user.emphasis = E.buildEmphasis(INTAKE.focus);
+    await DB.put("kv", { k: "users", v: S.users });
+    const m = seedMeso(S.user, S.gym, INTAKE.days, INTAKE.weeks);
     await DB.put("meso", m); await loadUser(); go("today");
     toast(`${m.name} created`);
   };
+}
+
+/* The `+N` badge is the product: it's `room` — how many sets this block can actually ADD before
+   the clock caps it. It is the only number on the screen that's true. A focus area at 0 does the
+   same sets in week 5 as week 1. */
+function focusChip(m, p) {
+  const on = INTAKE.focus.includes(m);
+  const row = p.rows.find(r => r.m === m);
+  const room = row ? row.room : 0;
+  const dead = on && room <= 0;
+  const c = mgColor(m);
+  const style = on
+    ? `color:${c};background:color-mix(in srgb, ${c} ${dead?10:22}%, transparent);border-color:${dead?"var(--wac)":c}`
+    : `border-color:var(--line);opacity:.5`;
+  return `<button class="fchip" data-f="${m}" aria-pressed="${on}" style="${style}">
+    ${esc(E.MG_LABEL[m])}${on ? `<b>${room > 0 ? "+" + room : "0"}</b>` : ""}</button>`;
+}
+
+/* Enforcement is a LIVE LEDGER, not a cap. Three reasons the "max 4 focus areas" rule is wrong:
+ *  1. "3-4" isn't a constant, it's an output — 3 at 60 min, 4 at 75, and 1 for Nina at 2 days.
+ *  2. A hard block contradicts the whole codebase: assignDays never refuses, it trims and reports.
+ *  3. The cost isn't paid by the new pick — it's paid by the OLD ones. You watch your existing
+ *     focus areas lose their room, which enforces it without inventing a rule the engine lacks. */
+function drawAdvice(p) {
+  const el = $("#advice"); if (!el) return;
+  const n = INTAKE.focus.length;
+  if (!n) {
+    el.innerHTML = `<div class="card"><div style="padding:14px" class="sm dim">
+      <b style="opacity:1">Even coverage.</b> Every group trained, none of them growing. That's a real
+      plan — it holds what you've got. Tap one or two to actually grow something.</div></div>`;
+    return;
+  }
+  const frozen = p.frozen;
+  const all = frozen.length === n;
+  if (!frozen.length) {
+    el.innerHTML = INTAKE.days <= 2 && p.missing.length
+      ? `<div class="card"><div style="padding:14px" class="sm dim">At ${INTAKE.days} days there's room for
+         ${6*INTAKE.days} muscle groups in a week and there are 15. ${p.missing.slice(0,3).map(m=>esc(E.MG_LABEL[m])).join(", ")}
+         sit out. Nothing you pick changes that — it's the day count.</div></div>` : "";
+    return;
+  }
+  const names = frozen.map(m => esc(E.MG_LABEL[m])).join(" and ");
+  el.innerHTML = `<div class="card" style="border-color:var(--wac)"><div style="padding:14px">
+    <div class="lead" style="color:var(--wac)">${all ? "Nothing here can grow." : names + " stopped growing."}</div>
+    <div class="sm dim" style="margin:7px 0 12px">${
+      all ? `${n} focus area${n===1?"":"s"}, and not one has room to add a set across the whole block.
+             An hour buys about 17 working sets once you've paid for warm-ups and rest.`
+          : `${names} ${frozen.length===1?"has":"have"} no room left — ${frozen.length===1?"it'll do":"they'll do"}
+             the same sets in week 5 as in week 1.`}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn ghost" id="advTrim">Keep my top ${Math.max(1, n-1)}</button>
+      <button class="btn ghost" id="advMin">Make it ${(S.user.sessionMinutes||E.CFG.sessionMinutesMax)+15} minutes</button>
+      ${INTAKE.days < 6 ? `<button class="btn ghost" id="advDay">Train ${INTAKE.days+1} days</button>` : ""}
+    </div></div></div>`;
+  // Deselect by lowest room — drop what's contributing least, not what was tapped last.
+  $("#advTrim").onclick = () => {
+    const ranked = INTAKE.focus.slice().sort((a,b) =>
+      (p.rows.find(r=>r.m===a)||{room:0}).room - (p.rows.find(r=>r.m===b)||{room:0}).room);
+    INTAKE.focus = INTAKE.focus.filter(m => m !== ranked[0]); drawIntake();
+  };
+  $("#advMin").onclick = async () => {
+    S.user.sessionMinutes = (S.user.sessionMinutes || E.CFG.sessionMinutesMax) + 15;
+    await DB.put("kv", { k: "users", v: S.users });
+    toast(`Sessions are now ~${S.user.sessionMinutes} minutes`); drawIntake();
+  };
+  const ad = $("#advDay"); if (ad) ad.onclick = () => { INTAKE.days++; drawIntake(); };
 }
 
 function viewMesoComplete() {
@@ -1170,7 +1400,10 @@ async function finishWorkout() {
     const prev = prior ? prior.sets.filter(x => x.muscle === m && x.done) : null;
     const week1 = !prev || !prev.length;
     const pf = E.performanceScore(mine, prev, week1);
-    const emph = (S.user.emphasis || {})[m] || "grow";
+    // The CONTRACT, not live intent — see mesoEmphasis(). This decides volume progression;
+    // reading the live map here means editing focus areas mid-meso silently re-aims
+    // autoregulation at a plan built from the old one.
+    const emph = mesoEmphasis(m);
     const fb = s.feedback[m] || {};
     // Joint pain is per-exercise; fold the worst of this muscle's exercises into its decision.
     const jp = mine.map(x => s.jointPain[x.exId]).filter(Boolean)
@@ -1387,7 +1620,7 @@ function viewProgress() {
         const sub = r.fit.verdict === "building" ? "Need 4"
                   : r.last ? `${r.last.load}×${r.last.reps} @${r.last.rir}` : "";
         return `<div class="stat">
-          <div>${mgPill(r.m, (S.user.emphasis||{})[r.m])}</div>
+          <div>${mgPill(r.m, mesoEmphasis(r.m))}</div>
           <div class="trend">
             ${sparkline(r.pts, { color: c, dim: r.fit.verdict === "building",
                                  label: `${E.MG_LABEL[r.m]} strength trend` })}
@@ -1401,7 +1634,7 @@ function viewProgress() {
     <h4 style="margin:18px 0 8px">Volume this week</h4>
     <div class="card"><div style="padding:10px 14px 4px">
       ${Object.keys(vol).sort((a,b) => vol[b]-vol[a]).map(m => {
-        const emph = (S.user.emphasis||{})[m] || "grow";
+        const emph = mesoEmphasis(m);   // the block you're training, not the one you want next
         const d = (lastDec[m] || {}).delta || 0;
         const b = E.bandState(m, emph, vol[m], d);
         const zc = b.zone === "lo" ? "lo" : (b.zone === "hi" || b.zone === "ov") ? "hi" : "";
