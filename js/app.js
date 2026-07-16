@@ -662,6 +662,22 @@ function currentSlot() {
   return { week: b.week, day };
 }
 const sessionId = (w, d) => `${S.user.id}|${S.meso.id}|w${w}|d${d}`;
+/* An EXTRA session for a day already done this week — bonus volume, its own id so it never
+   overwrites the real one, and it doesn't move the program clock (weekBoard keys on the base
+   session's done-state, which this leaves alone). */
+async function bonusSession(w, d) {
+  const n = S.sessions.filter(x => x.mesoId === S.meso.id && x.week === w && x.day === d && x.bonus).length + 1;
+  const bid = `${sessionId(w, d)}|b${n}`;
+  let ex = await DB.get("session", bid);
+  if (ex) return ex;
+  const base = await ensureSession(w, d);   // build the same day, then re-id + reset as a bonus
+  const s = JSON.parse(JSON.stringify(base));
+  s.id = bid; s.bonus = true; s.finished = false; s.date = today();
+  s.feedback = {}; s.jointPain = {}; s.decision = {}; delete s.recovery; delete s.gymSubs;
+  for (const st of s.sets) { st.id = uid(); st.done = false; st.reps = null; st.at = undefined; }
+  await DB.put("session", s);
+  return s;
+}
 // Total program length incl. optional maintenance weeks after the deload.
 const totalWeeks = () => S.meso.weeks + (S.meso.maint || 0);
 // What KIND of week: the accumulation block, its deload, or a post-deload maintenance week.
@@ -857,7 +873,7 @@ async function viewToday() {
  *  · Bodyweight — zero engine call sites. Asking implies it does something.
  *  · Session length — only offered at the moment it binds (when a pick freezes something).
  * ================================================================ */
-const INTAKE = { days: 4, weeks: 5, focus: [], startDay: 0, maint: 0 };
+const INTAKE = { days: 4, weeks: 5, focus: [], startDay: 0, maint: 0, _daysTouched: false };
 /* One source of truth for which day counts a user may pick. The segment and the "Train N days"
    advice button both read it — they disagreed, and the button could set a value the segment
    couldn't render, leaving nothing selected and no way back. */
@@ -868,6 +884,8 @@ function viewNoMeso() {
   const admin = S.user.id === ADMIN_ID;
   if (!INTAKE.focus.length && S.user.emphasis)
     INTAKE.focus = [...new Set(Object.keys(S.user.emphasis).filter(m => S.user.emphasis[m] === "emphasize").map(E.groupOf))];
+  // Sensible per-person default: Nina trains 2 days, Robert 4. He can still change it.
+  if (!INTAKE._daysTouched) INTAKE.days = admin ? 4 : 2;
   INTAKE.days = Math.min(INTAKE.days, maxDays());
   drawIntake();
 }
@@ -933,7 +951,7 @@ function drawIntake() {
 
   drawAdvice(p);
   $("#dseg").onclick = e => { const b = e.target.closest("[data-d]"); if (!b) return;
-    INTAKE.days = +b.dataset.d; drawIntake(); };
+    INTAKE.days = +b.dataset.d; INTAKE._daysTouched = true; drawIntake(); };
   $("#wseg").onclick = e => { const b = e.target.closest("[data-w]"); if (!b) return;
     INTAKE.weeks = +b.dataset.w; drawIntake(); };
   const mw = $("#mwseg"); if (mw) mw.onclick = e => { const b = e.target.closest("[data-mw]"); if (!b) return;
@@ -1065,16 +1083,17 @@ function todayHeader(day) {
 function weekBoardStrip() {
   const b = weekBoard(); if (b.complete) return "";
   const curDay = currentSlot().day;
+  const anyLeft = b.days.some(d => !d.done);
   return `<div class="card"><div class="wbrow">${b.days.map(d => {
     const state = d.done ? "done" : d.day === curDay ? "now" : d.started ? "part" : "todo";
     const c = E.CAT_COLOR[({ upper:"push", lower:"legs", push:"push", pull:"pull", legs:"legs", full:"acc", arms:"acc" })[d.kind]] || "var(--acc)";
-    return `<button class="wbday" data-wbday="${d.day}" data-s="${state}" ${d.done?"disabled":""}
-      style="--c:${c}">
+    // Done workouts stay TAPPABLE — tap one to do it again as a bonus this week. "redo day 1 then 2."
+    return `<button class="wbday" data-wbday="${d.day}" data-s="${state}" style="--c:${c}">
       <span class="wbn">${esc(d.name)}</span>
       <span class="wbmark">${d.done ? "✓" : d.day === curDay ? "●" : d.started ? "◐" : ""}</span>
     </button>`;
   }).join("")}</div>
-  <div class="xs dim2" style="padding:0 14px 12px">Week ${b.week} of ${S.meso.weeks} · tap a workout to switch · ${b.days.filter(d=>d.done).length}/${b.per} done this week</div>
+  <div class="xs dim2" style="padding:0 14px 12px">Week ${b.week} of ${S.meso.weeks} · ${b.days.filter(d=>d.done).length}/${b.per} done · ${anyLeft ? "tap a workout to switch" : "tap a ✓ workout to do it again"}</div>
   </div>`;
 }
 
@@ -1297,8 +1316,21 @@ function toggleDemo(exId) {
 function wireToday() {
   const v = $("#v");
   v.querySelectorAll("[data-wbday]").forEach(b => b.onclick = async () => {
-    S.pickedDay = +b.dataset.wbday;
-    S.session = await ensureSession(currentSlot().week, S.pickedDay);
+    const dn = +b.dataset.wbday;
+    const board = weekBoard();
+    const already = board.days[dn - 1] && board.days[dn - 1].done;
+    if (already) {
+      // Repeat a finished workout as a BONUS session this week — extra volume, doesn't advance
+      // the program, doesn't overwrite what you logged. For when Nina wants a 3rd day.
+      const name = S.meso.days[dn - 1].name;
+      if (!confirm(`Do ${name} again?
+
+Extra session at this week's level — it counts toward your volume and won't skip you ahead.`)) return;
+      S.session = await bonusSession(board.week, dn);
+    } else {
+      S.pickedDay = dn;
+      S.session = await ensureSession(board.week, dn);
+    }
     drawToday(); wake();
   });
   v.querySelectorAll("[data-demo]").forEach(b => b.onclick = () => toggleDemo(b.dataset.demo));
@@ -1858,6 +1890,16 @@ async function finishWorkout() {
   if (left && !confirm(`${left} set${left>1?"s":""} still to go — finish anyway?
 
 Unfinished sets don't count against you; the plan just picks up where you left off.`)) return;
+  if (s.bonus) {
+    // A bonus session just gets banked: it counts toward volume/history, but it doesn't
+    // autoregulate the plan (it's not part of the progression) and doesn't advance the clock.
+    s.finished = true; s.finishedAt = new Date().toISOString(); s.date = today();
+    for (const day of S.meso.days) day.estMinutes = E.sessionMinutes(day);
+    await DB.put("session", s); await loadUser(); stopRest();
+    if (wl) { try { wl.release(); } catch (_) {} wl = null; }
+    await syncNow(true);
+    toast("Bonus workout logged"); return go("today");
+  }
   s.finished = true; s.finishedAt = new Date().toISOString();
 
   const muscles = [...new Set(s.sets.map(x => x.muscle))];
@@ -1865,7 +1907,7 @@ Unfinished sets don't count against you; the plan just picks up where you left o
   for (const m of muscles) {
     const mine = s.sets.filter(x => x.muscle === m && x.done && !x.warmup);
     if (!mine.length) continue;
-    const prior = S.sessions.filter(x => x.mesoId === s.mesoId && x.finished && x.day === s.day && x.week < s.week)
+    const prior = S.sessions.filter(x => x.mesoId === s.mesoId && x.finished && !x.bonus && x.day === s.day && x.week < s.week)
                             .sort((a, b) => b.week - a.week)[0];
     const prev = prior ? prior.sets.filter(x => x.muscle === m && x.done && !x.warmup) : null;
     const week1 = !prev || !prev.length;
@@ -2526,8 +2568,8 @@ async function viewPerson(uid) {
     if (!self) { S.coachingFor = { her: uid, me: S.user.id }; S.user = u; await loadUser(); renderTabs(); }
     then();
   };
-  $("#pFocus").onclick = () => enter(() => { INTAKE.focus = [...new Set(foc.map(E.groupOf))]; INTAKE.days = Math.min(INTAKE.days, maxDays()); S.meso = null; go("today"); });
-  const en = $("#pNew"); if (en) en.onclick = () => enter(() => { INTAKE.focus = [...new Set(foc.map(E.groupOf))]; INTAKE.days = Math.min(INTAKE.days, maxDays()); S.meso = null; go("today"); });
+  $("#pFocus").onclick = () => enter(() => { INTAKE.focus = [...new Set(foc.map(E.groupOf))]; INTAKE._daysTouched = false; S.meso = null; go("today"); });
+  const en = $("#pNew"); if (en) en.onclick = () => enter(() => { INTAKE.focus = [...new Set(foc.map(E.groupOf))]; INTAKE._daysTouched = false; S.meso = null; go("today"); });
   const ee = $("#pEdit"); if (ee) ee.onclick = () => enter(() => go("plan"));
   const pr = $("#pReview"); if (pr) pr.onclick = () => reviewSessions(uid);
 }
