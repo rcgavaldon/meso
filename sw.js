@@ -22,7 +22,20 @@ const SHELL = [
 self.addEventListener("install", e => {
   // Do NOT skipWaiting here — the page decides when to swap, so a workout is never
   // reloaded out from under you mid-set.
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).catch(() => {}));
+  //
+  // ⚠️ NOT cache.addAll(SHELL). addAll fetches through the browser's own HTTP cache, so a stale
+  // copy can get baked into the versioned cache PERMANENTLY — and bumping CACHE won't save you,
+  // because the next install re-fetches the same stale bytes. You ship a fix and the phone keeps
+  // running the old code with a clean console. `cache: "reload"` forces the network.
+  e.waitUntil((async () => {
+    const c = await caches.open(CACHE);
+    await Promise.all(SHELL.map(async u => {
+      try {
+        const res = await fetch(u, { cache: "reload" });
+        if (res && res.ok) await c.put(u, res);
+      } catch (_) { /* one missing file must not abort the whole install */ }
+    }));
+  })());
 });
 
 self.addEventListener("activate", e => {

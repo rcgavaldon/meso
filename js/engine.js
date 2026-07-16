@@ -871,6 +871,34 @@ function redundancy(chosen, ex) {
   return clamp(r, 0, 1);
 }
 
+/**
+ * How light can this exercise go, per the library's authored hint?
+ * `min_effective_load_hint` is on 94 of 130 entries and was, until now, dead metadata — the field
+ * existed and nothing read it. It names the exercise's own inherent floor: a 45lb bar, a 15lb
+ * stack pin, your bodyweight.
+ */
+function minUsableLoad(ex) {
+  const h = ex && ex.min_effective_load_hint;
+  if (!h) return null;
+  const v = h.per_hand_lb != null ? h.per_hand_lb
+          : h.stack_min_lb != null ? h.stack_min_lb
+          : h.bar_lb != null ? h.bar_lb : null;
+  return (typeof v === "number" && v > 0) ? v : null;
+}
+/**
+ * 1.0 = the gym can go light enough. → 0 as the gym's floor rises above what the exercise needs.
+ * A multiplier on the progression term rather than a hard filter: a coarse floor makes an exercise
+ * a bad choice, not an impossible one, and hard-excluding would empty out sparse gyms. Where we
+ * DO have an estimate, canReach() still hard-excludes — this covers the case where we don't.
+ */
+function floorPenalty(ex, plan) {
+  const need = minUsableLoad(ex);
+  if (need == null || !plan || !plan.min) return 1;
+  if (plan.min <= need) return 1;
+  // 2× the usable floor ⇒ the lightest setting is roughly double what the movement wants. Dead.
+  return clamp(1 - (plan.min - need) / need, 0.1, 1);
+}
+
 function scoreExercise(c, slot, gym, user, session) {
   const ex = c.ex, m = slot.muscle;
   const Q = W.q_tier * (TIER[effTier(user, ex, m)] || .4)
@@ -893,6 +921,15 @@ function scoreExercise(c, slot, gym, user, session) {
     const head = saturate((c.plan.max - c.load) / Math.max(c.load, 1), .35);
     P = W.p_gran * gran + W.p_head * head;
   }
+  // The BASEMENT — headroom's mirror, and the thing that was missing.
+  // canReach() only fires when we HAVE a load estimate. For a new user (or any exercise with no
+  // ratio path) targetLoad returns feel_out/null, the filter is skipped, and a 132lb lifter who
+  // works at 8lb gets handed a cable fly whose lightest pin is 10lb. She physically cannot do a
+  // controlled set at the lightest setting, and nothing catches it.
+  // min_effective_load_hint is authored per-exercise for exactly this ("the lightest load at which
+  // this is still useful"). If the gym's floor is above it, the exercise is compromised HERE —
+  // a property of the exercise × gym, not of the person, so it applies to everyone.
+  P *= floorPenalty(ex, c.plan);
 
   const solo = ((gym.constraints || {}).solo_training !== false);
   const riskMult = (ex.failure_safe || !solo) ? .3 : 1;
@@ -923,6 +960,12 @@ function selectForSlot(slot, gym, user, session, library) {
   for (const ex of library) {
     const hit = (ex.muscles || []).find(x => x.m === slot.muscle && (x.role === "primary" || slot.allow_secondary));
     if (!hit) continue;
+    // Already picked in THIS session → not a candidate. redundancy() is a penalty, not an
+    // exclusion, so a strong exercise could out-score its own penalty and get picked twice for
+    // the same muscle — which isn't two exercises, it's one exercise with more sets.
+    // ⚠️ Scoped to the session on purpose: [PUB] RP explicitly endorses repeating a lift ACROSS
+    // the week (heavy bench Mon / light bench Wed / flye Fri). Different day, different `chosen`.
+    if ((session.chosen || []).some(c => c.id === ex.id)) continue;
     if (((user.overrides || {})[ex.id] || {}).blacklist) continue;
     if ((user.injuries || []).some(i => (i.blacklist || []).includes(ex.id))) continue;
     if (violatesGym(ex, gym)) continue;
@@ -1473,6 +1516,44 @@ function verify() {
        !heavy || heavy.load == null || heavy.why === "feel_out");
   })();
 
+  /* ── THE FLOOR — for a smaller lifter this binds more often than the ceiling ──
+   * canReach() only fires when a load ESTIMATE exists. With no history (or no ratio path)
+   * targetLoad returns feel_out/null, the filter is skipped, and a 132lb lifter who works at 8lb
+   * gets handed a cable fly whose lightest pin is 10lb. Found by driving the app as Nina.
+   * min_effective_load_hint was on 94/130 entries and read by NOTHING. */
+  (() => {
+    const cf = { id:"cf", min_effective_load_hint:{ stack_min_lb:5 }, ratings:{}, muscles:[] };
+    const coarse = loadPlan({ load:{ kind:"selectorized_stack", min:10, max:200, increment:5 } });
+    const fine   = loadPlan({ load:{ kind:"selectorized_stack", min:5,  max:200, increment:5 } });
+    eq("the hint is read (it was dead metadata)", minUsableLoad(cf), 5);
+    ok("a gym floor ABOVE the usable minimum is penalized hard", floorPenalty(cf, coarse) <= 0.2);
+    eq("a gym that goes light enough is not penalized", floorPenalty(cf, fine), 1);
+    // A barbell's own floor IS the bar — that's not the gym's fault and mustn't be penalized.
+    const bb = { id:"bb", min_effective_load_hint:{ bar_lb:45 }, ratings:{}, muscles:[] };
+    eq("an exercise whose floor IS the bar takes no penalty at a 45lb bar",
+       floorPenalty(bb, loadPlan({ load:{ kind:"plate_loaded", min:45, max:200, increment:5 } })), 1);
+    eq("no hint → no opinion", floorPenalty({ id:"x" }, coarse), 1);
+  })();
+
+  /* ── No exercise twice in one session ── */
+  (() => {
+    const gym = { gym_id:"g", constraints:{}, equipment:[
+      { instance_id:"db", caps:["dumbbell"], load:{ kind:"fixed_pairs", min:5, max:120, increment:5, pairs:true },
+        load_portability:"absolute", contention:"low" },
+      { instance_id:"b", caps:["bench","adjustable_bench"], attrs:{ adjustable:true, angles:[0,30,45] }, count:1 } ] };
+    const u = { id:"t", emphasis:{}, loadState:{}, overrides:{}, injuries:[] };
+    const slot = { muscle:"chest", repRange:[8,12], rir:2, position:1, wants_stretch:true };
+    const first = selectForSlot(slot, gym, u, { chosen:[], fatigueSpent:0, occupied:new Set() }, MESO_EXERCISES || []);
+    if (first.primary) {
+      const second = selectForSlot(Object.assign({}, slot, { wanted_profile:"shortened", wants_stretch:false }),
+        gym, u, { chosen:[first.primary.ex], fatigueSpent:.2, occupied:new Set() }, MESO_EXERCISES || []);
+      ok("the 2nd exercise for a muscle is never the SAME exercise as the 1st",
+         !second.primary || second.primary.ex.id !== first.primary.ex.id);
+      ok("...and an already-chosen exercise is not even a candidate",
+         !second.all.some(c => c.ex.id === first.primary.ex.id));
+    }
+  })();
+
   // ── Plate inventory is a real ceiling; the floor binds too ──
   // 45×4 + 25×2 + 10×4 + 5×4 + 2.5×2 = 295lb of plates, all in pairs → 45 + 295 = 340.
   const p = loadPlan({ bar_weight:45, plates:{ inventory:{ "45":4, "25":2, "10":4, "5":4, "2.5":2 } },
@@ -1643,7 +1724,7 @@ return {
   assignDays, orderDay, repRangeFor, sessionMinutes, fullBodyRationale,
   // selection
   loadPlan, resolveEquipment, selectForSlot, pickBackups, scoreExercise,
-  loadKey, ratio, targetLoad, learnRatio, weeklyVolume, repBucket,
+  loadKey, ratio, targetLoad, learnRatio, weeklyVolume, repBucket, minUsableLoad, floorPenalty,
   // progress
   countableSet, trendKey, e1rmSeries, keysForMuscle, smooth3, trendFit,
   volumeByWeek, bandState, replayPRs, e1rmTrend,

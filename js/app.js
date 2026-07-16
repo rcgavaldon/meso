@@ -1590,7 +1590,20 @@ $("#sbg").onclick = closeSheet;
 const th = DB.pref.get("theme", "dark");
 document.documentElement.dataset.theme = th;
 document.documentElement.classList.toggle("dark", th === "dark");
-boot().catch(e => { console.error(e); $("#v").innerHTML = `<div class="empty">Failed to start: ${esc(e.message)}</div>`; });
+/* A failed boot must say so. "Loading…" forever with a clean console is the worst failure mode
+   there is — it looks broken rather than buggy, and gives the user nothing to act on.
+   Your training data is on the Sheet regardless; say that too, because that's the actual fear. */
+boot().catch(e => {
+  console.error(e);
+  $("#v").innerHTML = `
+    <div class="card" style="margin-top:24px"><div style="padding:18px">
+      <div class="lead" style="color:var(--erc)">Meso couldn't start</div>
+      <div class="sm dim" style="margin:8px 0 14px">${esc(e.message || String(e))}</div>
+      <button class="btn wide" onclick="location.reload()">Try again</button>
+      <div class="xs dim2" style="margin-top:12px">Your training history is safe — it's on this
+        phone and, if you've set up backup, in your Sheet.</div>
+    </div></div>`;
+});
 
 return { updateReady, S, go, syncNow, seedMeso, askSorenessUpfront, toast };
 })();

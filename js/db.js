@@ -16,6 +16,17 @@ window.DB = (() => {
     if (_db) return Promise.resolve(_db);
     return new Promise((res, rej) => {
       const r = indexedDB.open(NAME, VER);
+      /* ⚠️ Without these two, a blocked open NEVER SETTLES — no resolve, no reject, no error.
+         The app sits on "Loading…" forever and the console is clean, which is the worst possible
+         failure: it looks broken rather than buggy, and there's nothing to report.
+         IndexedDB blocks whenever another connection holds the DB across a version change or a
+         pending deleteDatabase. Rare, but "rare + silent + unrecoverable" is how you lose a user
+         permanently. Fail loudly instead. */
+      r.onblocked = () => rej(new Error(
+        "The database is locked by another open tab. Close Meso's other tabs and reload."));
+      const watchdog = setTimeout(() => rej(new Error(
+        "Storage didn't open in time. Close other Meso tabs and reload — your data is safe.")), 8000);
+      const done = fn => (...a) => { clearTimeout(watchdog); return fn(...a); };
       r.onupgradeneeded = e => {
         const db = e.target.result;
         // kv: prefs-adjacent app state that isn't per-session (users, gyms, settings)
@@ -38,8 +49,13 @@ window.DB = (() => {
           db.createObjectStore("loadState", { keyPath: "k" });
         }
       };
-      r.onsuccess = () => { _db = r.result; res(_db); };
-      r.onerror = () => rej(r.error);
+      r.onsuccess = done(() => {
+        _db = r.result;
+        // If another tab later needs a version change, don't be the connection that blocks it.
+        _db.onversionchange = () => { try { _db.close(); } catch (_) {} _db = null; };
+        res(_db);
+      });
+      r.onerror = done(() => rej(r.error || new Error("Storage failed to open")));
     });
   }
 
