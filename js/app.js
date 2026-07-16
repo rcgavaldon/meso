@@ -540,6 +540,7 @@ function renderTabs() {
   $("#tabs").onclick = e => { const b = e.target.closest("[data-tab]"); if (b) go(b.dataset.tab); };
 }
 function go(tab) {
+  if (typeof stopClock === "function") stopClock();   // leaving the workout view kills its ticker
   tab = TAB_ALIAS[tab] || tab;
   // Also heal a pref pointing at a tab this user doesn't have — otherwise Nina lands on a
   // persisted "plan" and nothing is highlighted.
@@ -1147,19 +1148,67 @@ function todayCard(day, s) {
       ${s.off_plan ? ' · <span class="badge b-info">Travel</span>' : ""}
     </div></div>
     ${started
-      ? `<div class="row"><div class="grow">
-           <div class="pbar"><i style="width:${Math.round(done / s.sets.length * 100)}%"></i></div>
-           <div class="xs dim2" style="margin-top:6px">${done} of ${s.sets.length} sets logged</div>
-         </div></div>`
+      ? `<div class="row wkclock-row">
+           <div class="wkclock-box"><span id="wkclock" class="wkclock">0:00</span><span id="wkpace" class="wkpace">~${S.user.sessionMinutes || E.CFG.sessionMinutesMax} min budget</span></div>
+           <div class="grow">
+             <div class="pbar"><i style="width:${Math.round(done / s.sets.length * 100)}%"></i></div>
+             <div class="xs dim2" style="margin-top:6px">${done} of ${s.sets.length} sets logged</div>
+           </div>
+         </div>`
       : `<div style="padding:0 14px 14px"><button class="btn wide" id="start">Start ${esc(day.name)}</button></div>`}
   </div>`;
 }
 
+/* ============ Workout clock ============
+ * Robert wanted a running timer for the whole session plus a per-exercise time budget, so the
+ * hour cap the engine already plans against becomes something you can pace against in the moment.
+ * The session is stamped `beganAt` the instant you Start (or log your first set), and it lives on
+ * the session record — so a reload mid-workout keeps counting, it doesn't restart the clock. */
+function beginClock() {
+  if (!S.session.beganAt) { S.session.beganAt = new Date().toISOString(); DB.put("session", S.session); }
+}
+function fmtClock(sec) {
+  sec = Math.max(0, Math.round(sec));
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+/** Minutes budgeted for one exercise — same cost model the 60-min planner uses (sessionMinutes),
+ *  so the per-exercise numbers sum to the session estimate. isFirst → a fresh muscle earns a full
+ *  warm-up ramp; a 2nd exercise for the same muscle doesn't. */
+function exMinutes(e, muscle, isFirst) {
+  const ex = LIB().find(x => x.id === e.exId);
+  const r = (E.REST && E.REST[muscle]) || [60, 120];
+  const working = e.sets.filter(x => !x.warmup).length || e.sets.length;
+  let sec = E.SETUP_SEC + E.warmupSeconds(ex, isFirst);
+  sec += working * ((r[0] + r[1]) / 2 + E.WORK_SEC);
+  return Math.max(1, Math.round(sec / 60));
+}
+/** The live tick — updates only the clock/pace text so it never steals focus from a set input. */
+function tickClock() {
+  const el = $("#wkclock"); if (!el || !S.session || !S.session.beganAt) return stopClock();
+  const s = S.session;
+  const elapsed = (Date.now() - new Date(s.beganAt).getTime()) / 1000;
+  el.textContent = fmtClock(elapsed);
+  const pace = $("#wkpace"); if (!pace) return;
+  const budget = (S.user.sessionMinutes || E.CFG.sessionMinutesMax);
+  const work = s.sets.filter(x => !x.warmup);
+  const doneN = work.filter(x => x.done || x.reps === -1).length;
+  if (!doneN) { pace.textContent = `~${budget} min budget`; pace.className = "wkpace"; return; }
+  const expected = doneN / work.length * budget * 60;   // where the clock "should" be by now
+  const drift = (elapsed - expected) / 60;              // minutes ahead(-)/behind(+)
+  if (drift > 3)  { pace.textContent = `${Math.round(drift)} min behind`; pace.className = "wkpace behind"; }
+  else if (drift < -3) { pace.textContent = `${Math.round(-drift)} min ahead`; pace.className = "wkpace ahead"; }
+  else { pace.textContent = "on pace"; pace.className = "wkpace ok"; }
+}
+function startClock() { stopClock(); tickClock(); S._clockIv = setInterval(tickClock, 1000); }
+function stopClock() { if (S._clockIv) { clearInterval(S._clockIv); S._clockIv = null; } }
+
 function drawToday() {
+  stopClock();
   const s = S.session;
   const day = S.meso.days[s.day - 1];
   const deload = E.isDeload(s.week, S.meso.weeks);
-  const started = s.sets.some(x => x.done);
+  const started = s.sets.some(x => x.done) || !!s.beganAt;
 
   const groups = [];
   for (const g of day.muscles) {
@@ -1178,6 +1227,7 @@ function drawToday() {
      <div class="sync ${syncClass()}"><span class="dot"></span>${syncLabel()}</div>`;
 
   wireToday();
+  if (started) startClock();
 }
 
 function drawGroup(g, sets, sameAsPrev) {
@@ -1185,12 +1235,26 @@ function drawGroup(g, sets, sameAsPrev) {
   for (const st of sets) { let e = byEx.find(x => x.exId === st.exId); if (!e) byEx.push(e = { exId: st.exId, sets: [] }); e.sets.push(st); }
   // Only one "Shoulders" header even if the day has separate front/side-delt slots.
   return (sameAsPrev ? "" : `<div style="margin:16px 0 4px">${mgPill(g.m, g.emphasis)}</div>`) +
-    byEx.map(e => drawExercise(g, e)).join("");
+    byEx.map((e, i) => drawExercise(g, e, i === 0)).join("");
 }
 
-function drawExercise(g, e) {
+/* One-tap weight fills for the lifts where typing a number is friction, not information:
+ *   BW  → bodyweight, for push-ups / pull-ups / dips (load_unit "bodyweight_plus")
+ *   Bar → the empty barbell (45 lb / 20 kg), for barbell lifts (load_unit "total_bar_load")
+ * Keyed off the exercise's OWN load_unit, NOT the gym binding — the binding can expose incidental
+ * caps (a garage face-pull resolves to a band on a rack that also has a floor) and mislabel it. */
+function quickFills(ex) {
+  const out = [];
+  if (ex.load_unit === "bodyweight_plus") out.push({ label: "BW", value: S.user.bodyweight || 0 });
+  if (ex.load_unit === "total_bar_load") out.push({ label: "Bar", value: S.user.unit === "kg" ? 20 : 45 });
+  return out.filter(q => q.value > 0);
+}
+
+function drawExercise(g, e, isFirst) {
   const ex = LIB().find(x => x.id === e.exId) || { name: e.exId, ratings:{} };
   const eq = equipLabel(ex);
+  const mins = exMinutes(e, g.m, isFirst);
+  const qf = quickFills(ex);
   const nextIx = e.sets.findIndex(x => !x.done && x.reps !== -1);
   const est = e.sets[0] && e.sets[0].est;
   /* [PUB] RP does NOT pick your first weight — you do, via their published feel-out ramp
@@ -1203,7 +1267,7 @@ function drawExercise(g, e) {
     <div class="ex-hd">
       <button class="grow exhd-tap" data-demo="${e.exId}" style="text-align:left">
         <div class="ex-nm">${esc(ex.name)} <span class="demo-glyph">▸</span></div>
-        <div class="sm dim" style="margin-top:2px">${esc(eq)}</div>
+        <div class="sm dim" style="margin-top:2px">${esc(eq)} · <span class="dim2">~${mins} min</span></div>
       </button>
       <button class="swapb${(S.user.painFlags || {})[e.exId] ? " pain" : ""}" data-swap="${e.exId}">Swap</button>
     </div>
@@ -1217,6 +1281,7 @@ function drawExercise(g, e) {
       <div class="sets-hd"><div>Weight</div><div>Reps</div><div>Log</div></div>
       ${e.sets.map((st, i) => drawSet(st, i === nextIx)).join("")}
     </div>
+    ${qf.length ? `<div class="qf">${qf.map(q => `<button class="qfb" data-qf="${e.exId}" data-qv="${q.value}">${q.label} · ${q.value} ${S.user.unit}</button>`).join("")}</div>` : ""}
   </div></div>`;
 }
 
@@ -1350,7 +1415,7 @@ Extra session at this week's level — it counts toward your volume and won't sk
   });
   v.querySelectorAll("[data-demo]").forEach(b => b.onclick = () => toggleDemo(b.dataset.demo));
   const st = $("#start");
-  if (st) st.onclick = async () => { await askSorenessUpfront(); drawToday(); };
+  if (st) st.onclick = async () => { beginClock(); await askSorenessUpfront(); drawToday(); };
   const gc = $("#gymc"); if (gc) gc.onclick = gymSheet;
   v.querySelectorAll(".set").forEach(row => {
     const id = row.dataset.set;
@@ -1375,6 +1440,16 @@ Extra session at this week's level — it counts toward your volume and won't sk
       onLoadOverride(st, parseFloat(e.target.value), row));
   });
   v.querySelectorAll("[data-log]").forEach(b => b.onclick = () => logSet(b.dataset.log));
+  // Quick-fill: BW / Bar fills every not-yet-logged set of that exercise, so you never type a
+  // number for a push-up. Recompute the rep target off the new load, same as a manual override.
+  v.querySelectorAll("[data-qf]").forEach(b => b.onclick = () => {
+    const val = +b.dataset.qv;
+    S.session.sets.filter(x => x.exId === b.dataset.qf && !x.done && !x.warmup).forEach(st => {
+      const row = $(`.set[data-set="${st.id}"]`); if (!row) return;
+      const inp = row.querySelector('[data-f="load"]'); inp.value = val;
+      onLoadOverride(st, val, row);
+    });
+  });
   v.querySelectorAll("[data-swap]").forEach(b => b.onclick = () => swapSheet(b.dataset.swap));
   const fin = $("#fin"); if (fin) fin.onclick = finishWorkout;
 }
@@ -1413,6 +1488,7 @@ async function logSet(id) {
     if (!confirm(`Log low reps?\n\nYou're logging ${reps} reps. For hypertrophy, reps should fall between 5 and 30. Be sure to log counted reps, and not RIR targets.`)) return;
   }
   st.load = loadV; st.reps = reps; st.done = true; st.at = new Date().toISOString();
+  beginClock();   // first logged set also starts the workout clock, if Start wasn't tapped
 
   /* Warm-ups are scaffolding, not training. They must not touch load memory (they'd overwrite
      your working weight with 50% of it), must not fire the feedback modal, and must not start a

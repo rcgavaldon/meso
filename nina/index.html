@@ -173,6 +173,20 @@ input{font:inherit;color:inherit}
 .pbar i{display:block;height:100%;background:var(--emerald);border-radius:3px;transition:width .3s}
 .pills{display:flex;flex-wrap:wrap;gap:6px}
 
+/* ============ Workout clock + quick-fill ============ */
+.wkclock-row{align-items:center;gap:12px}
+.wkclock-box{display:flex;flex-direction:column;align-items:center;flex:none;min-width:74px;
+  padding:8px 12px;border:1px solid var(--line);border-radius:var(--r-btn);background:var(--b1)}
+.wkclock{font-size:1.35rem;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.wkpace{font-size:.66rem;font-weight:600;letter-spacing:.03em;margin-top:2px;color:var(--dim2,#8a8f98)}
+.wkpace.ok{color:var(--emerald)}
+.wkpace.ahead{color:var(--emerald)}
+.wkpace.behind{color:var(--wac,#e0a33a)}
+.qf{display:flex;flex-wrap:wrap;gap:8px;padding:10px 2px 2px}
+.qfb{border:1px solid var(--line);border-radius:var(--r-btn);padding:8px 14px;font-size:.8rem;
+  font-weight:600;background:var(--b1);flex:none}
+.qfb:active{border-color:var(--p);background:color-mix(in srgb,var(--p) 10%,transparent)}
+
 /* ============ Swap ============ */
 .swapb{border:1px solid var(--line);border-radius:var(--r-btn);padding:7px 11px;
        font-size:.75rem;font-weight:600;opacity:.75;flex:none}
@@ -297,13 +311,13 @@ body.resting{padding-bottom:calc(64px + 58px + var(--safe-b))}
 <section class="sheet" id="sheet" role="dialog" aria-modal="true"></section>
 <div class="toast" id="toast"></div>
 
-<script src="../data/exercises.js?v=28"></script>
-<script src="../js/db.js?v=28"></script>
-<script src="../js/engine.js?v=28"></script>
-<script>window.MESO_USER='nina';</script>
-<script src="../data/demo-alias.js?v=28"></script>
-<script src="../js/media.js?v=28"></script>
-<script src="../js/app.js?v=28"></script>
+<script src="../data/exercises.js?v=30"></script>
+<script src="../js/db.js?v=30"></script>
+<script src="../js/engine.js?v=30"></script>
+<script>window.MESO_USER="nina";</script>
+<script src="../data/demo-alias.js?v=30"></script>
+<script src="../js/media.js?v=30"></script>
+<script src="../js/app.js?v=30"></script>
 <script>
 if ("serviceWorker" in navigator) {
   addEventListener("load", () => navigator.serviceWorker.register("../sw.js").then(reg => {
