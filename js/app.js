@@ -82,6 +82,14 @@ const SEED_GYMS = [
    *   name the plate-loaded row, is there a Smith machine. */
   { gym_id:"crunch", name:"Crunch — Dyer", scope:"household",
     address:"9155 Dyer St, El Paso TX 79924",
+    /* Crowding is VERIFIED at this club and it's the one thing remote research nailed.
+       Google popular times: Mon 98% / Tue 100% / Wed 86% @ 6PM. Fri+Sat peak only 52% @10AM and
+       die after noon; Sunday never exceeds 29%. Corroborated on r/ElPaso ("3-8pm is peak hours
+       tho so it's absolutely slammed") and by a member: "Any machine you want will almost always
+       be taken for at least 30 mins."
+       So `contention:"high"` on the machines here is a measurement, not a prior — it's what
+       drives m_contention scoring and the occupied->backup chain. (Crunch's in-app
+       "Crunch-O-Meter" is reported inaccurate by two reviewers 3.5 years apart; don't trust it.) */
     constraints:{ solo_training:false },
     equipment:[
       // Every gym has a floor. Without this you cannot do a PUSH-UP here — bodyweight_only
@@ -95,8 +103,21 @@ const SEED_GYMS = [
          Everything below is SOURCED, not photographed at this club:
            · cable / resistance bands / TRX / Olympic half-rack platform — crunch.com's own
              "What Equipment Does Crunch Fitness Provide?" page names them explicitly.
-           · Smith + selectorized circuit — the PRWeb release names "half-hour circuit training",
-             and Crunch's own FB states the Power Half Hour circuit IS the Hoist line.
+           · A selectorized circuit — the official opening release names "half-hour circuit
+             training". THAT the machines exist is well-sourced. WHICH machines, and their brand,
+             is NOT: no source anywhere — photo, review, video, or official — names a single
+             specific strength machine, brand, or dumbbell range at this club. That's a
+             researched absence (all 17 Yelp reviews read; Google's topic index over 420 reviews
+             has no machine topic), not a search gap.
+           ⚠️ The stack numbers below are Hoist's own published RS-1xxx decal (min pin 15lb,
+             +15/+15/then +20) used as a stand-in for "a generic commercial selectorized machine".
+             Hoist is NOT confirmed here. An earlier pass had min:10/increment:10/add_on:[5],
+             which was invented — Hoist's add-on is an OPTIONAL upgrade, not standard (that was
+             true of the PRECOR machines at Anytime, where it's verified). Those numbers made
+             these machines look better than any real machine.
+             Harmless part: loadKey() scopes machine loads per-instance, so the pin scale never
+             has to match reality. NOT harmless: `min` is Nina's floor and `increment` decides
+             whether progression exists at all.
          TODO(Robert): five minutes with a phone camera at Dyer beats every hour of desk research.
          Photograph the machine row and the top of the dumbbell rack. Until then this is a
          high-prior hypothesis, not a measurement.
@@ -119,25 +140,25 @@ const SEED_GYMS = [
       // here: loadKey() scopes machine loads per-instance, so the scale never has to agree with
       // reality. add_on:[5] = Hoist's 5lb upgrade, which halves the step.
       { instance_id:"cr_lat", type:"machine", machine_key:"lat_pulldown", caps:["machine"], brand:"Hoist",
-        load:{ kind:"selectorized_stack", min:10, max:200, increment:10, add_on:[5] },
-        load_portability:"machine_relative", count:1, contention:"med" },
+        load:{ kind:"selectorized_stack", min:15, max:335, increment:15 },
+        load_portability:"machine_relative", count:1, contention:"high" },
       { instance_id:"cr_row", type:"machine", machine_key:"seated_row", caps:["machine"], brand:"Hoist",
-        load:{ kind:"selectorized_stack", min:10, max:200, increment:10, add_on:[5] },
-        load_portability:"machine_relative", count:1, contention:"med" },
+        load:{ kind:"selectorized_stack", min:15, max:335, increment:15 },
+        load_portability:"machine_relative", count:1, contention:"high" },
       { instance_id:"cr_chest_press", type:"machine", machine_key:"chest_press", caps:["machine"], brand:"Hoist",
-        load:{ kind:"selectorized_stack", min:10, max:200, increment:10, add_on:[5] },
-        load_portability:"machine_relative", count:1, contention:"med" },
+        load:{ kind:"selectorized_stack", min:15, max:335, increment:15 },
+        load_portability:"machine_relative", count:1, contention:"high" },
       { instance_id:"cr_pecdeck", type:"machine", machine_key:"pec_deck", caps:["machine"], brand:"Hoist",
-        load:{ kind:"selectorized_stack", min:10, max:180, increment:10, add_on:[5] },
-        load_portability:"machine_relative", count:1, contention:"med" },
+        load:{ kind:"selectorized_stack", min:15, max:335, increment:15 },
+        load_portability:"machine_relative", count:1, contention:"high" },
       { instance_id:"cr_legext", type:"machine", machine_key:"leg_extension", caps:["machine"], brand:"Hoist",
-        load:{ kind:"selectorized_stack", min:10, max:200, increment:10, add_on:[5] },
-        load_portability:"machine_relative", count:1, contention:"med" },
+        load:{ kind:"selectorized_stack", min:15, max:335, increment:15 },
+        load_portability:"machine_relative", count:1, contention:"high" },
       // ⚠️ SEATED vs LYING is a guess and they're different library entries with different tiers
       // (seated is S-tier hamstrings, lying is A). Crunch circuits are usually seated.
       { instance_id:"cr_legcurl", type:"machine", machine_key:"leg_curl_seated", caps:["machine"], brand:"Hoist",
-        load:{ kind:"selectorized_stack", min:10, max:200, increment:10, add_on:[5] },
-        load_portability:"machine_relative", count:1, contention:"med" },
+        load:{ kind:"selectorized_stack", min:15, max:335, increment:15 },
+        load_portability:"machine_relative", count:1, contention:"high" },
       { instance_id:"cr_assist", type:"machine", machine_key:"assisted_pullup", caps:["machine_assistance","dip_station"],
         load:{ kind:"selectorized_stack", min:10, max:200, increment:10 },
         load_portability:"machine_relative", count:1, contention:"low" },
