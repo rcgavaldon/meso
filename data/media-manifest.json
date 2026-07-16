@@ -200,7 +200,17 @@
     ],
     "frames": 2,
     "cloudinary_public_id": "meso/ex/bb_back_squat",
-    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF",
+    "footage": {
+      "source": "pexels",
+      "source_id": 6114481,
+      "source_name": "Man Shoulder Squats With An Empty Barbell",
+      "license": "Pexels License (free to use, no attribution required)",
+      "license_url": "https://www.pexels.com/license/",
+      "author": "Harvey Tan Villarino",
+      "url": "https://www.pexels.com/video/man-shoulder-squats-with-an-empty-barbell-6114481/",
+      "cloudinary_public_id": "meso/exv/bb_back_squat"
+    }
   },
   "bb_curl": {
     "source": "wger",
@@ -236,7 +246,17 @@
     ],
     "frames": 2,
     "cloudinary_public_id": "meso/ex/bb_flat_bench",
-    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF",
+    "footage": {
+      "source": "pexels",
+      "source_id": 4944810,
+      "source_name": "Man Working Out at the Gym",
+      "license": "Pexels License (free to use, no attribution required)",
+      "license_url": "https://www.pexels.com/license/",
+      "author": "Anastasia Shuraeva",
+      "url": "https://www.pexels.com/video/man-working-out-at-the-gym-4944810/",
+      "cloudinary_public_id": "meso/exv/bb_flat_bench"
+    }
   },
   "bb_front_squat": {
     "source": "wger",
@@ -308,7 +328,17 @@
     ],
     "frames": 2,
     "cloudinary_public_id": "meso/ex/bb_ohp",
-    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF",
+    "footage": {
+      "source": "pexels",
+      "source_id": 4745807,
+      "source_name": "Man Doing Weightlifting",
+      "license": "Pexels License (free to use, no attribution required)",
+      "license_url": "https://www.pexels.com/license/",
+      "author": "Ketut Subiyanto",
+      "url": "https://www.pexels.com/video/man-doing-weightlifting-4745807/",
+      "cloudinary_public_id": "meso/exv/bb_ohp"
+    }
   },
   "bb_rdl": {
     "source": "wikimedia_commons",
@@ -642,7 +672,17 @@
     ],
     "frames": 2,
     "cloudinary_public_id": "meso/ex/conventional_deadlift",
-    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF",
+    "footage": {
+      "source": "pexels",
+      "source_id": 9778003,
+      "source_name": "Young man lifting bar in deadlift",
+      "license": "Pexels License (free to use, no attribution required)",
+      "license_url": "https://www.pexels.com/license/",
+      "author": "Kakhraman Nazarov",
+      "url": "https://www.pexels.com/video/young-man-lifting-bar-in-deadlift-9778003/",
+      "cloudinary_public_id": "meso/exv/conventional_deadlift"
+    }
   },
   "db_curl": {
     "source": "wger",
@@ -1096,7 +1136,17 @@
     ],
     "frames": 2,
     "cloudinary_public_id": "meso/ex/lat_pulldown",
-    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF",
+    "footage": {
+      "source": "pexels",
+      "source_id": 35585699,
+      "source_name": "Back Workout in Gym with Lat Pulldown Machine",
+      "license": "Pexels License (free to use, no attribution required)",
+      "license_url": "https://www.pexels.com/license/",
+      "author": "khezez",
+      "url": "https://www.pexels.com/video/back-workout-in-gym-with-lat-pulldown-machine-35585699/",
+      "cloudinary_public_id": "meso/exv/lat_pulldown"
+    }
   },
   "leg_curl_lying": {
     "source": "wger",
@@ -1166,7 +1216,17 @@
     ],
     "frames": 2,
     "cloudinary_public_id": "meso/ex/leg_press",
-    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF",
+    "footage": {
+      "source": "pexels",
+      "source_id": 32239228,
+      "source_name": "Intense Leg Workout Using Leg Press Machine",
+      "license": "Pexels License (free to use, no attribution required)",
+      "license_url": "https://www.pexels.com/license/",
+      "author": "Igor Vieira",
+      "url": "https://www.pexels.com/video/intense-leg-workout-using-leg-press-machine-32239228/",
+      "cloudinary_public_id": "meso/exv/leg_press"
+    }
   },
   "leg_press_calf_raise": {
     "source": "wikimedia_commons",
@@ -1304,7 +1364,17 @@
     ],
     "frames": 2,
     "cloudinary_public_id": "meso/ex/pullup",
-    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+    "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF",
+    "footage": {
+      "source": "pexels",
+      "source_id": 15859716,
+      "source_name": "Gym Pull Ups",
+      "license": "Pexels License (free to use, no attribution required)",
+      "license_url": "https://www.pexels.com/license/",
+      "author": "Sport O'Scope",
+      "url": "https://www.pexels.com/video/gym-pull-ups-15859716/",
+      "cloudinary_public_id": "meso/exv/pullup"
+    }
   },
   "pushup": {
     "source": "wger",
@@ -1565,5 +1635,29 @@
     "frames": 3,
     "cloudinary_public_id": "meso/ex/walking_lunge",
     "derivative": "frames composited on white, resized to 400px wide, assembled into an animated GIF"
+  },
+  "hanging_leg_raise": {
+    "footage": {
+      "source": "pexels",
+      "source_id": 4804761,
+      "source_name": "A Man Lifting His Legs While Hanging On A Steel Bar",
+      "license": "Pexels License (free to use, no attribution required)",
+      "license_url": "https://www.pexels.com/license/",
+      "author": "Ketut Subiyanto",
+      "url": "https://www.pexels.com/video/a-man-lifting-his-legs-while-hanging-on-a-steel-bar-4804761/",
+      "cloudinary_public_id": "meso/exv/hanging_leg_raise"
+    }
+  },
+  "bw_squat": {
+    "footage": {
+      "source": "pexels",
+      "source_id": 8837118,
+      "source_name": "A Woman Doing Squats",
+      "license": "Pexels License (free to use, no attribution required)",
+      "license_url": "https://www.pexels.com/license/",
+      "author": "MART PRODUCTION",
+      "url": "https://www.pexels.com/video/a-woman-doing-squats-8837118/",
+      "cloudinary_public_id": "meso/exv/bw_squat"
+    }
   }
 }

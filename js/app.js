@@ -639,7 +639,39 @@ const sessionId = (w, d) => `${S.user.id}|${S.meso.id}|w${w}|d${d}`;
 async function ensureSession(w, d) {
   const id = sessionId(w, d);
   let s = await DB.get("session", id);
-  if (s) return s;
+  if (s) {
+    /* 🔴 The session may have been BUILT at a different gym. This used to return it untouched, so
+       switching Home → Hotel left a Pec Deck sitting in your session with off_plan still false.
+       ensureSession only auto-substitutes on CREATE; a stale session slipped past all of it. */
+    if (s.gymId !== S.gym.gym_id && !s.finished) {
+      const started = (s.sets || []).some(x => x.done);
+      if (!started) { await DB.del("session", id); s = null; }   // not begun — rebuild for here
+      else {
+        // Mid-workout: keep what you've done, but re-home the session and swap any PENDING set
+        // whose exercise this gym can't do. Logged sets are history and stay put.
+        s.gymId = S.gym.gym_id; s.off_plan = S.gym.travel === true;
+        const swapped = [];
+        for (const st of s.sets) {
+          if (st.done || st.reps === -1) continue;
+          const ex = LIB().find(e => e.id === st.exId);
+          if (ex && E.resolveEquipment(ex, S.gym, S.occupied).ok) continue;
+          const pick = E.selectForSlot({ muscle: st.muscle, repRange: st.repRange || [8,12], rir: st.rir,
+              position: 1, exId: st.exId }, S.gym, S.user,
+            { chosen: [], fatigueSpent: .3, occupied: S.occupied }, LIB());
+          if (!pick.primary) continue;
+          const bind = pick.primary.bind, to = pick.primary.ex;
+          const tgt = E.targetLoad(S.user, to, bind, { repRange: st.repRange || [8,12], rir: st.rir, muscle: st.muscle });
+          st.sub = { of: st.exId, reason: "gym" };   // record ORIGINAL id before overwriting
+          st.exId = to.id; st.instanceId = bind.carrier ? bind.carrier.instance_id : null;
+          st.load = st.targetLoad = tgt && tgt.load; st.est = tgt && tgt.why === "ratio" ? tgt.confidence : null;
+          swapped.push(to.name);
+        }
+        if (swapped.length) s.gymSubs = (s.gymSubs || []).concat(swapped.map(n => ({ to: n })));
+        await DB.put("session", s);
+        return s;
+      }
+    } else return s;
+  }
   const day = S.meso.days[d - 1];
   const rir = E.rirForWeek(w, S.meso.weeks);
   const deload = E.isDeload(w, S.meso.weeks);
@@ -2251,6 +2283,21 @@ async function syncNow(quiet) {
 function viewMore() {
   $("#v").innerHTML = `
     <div class="hd"><div class="hd-row"><h2>More</h2></div></div>
+    <h4 style="margin:6px 0 8px">Backup ${DB.pref.get("syncUrl","") ? "" : '<span class="badge b-dn" style="margin-left:6px">NOT SET UP</span>'}</h4>
+    <div class="card"${DB.pref.get("syncUrl","") ? "" : ' style="border-color:var(--erc)"'}>
+      <div style="padding:14px"><div class="sm dim" style="margin-bottom:8px">
+        ${DB.pref.get("syncUrl","")
+          ? "The phone is a cache. Your Sheet is the real record — it survives a lost phone or a wipe."
+          : "<b style=\"color:var(--erc);opacity:1\">Nothing is backed up yet.</b> Paste your Sheet link below so a lost phone doesn't lose your training."}</div>
+      <input id="url" placeholder="Apps Script /exec URL (ends in /exec)" value="${esc(DB.pref.get("syncUrl",""))}"
+        inputmode="url" autocapitalize="off" autocorrect="off"
+        style="width:100%;background:var(--b1);border:1px solid ${DB.pref.get("syncUrl","")?"var(--line)":"var(--erc)"};border-radius:var(--r-btn);padding:13px 12px;outline:none;font-size:.8125rem"></div>
+      <div class="row tap" id="save"><div class="grow">Save link</div></div>
+      <div class="row tap" id="sn"><div class="grow">Back up now</div><span class="sm dim">${esc(syncLabel())}</span></div>
+      <div class="row tap" id="rst"><div class="grow">Restore from Sheet</div></div>
+      <div class="row tap" id="exp"><div class="grow">Export JSON</div></div>
+    </div>
+
     ${S.user.id === ADMIN_ID ? `
     <h4 style="margin:6px 0 8px">Coach</h4>
     <div class="card">
@@ -2282,17 +2329,6 @@ function viewMore() {
       <div class="grow"><div class="lead">${esc(u.name)}</div><div class="sm dim">${u.bodyweight} ${u.unit}</div></div>
       ${S.user.id===u.id?'<span class="badge b-up">YOU</span>':""}</div>`).join("")}</div>
     <div class="xs dim2" style="padding:2px 2px 14px">Separate histories and separate landmarks. Gyms are shared.</div>
-
-    <h4 style="margin:6px 0 8px">Backup</h4>
-    <div class="card">
-      <div style="padding:14px"><div class="sm dim" style="margin-bottom:8px">The phone is a cache. Your Sheet is the real record — it's what survives a lost phone or a browser wipe.</div>
-      <input id="url" placeholder="Apps Script /exec URL" value="${esc(DB.pref.get("syncUrl",""))}"
-        style="width:100%;background:var(--b1);border:1px solid var(--line);border-radius:var(--r-btn);padding:13px 12px;outline:none;font-size:.8125rem"></div>
-      <div class="row tap" id="save"><div class="grow">Save link</div></div>
-      <div class="row tap" id="sn"><div class="grow">Back up now</div><span class="sm dim">${esc(syncLabel())}</span></div>
-      <div class="row tap" id="rst"><div class="grow">Restore from Sheet</div></div>
-      <div class="row tap" id="exp"><div class="grow">Export JSON</div></div>
-    </div>
 
     <h4 style="margin:18px 0 8px">Training</h4>
     <div class="card">
