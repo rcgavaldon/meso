@@ -565,7 +565,6 @@ function todayHeader(day) {
       <h2>${esc(day.name)}</h2>
     </div>
     <div class="hd-act">
-      ${S.rest ? `<span class="badge b-info mono" id="restb">${fmtRest()}</span>` : ""}
       <button class="chip" id="gymc"><span class="t">${esc(S.gym.name)}</span><span class="dim2">▾</span></button>
     </div>
   </div></div>`;
@@ -963,26 +962,60 @@ function gymSheet() {
   });
 }
 
-/* ============ rest timer — RP refuses to ship one; it's their #1 complaint ============ */
+/* ================================================================
+ * REST TIMER — a bar above the tab bar, visible from every screen.
+ *
+ * [PUB] RP ships no timer on principle: one "might rush you into the next set", and their help
+ * centre links Mike's "Why Tracking Your Rest Times Between Sets Is A Terrible Idea". It is also
+ * their #1 unprompted review request. We ship one, built on THEIR OWN published per-muscle ranges
+ * (ENGINE.REST): chest/back 1-3 min, rear delts 15s-2min.
+ *
+ * It counts down to the range's LOW end — the earliest you're plausibly ready — then keeps
+ * counting through the window. That answers Mike's actual objection: a countdown to ONE number
+ * tells you to wait exactly 3:00, which is the rushing/stalling he's complaining about. A range
+ * says "somewhere in here", which is what their own guidance says.
+ *   resting → counting down to lo · ready → inside the window (green, one beep) · cold → past hi
+ * [PUB] "10 '90% recovered sets' in 45 minutes is a much more anabolic stimulus than 3 '99%
+ * recovered' sets." The timer is a nudge, not a rule — hence "Done" always being one tap away.
+ * ================================================================ */
 function startRest(muscle) {
   const [lo, hi] = E.REST[muscle] || [60, 120];
-  // Midpoint of RP's published range, not the top of it — counting down from `hi` would tell
-  // you to rest 3 minutes on every chest set when their own guidance is 1-3.
-  // [PUB] Their rationale for not timing rest at all: "10 '90% recovered sets' in 45 minutes is
-  // a much more anabolic stimulus than 3 '99% recovered' sets." The timer is a nudge, not a rule.
-  S.rest = { until: Date.now() + Math.round((lo + hi) / 2) * 1000, lo, hi, muscle };
+  S.rest = { at: Date.now(), lo, hi, muscle, beeped: false };
+  tickRest();
   if (S.restT) clearInterval(S.restT);
-  S.restT = setInterval(() => {
-    const b = $("#restb"); if (!b) return;
-    if (Date.now() >= S.rest.until) { clearInterval(S.restT); S.rest = null; b.remove(); beep(); return; }
-    b.textContent = fmtRest();
-  }, 500);
+  S.restT = setInterval(tickRest, 500);
 }
-function fmtRest() {
-  if (!S.rest) return "";
-  const left = Math.max(0, Math.round((S.rest.until - Date.now()) / 1000));
-  return `${Math.floor(left/60)}:${String(left%60).padStart(2,"0")}`;
+function stopRest() {
+  if (S.restT) clearInterval(S.restT);
+  S.restT = null; S.rest = null;
+  const el = $("#rest"); if (el) el.classList.remove("on");
 }
+function tickRest() {
+  const el = $("#rest");
+  /* ⚠️ The old version bailed (`const b = $("#restb"); if (!b) return;`) whenever its header badge
+     wasn't on screen — so switching tabs mid-rest left the interval running forever, never firing
+     the beep and never clearing. The timer is now authoritative over the DOM, not the reverse. */
+  if (!S.rest) { stopRest(); return; }
+  const s = Math.round((Date.now() - S.rest.at) / 1000);
+  const { lo, hi, muscle } = S.rest;
+  const state = s < lo ? "resting" : s <= hi ? "ready" : "cold";
+  if (state !== "resting" && !S.rest.beeped) { S.rest.beeped = true; beep(); }
+  // Stop two minutes past the window — by then you've stopped resting and started sitting.
+  if (s > hi + 120) { stopRest(); return; }
+  if (!el) return;
+  const shown = s < lo ? lo - s : s;      // count DOWN to ready, then UP through the window
+  const lab = state === "resting" ? `Resting <b>${esc(E.MG_LOWER(muscle))}</b> · ready at ${fmt(lo)}`
+            : state === "ready"   ? `<b>Ready</b> · ${esc(E.MG_LOWER(muscle))} window ${fmt(lo)}–${fmt(hi)}`
+                                  : `<b>Going cold</b> · past ${fmt(hi)}`;
+  el.dataset.s = state;
+  el.classList.add("on");
+  el.innerHTML = `<i class="bar" style="width:${Math.min(100, s / hi * 100)}%"></i>`
+    + `<span class="t">${fmt(shown)}</span><span class="lab">${lab}</span>`
+    + `<button id="restSkip">Done</button>`;
+  const sk = $("#restSkip"); if (sk) sk.onclick = stopRest;
+}
+const fmt = s => `${Math.floor(s/60)}:${String(Math.round(s)%60).padStart(2,"0")}`;
+function fmtRest() { return S.rest ? fmt(Math.round((Date.now() - S.rest.at) / 1000)) : ""; }
 function beep() {
   try {
     const a = new (window.AudioContext || window.webkitAudioContext)();
@@ -1173,6 +1206,7 @@ async function finishWorkout() {
   await DB.put("session", s);
   await DB.put("meso", S.meso);
   await loadUser();
+  stopRest();                       // the workout is over; don't leave a timer running on Progress
   if (wl) { try { wl.release(); } catch (_) {} wl = null; }
 
   await syncNow(true);

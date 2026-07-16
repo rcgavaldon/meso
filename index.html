@@ -184,6 +184,26 @@ input{font:inherit;color:inherit}
 .calhd{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:4px 12px 0}
 .calhd div{text-align:center;font-size:.66rem;opacity:.35;font-weight:700}
 
+/* ============ Rest timer — sits above the tab bar, visible from every screen ============ */
+.rest{position:fixed;left:0;right:0;bottom:calc(64px + var(--safe-b));z-index:29;
+      background:var(--b1);border-top:1px solid var(--line);
+      display:flex;align-items:center;gap:12px;padding:10px 14px;
+      transform:translateY(120%);transition:transform .22s cubic-bezier(.2,.8,.2,1)}
+.rest.on{transform:none}
+.rest .t{font-family:"Martian Mono",ui-monospace,monospace;font-size:1.4375rem;font-weight:700;
+         font-variant-numeric:tabular-nums;min-width:74px;letter-spacing:-.02em}
+.rest .lab{flex:1;min-width:0;font-size:.75rem;line-height:1rem;opacity:.6}
+.rest .lab b{opacity:1;font-weight:700}
+.rest button{border:1px solid var(--line);border-radius:var(--r-btn);padding:9px 12px;
+             font-size:.75rem;font-weight:600;flex:none}
+.rest button:active{background:var(--b2)}
+.rest[data-s=resting] .t{color:var(--bc)}
+.rest[data-s=ready]{background:color-mix(in srgb,var(--su) 55%,var(--b1))}
+.rest[data-s=ready] .t{color:var(--suc)}
+.rest[data-s=cold]{background:color-mix(in srgb,var(--wa) 45%,var(--b1))}
+.rest[data-s=cold] .t{color:var(--wac)}
+.rest .bar{position:absolute;left:0;top:0;height:2px;background:var(--suc);opacity:.85;transition:width .5s linear}
+
 /* ============ Bits ============ */
 .badge{font-size:.66rem;padding:3px 7px;border-radius:var(--r-btn);font-weight:700;letter-spacing:.04em}
 .b-up{background:var(--su);color:var(--suc)} .b-mid{background:var(--b1);color:var(--bc)}
@@ -209,14 +229,16 @@ input{font:inherit;color:inherit}
 
 <nav class="tabs" id="tabs"></nav>
 
+<div class="rest" id="rest" data-s="resting"></div>
+
 <div class="sheet-bg" id="sbg"></div>
 <section class="sheet" id="sheet" role="dialog" aria-modal="true"></section>
 <div class="toast" id="toast"></div>
 
-<script src="data/exercises.js?v=4"></script>
-<script src="js/db.js?v=4"></script>
-<script src="js/engine.js?v=4"></script>
-<script src="js/app.js?v=4"></script>
+<script src="data/exercises.js?v=5"></script>
+<script src="js/db.js?v=5"></script>
+<script src="js/engine.js?v=5"></script>
+<script src="js/app.js?v=5"></script>
 <script>
 if ("serviceWorker" in navigator) {
   addEventListener("load", () => navigator.serviceWorker.register("sw.js").then(reg => {
