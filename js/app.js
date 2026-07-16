@@ -447,12 +447,25 @@ async function boot() {
   // We persist it rather than relying on the URL sticking around, because iOS resolves an
   // installed PWA's start_url from the manifest — the query string does NOT survive
   // Add to Home Screen. One visit to the link is enough; it's remembered after that.
+  /* Identity, in priority order:
+   *   1. window.MESO_USER — hard-set by the per-person entry page (/rob/, /nina/). This is the
+   *      ONLY thing that survives iOS "Add to Home Screen": the installed PWA relaunches at its
+   *      manifest start_url (the subfolder), which sets this. ?u= in the URL does NOT survive.
+   *   2. ?u= query — for opening a link in a normal browser tab.
+   *   3. the saved pref, else the first user. */
   const qp = new URLSearchParams(location.search);
-  const linked = qp.get("u");
-  if (linked && S.users.some(u => u.id === linked)) {
+  const forced = window.MESO_USER;
+  const linked = (forced && S.users.some(u => u.id === forced)) ? forced
+               : (qp.get("u") && S.users.some(u => u.id === qp.get("u"))) ? qp.get("u") : null;
+  if (linked) {
     DB.pref.set("user", linked);
-    history.replaceState(null, "", location.pathname);   // drop it so the URL stays clean
+    if (!forced) history.replaceState(null, "", location.pathname);
   }
+  /* Backup is baked in — no pasting a link into settings. Robert asked for this explicitly; the
+     tradeoff (anyone with the GitHub URL can read/write the household log) is his to make, and
+     it's his household. Set it every boot so it can never be lost. */
+  const SHEET_URL = "https://script.google.com/macros/s/AKfycbwsK348paZvWY7UTXfB5Y2T77ufSzPLkF2vpCL9YKOluKwtVk5o7pKuwd8To-oGRR6FXw/exec";
+  if (SHEET_URL) DB.pref.set("syncUrl", SHEET_URL);
   const uid_ = DB.pref.get("user", S.users[0].id);
   S.user = S.users.find(u => u.id === uid_) || S.users[0];
   const gid = DB.pref.get("gym", S.gyms[0].gym_id);

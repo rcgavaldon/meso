@@ -6,10 +6,10 @@
 <meta name="theme-color" content="#131416">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Meso">
-<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-title" content="Meso — Nina">
+<link rel="apple-touch-icon" href="../icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
-<title>Meso</title>
+<title>Meso — Nina</title>
 <style>
 /* ============ Design tokens — read from RP's own daisyUI theme bundle ============ */
 :root{
@@ -297,15 +297,16 @@ body.resting{padding-bottom:calc(64px + 58px + var(--safe-b))}
 <section class="sheet" id="sheet" role="dialog" aria-modal="true"></section>
 <div class="toast" id="toast"></div>
 
-<script src="data/exercises.js?v=28"></script>
-<script src="js/db.js?v=28"></script>
-<script src="js/engine.js?v=28"></script>
-<script src="data/demo-alias.js?v=28"></script>
-<script src="js/media.js?v=28"></script>
-<script src="js/app.js?v=28"></script>
+<script src="../data/exercises.js?v=28"></script>
+<script src="../js/db.js?v=28"></script>
+<script src="../js/engine.js?v=28"></script>
+<script>window.MESO_USER='nina';</script>
+<script src="../data/demo-alias.js?v=28"></script>
+<script src="../js/media.js?v=28"></script>
+<script src="../js/app.js?v=28"></script>
 <script>
 if ("serviceWorker" in navigator) {
-  addEventListener("load", () => navigator.serviceWorker.register("sw.js").then(reg => {
+  addEventListener("load", () => navigator.serviceWorker.register("../sw.js").then(reg => {
     reg.addEventListener("updatefound", () => {
       const w = reg.installing;
       w && w.addEventListener("statechange", () => {
