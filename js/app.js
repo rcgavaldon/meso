@@ -1134,7 +1134,9 @@ function weekStrip() {
 }
 
 function todayCard(day, s) {
-  const started = s.sets.some(x => x.done);
+  // beganAt (set by tapping Start) counts as started too — otherwise the clock stays hidden until
+  // the first set is logged, which reads as "I hit Start and nothing happened".
+  const started = s.sets.some(x => x.done) || !!s.beganAt;
   const done = s.sets.filter(x => x.done || x.reps === -1).length;
   const nEx = new Set(s.sets.map(x => x.exId)).size;
   const deload = E.isDeload(s.week, S.meso.weeks);
@@ -1294,12 +1296,12 @@ function drawSet(st, isNext) {
     ${st.warmup ? `<div class="wtag">Warm-up · ${st.pct}%</div>` : ""}
     <div class="stp ${st.done?"done":""}">
       <button data-nudge="load" data-dir="-1">−</button>
-      <input inputmode="decimal" data-f="load" value="${st.load != null ? st.load : ""}" placeholder="—">
+      <input type="number" inputmode="decimal" step="any" data-f="load" value="${st.load != null ? st.load : ""}" placeholder="—">
       <button data-nudge="load" data-dir="1">+</button>
     </div>
     <div class="stp ${st.done?"done":""}">
       <button data-nudge="reps" data-dir="-1">−</button>
-      <input inputmode="numeric" data-f="reps" value="${st.reps != null && st.reps >= 0 ? st.reps : ""}" placeholder="${st.targetReps != null ? st.targetReps : "—"}">
+      <input type="number" inputmode="numeric" step="1" data-f="reps" value="${st.reps != null && st.reps >= 0 ? st.reps : ""}" placeholder="${st.targetReps != null ? st.targetReps : "—"}">
       <button data-nudge="reps" data-dir="1">+</button>
     </div>
     <button class="log" data-log="${st.id}" data-s="${state}">${ICON.check}</button>
