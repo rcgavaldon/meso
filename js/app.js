@@ -1222,6 +1222,8 @@ function drawToday() {
     (deload ? `<div class="card"><div class="row"><div class="grow sm">Deload week — half the reps, lighter loads, 5+ RIR. Traps and forearms are out. Take it easy; this is where the growth actually lands.</div></div></div>` : "") +
     (s.off_plan ? `<div class="card"><div class="row"><div class="grow sm">Away from your home gym. These sets still count toward your weekly volume, but they're kept out of your strength trend — a hotel's 50lb dumbbell ceiling shouldn't read as detraining.</div></div></div>` : "") +
     (caps.length ? `<div class="card"><div class="row"><div class="grow sm dim">${esc(caps[0].why)}</div></div></div>` : "") +
+    (s.tapered && Object.keys(s.tapered).length ? `<div class="card"><div class="row"><div class="grow sm">
+      Still sore in <b>${Object.keys(s.tapered).map(m => esc(E.MG_LOWER(m))).join(", ")}</b> — trimmed a set today so you recover. Your plan for next time is unchanged.</div></div></div>` : "") +
     `<div id="gs">${groups.map((x, i) => drawGroup(x.g, x.sets, i > 0 && E.groupOf(groups[i-1].g.m) === E.groupOf(x.g.m))).join("")}</div>
      ${started ? `<button class="btn wide" id="fin" style="margin:14px 0 20px">${s.sets.every(x => x.done || x.reps === -1) ? "Finish workout" : "Finish early"}</button>` : `<div style="height:16px"></div>`}
      <div class="sync ${syncClass()}"><span class="dot"></span>${syncLabel()}</div>`;
@@ -1467,9 +1469,15 @@ function onLoadOverride(st, load, row) {
 }
 
 async function logSet(id) {
+  if (!S.session.sets.find(x => x.id === id)) return;
+  // Ask soreness before the first set even if Start was skipped. askSorenessUpfront opens a SHEET
+  // (not a redraw), so the row's typed weight/reps survive it. Re-fetch after, since the taper may
+  // have removed the very set just tapped (a sore muscle's last set) — redraw and bail if so.
+  if (!S.session.sorenessAsked) await askSorenessUpfront();
   const st = S.session.sets.find(x => x.id === id);
-  if (!st) return;
+  if (!st) { drawToday(); return; }
   const row = $(`.set[data-set="${id}"]`);
+  if (!row) { drawToday(); return; }
   if (st.done) {   // tap a completed set to un-log it
     st.done = false; st.reps = null; await DB.put("session", S.session); return drawToday();
   }
@@ -1889,8 +1897,32 @@ async function askSorenessUpfront() {
   const ask = muscles.filter(m => prior.some(p => (p.sets || []).some(y => y.muscle === m && y.done)));
   if (!ask.length) { s.sorenessAsked = true; await DB.put("session", s); return true; }
   await askFeedback(null, ask.map(m => ({ k:"soreness", m })), "Before you start");
-  s.sorenessAsked = true; await DB.put("session", s);
+  s.sorenessAsked = true;
+  applySorenessTaper(s);
+  await DB.put("session", s);
   return true;
+}
+
+/* [PUB] "If you come in still sore, you haven't recovered — that session should be lighter." RP
+ * feeds soreness into the NEXT session's set count; that's still here (setDelta at finish). But
+ * Robert wanted the taper to land on the workout in FRONT of him: report still-sore and today gets
+ * a touch lighter, visibly. So for each still-sore muscle we drop ONE working set from THIS session
+ * only — a gentle taper, floored so a muscle never falls below 2 working sets.
+ *
+ * This is session-local: it trims the session instance (s.sets), never the plan (g.slots), so next
+ * session rebuilds at full volume minus whatever the finish-time decision independently chose. And
+ * it's safe for autoregulation — performanceScore averages e1RM PER SET, so fewer sets doesn't read
+ * as a performance drop. */
+function applySorenessTaper(s) {
+  s.tapered = s.tapered || {};
+  for (const m of [...new Set(s.sets.map(x => x.muscle))]) {
+    if ((s.feedback[m] || {}).soreness !== "still_sore") continue;
+    const work = s.sets.filter(x => x.muscle === m && !x.warmup && !x.done && x.reps !== -1);
+    if (work.length <= 2) continue;                 // floor: never taper below 2 working sets
+    const drop = work[work.length - 1];             // the last set of the muscle's last exercise
+    s.sets = s.sets.filter(x => x.id !== drop.id);
+    s.tapered[m] = (s.tapered[m] || 0) + 1;
+  }
 }
 
 const Q = {
