@@ -1204,12 +1204,99 @@ function gymSheet() {
       <div class="sm dim">${g.equipment.length} items${S.meso && g.gym_id===S.meso.homeGym?" · home gym":""}</div></div>
       ${S.gym.gym_id===g.gym_id ? '<span class="badge b-up">HERE</span>' : ""}
     </div>`).join("")}
-    <div class="sheet-ft"><button id="gc">Close</button></div>`);
+    <div class="sheet-ft"><button id="gkit">What's here?</button><button id="gc">Close</button></div>`);
   $("#gc").onclick = closeSheet;
+  $("#gkit").onclick = () => equipSheet(S.gym.gym_id);
   document.querySelectorAll("[data-gym]").forEach(r => r.onclick = async () => {
     S.gym = S.gyms.find(g => g.gym_id === r.dataset.gym);
     DB.pref.set("gym", S.gym.gym_id); S.occupied.clear();
     closeSheet(); toast(`Training at ${S.gym.name}`); go("today");
+  });
+}
+
+/* ================================================================
+ * "WHAT'S HERE?" — the one-time equipment checklist.
+ *
+ * Remote research genuinely dead-ends on this. For Crunch — Dyer, no source anywhere (photo,
+ * review, video, or official) names a single strength machine, brand, or dumbbell range. Every
+ * number in that inventory is either sourced-by-inference or a guess, and a WRONG entry is worse
+ * than a missing one because the app confidently prescribes against it.
+ *
+ * So: ask. Once, per gym, with the machine's other names and how to recognize it standing there —
+ * because "do you have a pec deck" is a useless question if you call it the butterfly.
+ * Ticking shows exactly which exercises it unlocks, so a careless tick has a visible cost.
+ * ================================================================ */
+function equipSheet(gymId) {
+  const gym = S.gyms.find(g => g.gym_id === gymId); if (!gym) return;
+  const has = k => gym.equipment.some(e => e.machine_key === k || (e.caps || []).includes(k));
+  const CATN = { pull:"Pull", push:"Push", legs:"Legs", core:"Core" };
+
+  // One row per machine. Kept as its own function: three levels of nested template literal is
+  // both unparseable and unreadable.
+  /* "Unlocks N" must mean NEWLY unlocked, not "N exercises can use this".
+     Ticking the lat pulldown at a gym that already has a cable station adds nothing — those
+     exercises already resolved via the high pulley. Claiming 4 there is the machine taking credit
+     for work the cable was already doing, and it makes the checklist feel arbitrary ("I ticked it
+     and nothing happened"). So: count what actually appears that didn't before. */
+  const resolves = g => new Set(LIB().filter(e => E.resolveEquipment(e, g, new Set()).ok).map(e => e.id));
+  const newlyUnlocked = c => {
+    if (has(c.key)) return null;                       // already on — the delta question is moot
+    const inst = E.machineInstance(c.key); if (!inst) return 0;
+    const before = resolves(gym);
+    const probe = Object.assign({}, gym, { equipment: gym.equipment.concat([inst]) });
+    let n = 0; for (const id of resolves(probe)) if (!before.has(id)) n++;
+    return n;
+  };
+  const row = c => {
+    const on = has(c.key);
+    const fresh = newlyUnlocked(c);
+    const total = E.machineUnlocks(c.key, LIB()).length;
+    const col = on ? "var(--suc)" : "var(--bc)";
+    return '<div class="row pick" data-mk="' + c.key + '" aria-pressed="' + on + '" style="align-items:flex-start">'
+      + '<div class="grow">'
+      +   '<div class="lead">' + esc(c.name) + '</div>'
+      +   '<div class="xs dim2" style="margin-top:2px">' + esc((c.aliases || []).join(" · ")) + '</div>'
+      +   '<div class="sm dim" style="margin-top:5px">' + esc(c.look) + '</div>'
+      +   '<div class="xxs" style="margin-top:5px;color:' + col + ';opacity:' + (on ? 1 : .35) + '">'
+      +     (on ? ("✓ used by " + total + " exercise" + (total === 1 ? "" : "s"))
+                : fresh > 0 ? ("adds " + fresh + " new exercise" + (fresh === 1 ? "" : "s"))
+                : "already covered by other gear here") + '</div>'
+      + '</div>'
+      + '<span class="badge ' + (on ? "b-up" : "b-mid") + '">' + (on ? "YES" : "NO") + '</span>'
+      + '</div>';
+  };
+
+  const groups = {};
+  for (const c of E.MACHINE_CATALOG) (groups[c.cat] = groups[c.cat] || []).push(c);
+  let body = "";
+  for (const cat of Object.keys(groups)) {
+    body += '<div class="xxs dim2" style="margin:16px 2px 6px;letter-spacing:.08em;font-weight:700">'
+          + (CATN[cat] || cat).toUpperCase() + '</div>';
+    body += groups[cat].map(row).join("");
+  }
+
+  sheet("<h3>What’s at " + esc(gym.name) + "?</h3>"
+    + '<div class="sm dim" style="margin:6px 0 12px">'
+    + "Tick what you’ve actually seen. Meso won’t prescribe anything you don’t have "
+    + "— and it won’t skip anything you do. Not sure? Leave it off; you can add it next "
+    + "time you’re there.</div>"
+    + body
+    + '<div class="sheet-ft"><button class="btn" id="ekDone">Done</button></div>');
+
+  $("#ekDone").onclick = async () => {
+    await DB.put("kv", { k:"gyms", v: S.gyms });
+    closeSheet();
+    const n = LIB().filter(e => E.resolveEquipment(e, gym, new Set()).ok).length;
+    toast(gym.name + ": " + n + " exercises available");
+    if (S.tab === "today") go("today");
+  };
+  document.querySelectorAll("[data-mk]").forEach(r => r.onclick = async () => {
+    const k = r.dataset.mk;
+    const i = gym.equipment.findIndex(e => e.machine_key === k);
+    if (i >= 0) gym.equipment.splice(i, 1);
+    else { const inst = E.machineInstance(k); if (inst) gym.equipment.push(inst); }
+    await DB.put("kv", { k:"gyms", v: S.gyms });
+    equipSheet(gymId);            // re-render so the unlock counts update live
   });
 }
 

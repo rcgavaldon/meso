@@ -913,6 +913,147 @@ function previewFocus(focus, days, opts) {
   };
 }
 
+/* ================================================================
+ * MACHINE CATALOG — the one-time "what's actually here?" checklist.
+ *
+ * Remote research genuinely dead-ends on equipment: for Crunch — Dyer, no source anywhere (photo,
+ * review, video, or official) names a single strength machine, brand, or dumbbell range. So the
+ * app asks. This is the questionnaire that fills the gaps a photo can't.
+ *
+ * Every entry carries:
+ *   aliases  — gyms and people call these different things ("pec deck" / "chest fly" / "butterfly")
+ *   look     — how to RECOGNIZE it standing in the gym, because that's the actual problem
+ *   unlocks  — which library exercises appear if you tick it. Makes the cost of a wrong tick real.
+ *   load     — a conservative default. ⚠️ min matters more than max for a smaller lifter, and
+ *              increment decides whether progression exists at all. Defaults lean COARSE and
+ *              CONSERVATIVE: understating a stack's minimum is safe, understating its granularity
+ *              just means we under-promise. Overstating either invents progression that isn't there.
+ * ================================================================ */
+const MACHINE_CATALOG = [
+  { key:"lat_pulldown", name:"Lat Pulldown", cat:"pull",
+    aliases:["pulldown", "front pulldown"],
+    look:"You sit facing a high pulley with a thigh pad over your legs and pull a long bar down.",
+    load:{ kind:"selectorized_stack", min:15, max:250, increment:10 } },
+  { key:"seated_row", name:"Seated Cable Row", cat:"pull",
+    aliases:["low row", "seated row"],
+    look:"Sit facing a low pulley, feet on a platform, pull a handle to your stomach.",
+    load:{ kind:"selectorized_stack", min:15, max:250, increment:10 } },
+  { key:"machine_row", name:"Chest-Supported Row Machine", cat:"pull",
+    aliases:["iso row", "hammer row", "t-bar row machine"],
+    look:"You lie face-down or lean into a chest pad and row handles back. Chest is SUPPORTED.",
+    load:{ kind:"plate_loaded", min:0, max:400, increment:10 } },
+  { key:"pullover_machine", name:"Pullover Machine", cat:"pull",
+    aliases:["nautilus pullover"],
+    look:"Rare. You sit and drive elbows/a bar down in an arc from overhead. If unsure, it's not there.",
+    load:{ kind:"selectorized_stack", min:15, max:200, increment:10 } },
+  { key:"assisted_pullup", name:"Assisted Pull-up / Dip", cat:"pull",
+    aliases:["gravitron", "assist machine"],
+    look:"A pull-up station with a kneeling or standing platform that pushes you UP. More weight = easier.",
+    load:{ kind:"selectorized_stack", min:10, max:250, increment:10 } },
+  { key:"chest_press", name:"Chest Press Machine", cat:"push",
+    aliases:["seated chest press", "iso press"],
+    look:"Sit upright, press two handles straight forward away from your chest.",
+    load:{ kind:"selectorized_stack", min:15, max:250, increment:10 } },
+  { key:"incline_press_machine", name:"Incline Press Machine", cat:"push",
+    aliases:["incline chest press"],
+    look:"Like the chest press but you press UP and away at an angle.",
+    load:{ kind:"selectorized_stack", min:15, max:250, increment:10 } },
+  { key:"pec_deck", name:"Pec Deck", cat:"push",
+    aliases:["chest fly machine", "butterfly", "peck deck"],
+    look:"Sit with arms out to the sides on pads or handles, and bring them TOGETHER in front. An arc, not a press.",
+    load:{ kind:"selectorized_stack", min:15, max:250, increment:15 } },
+  { key:"rear_delt_machine", name:"Reverse Pec Deck", cat:"pull",
+    aliases:["rear delt fly machine", "reverse fly"],
+    look:"Often the SAME frame as the pec deck, run backwards — chest on the pad, arms sweep APART.",
+    load:{ kind:"selectorized_stack", min:15, max:200, increment:15 } },
+  { key:"shoulder_press_machine", name:"Shoulder Press Machine", cat:"push",
+    aliases:["overhead press machine", "military press machine"],
+    look:"Sit upright, press handles straight overhead.",
+    load:{ kind:"selectorized_stack", min:15, max:200, increment:10 } },
+  { key:"lateral_raise_machine", name:"Lateral Raise Machine", cat:"push",
+    aliases:["side raise machine", "delt machine"],
+    look:"Sit with pads against your OUTER upper arms and lift your elbows out sideways.",
+    load:{ kind:"selectorized_stack", min:10, max:150, increment:10 } },
+  { key:"leg_press", name:"Leg Press", cat:"legs",
+    aliases:["45 degree leg press", "sled"],
+    look:"Sit or recline and push a platform away with your feet.",
+    load:{ kind:"plate_loaded", carriage_weight:75, min:75, max:700, increment:10 } },
+  { key:"hack_squat", name:"Hack Squat", cat:"legs",
+    aliases:["hack machine", "pendulum squat"],
+    look:"You STAND on an angled sled with shoulder pads and squat. Not the same as a leg press — you're upright.",
+    load:{ kind:"plate_loaded", carriage_weight:65, min:65, max:700, increment:10 } },
+  { key:"leg_extension", name:"Leg Extension", cat:"legs",
+    aliases:["quad extension", "knee extension"],
+    look:"Sit, pad across the front of your ankles, straighten your knees.",
+    load:{ kind:"selectorized_stack", min:10, max:250, increment:10 } },
+  { key:"leg_curl_seated", name:"Seated Leg Curl", cat:"legs",
+    aliases:["seated hamstring curl"],
+    look:"You SIT upright, pad on the BACK of your ankles, curl your heels down and under.",
+    load:{ kind:"selectorized_stack", min:10, max:200, increment:10 } },
+  { key:"leg_curl_lying", name:"Lying / Prone Leg Curl", cat:"legs",
+    aliases:["prone leg curl", "lying hamstring curl"],
+    look:"You lie FACE-DOWN and curl your heels toward your butt. Different machine to the seated one — tick both if you have both.",
+    load:{ kind:"selectorized_stack", min:10, max:200, increment:10 } },
+  { key:"hip_thrust_machine", name:"Hip Thrust Machine", cat:"legs",
+    aliases:["glute drive", "glute bridge machine"],
+    look:"You sit on the floor or a seat with a pad across your hips and drive your hips UP.",
+    load:{ kind:"selectorized_stack", min:20, max:300, increment:15 } },
+  { key:"abductor", name:"Hip Abductor", cat:"legs",
+    aliases:["outer thigh machine", "abduction"],
+    look:"Sit with pads on the OUTSIDE of your knees and push your knees APART.",
+    load:{ kind:"selectorized_stack", min:10, max:250, increment:10 } },
+  { key:"adductor_machine", name:"Hip Adductor", cat:"legs",
+    aliases:["inner thigh machine", "adduction"],
+    look:"Same frame, reversed — pads INSIDE your knees, squeeze your knees TOGETHER.",
+    load:{ kind:"selectorized_stack", min:10, max:250, increment:10 } },
+  { key:"calf_raise_standing", name:"Standing Calf Raise", cat:"legs",
+    aliases:["calf machine"],
+    look:"You stand with shoulder pads and rise onto your toes.",
+    load:{ kind:"selectorized_stack", min:20, max:400, increment:15 } },
+  { key:"calf_raise_seated", name:"Seated Calf Raise", cat:"legs",
+    aliases:["seated calf"],
+    look:"You SIT with pads across your KNEES and rise onto your toes. Trains a different calf muscle to the standing one.",
+    load:{ kind:"plate_loaded", min:0, max:300, increment:10 } },
+  { key:"preacher_curl_machine", name:"Preacher Curl Machine", cat:"pull",
+    aliases:["machine curl", "bicep machine"],
+    look:"Arms rest on an angled pad in front of you and you curl handles up.",
+    load:{ kind:"selectorized_stack", min:10, max:150, increment:10 } },
+  { key:"triceps_extension_machine", name:"Triceps Machine", cat:"push",
+    aliases:["tricep press", "dip machine"],
+    look:"A seated machine specifically for triceps — press handles down or forward with elbows fixed.",
+    load:{ kind:"selectorized_stack", min:10, max:200, increment:10 } },
+  { key:"ab_crunch_machine", name:"Ab Crunch Machine", cat:"core",
+    aliases:["crunch machine"],
+    look:"Sit, hold handles or a pad at your chest/shoulders, and crunch forward.",
+    load:{ kind:"selectorized_stack", min:10, max:250, increment:10 } },
+  { key:"back_extension", name:"Back Extension / 45°", cat:"legs",
+    aliases:["hyperextension", "roman chair", "ghd"],
+    look:"An angled pad you hook your ankles under and bend forward/up at the hips.",
+    load:null }
+];
+
+/** Which library exercises a machine unlocks — makes the cost of a wrong tick concrete. */
+function machineUnlocks(key, library) {
+  return (library || []).filter(ex =>
+    ((ex.requires && ex.requires.any) || []).some(alt =>
+      (alt.all || []).some(r => r.machine_key === key ||
+        (r.cap === key) || (key === "back_extension" && r.cap === "ghd")))
+  ).map(ex => ex.name);
+}
+
+/** Build a gym equipment instance from a catalog tick. */
+function machineInstance(key) {
+  const c = MACHINE_CATALOG.find(x => x.key === key);
+  if (!c) return null;
+  const inst = { instance_id: `m_${key}`, type: "machine", machine_key: key,
+                 caps: ["machine", key], count: 1, contention: "med",
+                 load_portability: "machine_relative", from_checklist: true };
+  if (c.load) inst.load = JSON.parse(JSON.stringify(c.load));
+  if (key === "assisted_pullup") inst.caps = ["machine", "machine_assistance", "dip_station"];
+  if (key === "back_extension") inst.caps = ["machine", "ghd", "back_extension"];
+  return inst;
+}
+
 /** Why full body is right for a 2-3 day lifter. One paragraph, correct, quotable by the UI. */
 function fullBodyRationale(days) {
   return `At ${days} days a week, any split that divides the body divides your frequency. `
@@ -1952,6 +2093,7 @@ return {
   // selection
   loadPlan, resolveEquipment, selectForSlot, pickBackups, scoreExercise,
   planMinutes, warmupSeconds, SETUP_SEC, WORK_SEC, buildEmphasis, previewFocus,
+  MACHINE_CATALOG, machineUnlocks, machineInstance,
   loadKey, ratio, targetLoad, learnRatio, weeklyVolume, repBucket, minUsableLoad, floorPenalty,
   // progress
   countableSet, trendKey, e1rmSeries, keysForMuscle, smooth3, trendFit,
