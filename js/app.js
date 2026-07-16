@@ -638,6 +638,19 @@ async function viewToday() {
   S.session = await ensureSession(cur.week, cur.day);
   drawToday();
   wake();
+  /* Preload this week's demo clips + their alternates while we (probably) have signal.
+     Robert always has internet at home; the gym is where he doesn't. So pay for the media HERE,
+     not at the moment he taps Swap standing in front of an occupied pec deck.
+     Fire-and-forget: media is disposable, training data is not, and a 404 must never surface. */
+  if (navigator.onLine && window.MEDIA) {
+    const key = `${S.meso.id}|w${cur.week}`;
+    if (S._mediaWeek !== key) {
+      S._mediaWeek = key;
+      MEDIA.prefetchWeek(S.session, S.gym, S.user, LIB(), E)
+        .then(r => r && r.cached && console.log(`[media] cached ${r.cached} of ${r.cached + r.missing} clips for week ${cur.week}`))
+        .catch(() => {});
+    }
+  }
   // NOTE: askSorenessUpfront no longer auto-fires here. Opening the app is not consent to answer
   // questions — you'd get a modal in the face in the parking lot before seeing anything. It now
   // fires from "Start", or lazily from the first logSet() if you skip the button and just lift.

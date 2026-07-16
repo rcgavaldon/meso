@@ -6,7 +6,7 @@
  * never-stale property a different way: a versioned cache + an explicit "update ready" prompt.
  * Bump CACHE on every deploy.
  */
-const CACHE = "meso-v9";
+const CACHE = "meso-v10";
 const SHELL = [
   "./",
   "index.html",
@@ -15,6 +15,7 @@ const SHELL = [
   "js/db.js",
   "js/engine.js",
   "js/app.js",
+  "js/media.js",
   "icon-192.png",
   "icon-512.png"
 ];
@@ -41,7 +42,11 @@ self.addEventListener("install", e => {
 self.addEventListener("activate", e => {
   e.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)));
+    // ⚠️ Keep the media cache. It's keyed independently of the app-shell version, and it holds
+    // megabytes the user paid for on their home wifi — nuking it on every deploy would silently
+    // re-download the week's clips, quite possibly in the gym parking lot.
+    await Promise.all(keys.filter(k => k !== CACHE && !k.startsWith("meso-media"))
+                          .map(k => caches.delete(k)));
     await self.clients.claim();
   })());
 });
@@ -53,6 +58,19 @@ self.addEventListener("fetch", e => {
   if (req.method !== "GET") return;
 
   const url = new URL(req.url);
+
+  /* Exercise clips live in their own cache, filled deliberately by MEDIA.prefetchWeek() when the
+     phone has signal — NOT opportunistically here. Serve from that cache if it's there, otherwise
+     let it hit the network and fail quietly. A missing clip must never break a workout. */
+  if (/res\.cloudinary\.com/.test(url.hostname)) {
+    e.respondWith((async () => {
+      const hit = await caches.match(req);
+      if (hit) return hit;
+      try { return await fetch(req); } catch (_) { return new Response("", { status: 504 }); }
+    })());
+    return;
+  }
+
   // Never cache the Apps Script sync endpoint — it must always hit the network or fail loudly.
   if (url.origin !== location.origin) return;
 
