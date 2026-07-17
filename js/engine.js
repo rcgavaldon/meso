@@ -748,6 +748,27 @@ function assignDays(user, split) {
     rep.why = `${MG_LABEL[m]} didn't fit in ${maxMin}-minute sessions and it's on `
             + `Maintain, so it gave way to your focus areas. Add a day or drop a focus to get it back.`;
   }
+
+  /* [Robert] A muscle that already claimed EVERY day its region offers isn't a scheduling failure —
+     it's the split's ceiling. Region-locking side delts to the 2 upper days of a 4-day U/L means 2×,
+     under RP's published 3× floor — but that's the most a clean U/L can give, and 2× at higher
+     per-session volume is a solid dose ([PUB] 2-4× is near-equivalent at matched volume). Downgrade
+     that from a REJECT (which would invalidate Upper/Lower for anyone who trains delts and shove
+     them onto full body) to CROWDED (valid, with an honest note). Never touches the freq-0 "never
+     trained" reject. */
+  const maxAvail = m => days.filter(d => eligibleOn(m, d.kind)).length;
+  for (const rep of report) {
+    // ONLY a GROW-level spreadable muscle at 2×+ that already took every day its region offers. A
+    // grow side delt pinned to 2× by a clean 4-day U/L is fine. But an EMPHASIZED side delt really
+    // does want higher frequency — leave it rejecting so full-body (which can give it 4×) wins for
+    // someone who specialised in it. And a muscle stuck at 1× still genuinely rejects.
+    if (rep.status === "reject" && SPREADABLE.has(rep.m) && rep.emphasis !== "emphasize"
+        && rep.freq >= 2 && rep.freq >= maxAvail(rep.m)) {
+      rep.status = "crowded";
+      rep.why = `${MG_LABEL[rep.m]} gets ${rep.freq}× — the most this split's days allow. RP likes it `
+              + `higher, but ${rep.freq}× at higher per-session volume is a solid dose.`;
+    }
+  }
   /* Credit each muscle the indirect volume it gets from the compounds placed for OTHER groups, and
      promote a helper that clears a real dose (≥ its MEV, min 2 sets) from "dropped/uncovered" to
      "trained by your compounds". This is what makes a 2-day full body cover the WHOLE body: chest &
