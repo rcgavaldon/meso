@@ -1379,13 +1379,30 @@ async function markDayDone() {
    go through this so an action in focus mode stays in focus mode instead of dropping to the list. */
 function redraw() { (S.focus && S.focus.on) ? drawFocus() : drawToday(); }
 
+/* The muscle groups to render for this session: the plan's groups (that have sets), PLUS any muscle
+   present in the session but NOT in the plan — an exercise added "just today" for a muscle the day
+   doesn't normally train. Rendering off the SESSION, not only the plan, is what lets an ad-hoc add
+   show up (and survive a reload — the session persists even when the plan doesn't). */
+function sessionGroups() {
+  const s = S.session, day = S.meso.days[s.day - 1], out = [], seen = new Set();
+  for (const g of day.muscles) {
+    const sets = s.sets.filter(x => x.muscle === g.m);
+    if (sets.length) { out.push({ g, sets }); seen.add(g.m); }
+  }
+  for (const m of [...new Set(s.sets.map(x => x.muscle))]) {
+    if (seen.has(m)) continue;
+    out.push({ g: { m, emphasis: (S.user.emphasis || {})[m] || "grow" }, sets: s.sets.filter(x => x.muscle === m) });
+  }
+  return out;
+}
+
 /* The day's exercises in order, one entry each, with the group + whether it's the first exercise
    for that muscle (for the warm-up-ramp / time model). Shared by the list and focus views. */
 function sessionExercises() {
-  const s = S.session, day = S.meso.days[s.day - 1], out = [];
-  for (const g of day.muscles) {
+  const out = [];
+  for (const { g, sets } of sessionGroups()) {
     const byEx = [];
-    for (const st of s.sets.filter(x => x.muscle === g.m)) {
+    for (const st of sets) {
       let e = byEx.find(x => x.exId === st.exId);
       if (!e) byEx.push(e = { exId: st.exId, sets: [] });
       e.sets.push(st);
@@ -1403,11 +1420,7 @@ function drawToday() {
   const deload = E.isDeload(s.week, S.meso.weeks);
   const started = !!s.beganAt;   // the clock is running → show timer + controls
 
-  const groups = [];
-  for (const g of day.muscles) {
-    const sets = s.sets.filter(x => x.muscle === g.m);
-    if (sets.length) groups.push({ g, sets });
-  }
+  const groups = sessionGroups();
   // Surface what the split planner had to give up — see meso.caps in seedMeso.
   const caps = (S.meso.caps || []).filter(c => groups.some(x => x.g.m === c.m) && c.status !== "ok");
 
@@ -1419,6 +1432,7 @@ function drawToday() {
       ${s.readiness === "beat" ? "Feeling beat up" : "Still sore"} — eased off <b>${Object.keys(s.tapered).map(m => esc(E.MG_LOWER(m))).join(", ")}</b> today (trimmed a set) so you recover. Your plan for next time is unchanged.</div></div></div>` : "") +
     `<button class="btn ghost wide" id="focusOn" style="margin:4px 0 12px">⛶ Focus mode — one exercise at a time</button>
      <div id="gs">${groups.map((x, i) => drawGroup(x.g, x.sets, i > 0 && E.groupOf(groups[i-1].g.m) === E.groupOf(x.g.m))).join("")}</div>
+     <button class="btn ghost wide" id="addEx" style="margin:2px 0 14px">+ Add an exercise</button>
      ${started ? `<div class="wkctl">
         <button class="btn ghost" id="pause">${s.pausedAt ? "▶ Resume" : "❚❚ Pause"}</button>
         <button class="btn ghost" id="exit">Exit</button>
@@ -1772,6 +1786,7 @@ Extra session at this week's level — it counts toward your volume and won't sk
   // Tappable per-set rest timer: tap to start its countdown; tap the running one to stop.
   v.querySelectorAll(".restb").forEach(b => b.onclick = () =>
     (S.rest && S.rest.setId === b.dataset.rest) ? stopRest() : startRest(b.dataset.muscle, b.dataset.rest));
+  const ae = $("#addEx"); if (ae) ae.onclick = addExerciseSheet;
 }
 
 /* [PUB] RP's predictive matching: override the load → recompute target reps to hold equal
@@ -1991,8 +2006,101 @@ async function substitute(fromId, toId, scope, opts) {
   }
   if (S.session) await DB.put("session", S.session);
   closeSheet();
-  S.tab === "today" ? drawToday() : viewPlan();
+  S.tab === "today" ? redraw() : viewPlan();
   toast(scope === "replaced" ? `${to.name} for the rest of the meso` : `Swapped to ${to.name} for today`);
+}
+
+/* [Robert] ADD an exercise (not swap): pick a muscle, choose a lift, then the SAME scope choice as
+   swap — "Just today" adds sets to this session only; "Rest of the meso" also adds a slot to the
+   day's plan so every future session includes it. */
+function addExerciseSheet() {
+  if (!S.session) return;
+  const day = S.meso.days[S.session.day - 1];
+  const dayMuscles = day.muscles.map(g => g.m);
+  const allMuscles = [...new Set(dayMuscles.concat(Object.keys(E.MG_LABEL)))];
+  let muscle = dayMuscles[0] || allMuscles[0];
+  let picked = null;
+
+  sheet(`
+    <h3>Add an exercise</h3>
+    <div class="sm dim" style="margin:6px 0 10px">Pick a muscle, choose a lift, then how long to keep it.</div>
+    <input id="aq" placeholder="Search all exercises"
+      style="width:100%;background:var(--b1);border:1px solid var(--line);border-radius:var(--r-btn);padding:13px 12px;outline:none">
+    <div class="wbrow" id="am" style="padding:10px 0 4px">
+      ${allMuscles.map(m => `<button class="mchip" data-m="${m}" aria-pressed="${m === muscle}">${esc(E.MG_LABEL[m] || m)}</button>`).join("")}
+    </div>
+    <div id="alist" style="margin-top:4px"></div>
+    <div class="xs dim2" style="margin-top:12px">“Just today” adds it to this workout only. “Rest of the meso” adds it to every ${esc(day.name)}.</div>
+    <div class="sheet-ft" id="aft" hidden>
+      <button class="btn ghost" id="axToday">Just today</button>
+      <button class="btn" id="axMeso">Rest of the meso</button>
+    </div>`);
+
+  const draw = () => {
+    const q = ($("#aq").value || "").toLowerCase().trim();
+    let rows;
+    if (q) rows = LIB().filter(e => e.name.toLowerCase().includes(q) || (e.aliases || []).some(a => a.toLowerCase().includes(q)));
+    else   rows = LIB().filter(e => (e.muscles || []).some(m => m.m === muscle && m.role === "primary"));
+    rows = rows.map(e => ({ ex: e, ok: E.resolveEquipment(e, S.gym, S.occupied).ok })).sort((a, b) => b.ok - a.ok);
+    $("#alist").innerHTML = rows.slice(0, 30).map(r => {
+      const pm = (r.ex.muscles.find(m => m.role === "primary") || {}).m || muscle;
+      return `<div class="row pick" data-add="${r.ex.id}" data-mus="${pm}" aria-pressed="${picked === r.ex.id}" style="${r.ok ? "" : "opacity:.4"}">
+        ${window.MEDIA ? `<img class="thumb" loading="lazy" src="${MEDIA.poster(MEDIA.demoId(r.ex.id))}" onerror="this.style.visibility='hidden'">` : ""}
+        <div class="grow" style="min-width:0"><div class="lead ell">${esc(r.ex.name)}</div>
+        <div class="sm dim">${esc(equipLabel(r.ex))}${r.ok ? "" : " · not here"}</div></div>
+      </div>`;
+    }).join("") || '<div class="empty">No matches.</div>';
+    $("#alist").querySelectorAll("[data-add]").forEach(row => row.onclick = () => {
+      picked = row.dataset.add; muscle = row.dataset.mus;
+      $("#alist").querySelectorAll(".pick").forEach(p => p.setAttribute("aria-pressed", p.dataset.add === picked));
+      $("#aft").hidden = false;
+    });
+  };
+  draw();
+  $("#aq").oninput = draw;
+  $("#am").onclick = e => { const b = e.target.closest("[data-m]"); if (!b) return;
+    muscle = b.dataset.m; $("#aq").value = "";
+    document.querySelectorAll("#am .mchip").forEach(x => x.setAttribute("aria-pressed", x === b));
+    draw(); };
+  $("#axToday").onclick = () => picked && addExercise(picked, muscle, "today");
+  $("#axMeso").onclick = () => picked && addExercise(picked, muscle, "meso");
+}
+
+async function addExercise(exId, muscle, scope) {
+  closeSheet();
+  const ex = LIB().find(x => x.id === exId); if (!ex) return;
+  const day = S.meso.days[S.session.day - 1];
+  const repRange = [8, 12], setCount = 3, slotId = uid();
+  const bind = E.resolveEquipment(ex, S.gym, S.occupied);
+  const tgt = bind.ok ? E.targetLoad(S.user, ex, bind, { repRange, rir: 2, muscle }) : null;
+  const load = tgt && tgt.load;
+
+  if (scope === "meso") {
+    // Add a slot to the plan so ensureSession() includes it every future session.
+    let g = day.muscles.find(x => x.m === muscle);
+    if (!g) { g = { m: muscle, emphasis: (S.user.emphasis || {})[muscle] || "grow", freq: 1, capPerSession: E.CFG.perSessionMax, slots: [] }; day.muscles.push(g); }
+    g.slots.push({ id: slotId, muscle, sets: setCount, repRange, position: 99, exId, addedAt: today() });
+    day.estMinutes = E.sessionMinutes(day);
+    await DB.put("meso", S.meso);
+  }
+
+  // Both scopes add the sets to TODAY's session.
+  const firstForMuscle = !S.session.sets.some(x => x.muscle === muscle);
+  const inst = bind.ok && bind.carrier ? bind.carrier.instance_id : null;
+  const newSets = [];
+  for (const w of E.warmupSets(load, bind.plan, ex, firstForMuscle))
+    newSets.push({ id: uid(), slotId, muscle, exId, repRange, warmup: true, pct: w.pct,
+      instanceId: inst, load: w.load, reps: null, targetReps: w.reps, targetLoad: w.load, rir: null, done: false, added: true });
+  for (let i = 0; i < setCount; i++)
+    newSets.push({ id: uid(), slotId, muscle, exId, repRange, instanceId: inst,
+      load: load || null, reps: null, targetReps: repRange[1], targetLoad: load || null, rir: 2, done: false, added: true });
+
+  const idxs = S.session.sets.map((x, i) => x.muscle === muscle ? i : -1).filter(i => i >= 0);
+  if (idxs.length) S.session.sets.splice(idxs[idxs.length - 1] + 1, 0, ...newSets);
+  else S.session.sets.push(...newSets);
+  await DB.put("session", S.session);
+  toast(scope === "meso" ? `Added ${ex.name} to every ${day.name}` : `Added ${ex.name} for today`);
+  redraw();
 }
 
 /* Which gym you're at is state you set at the door, not a place you navigate to. */
