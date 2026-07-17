@@ -552,6 +552,9 @@ function go(tab) {
   S.tab = tab; DB.pref.set("tab", tab);
   document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
   ({ today: viewToday, plan: viewPlan, progress: viewProgress, more: viewMore }[tab])();
+  // Native-feeling view transition: retrigger a quick fade+rise on the container. Only on tab
+  // switches (here) — NOT on drawToday's per-set re-renders, which must not flicker.
+  const vEl = $("#v"); if (vEl) { vEl.classList.remove("viewin"); void vEl.offsetWidth; vEl.classList.add("viewin"); }
   // While coaching, pin a banner so there is never a moment of "wait, whose plan is this?"
   // body.coaching offsets the sticky header so the fixed banner never sits ON TOP of it — that
   // overlap was the "it's weird / glitches" Robert hit switching into Nina.
@@ -1309,18 +1312,47 @@ function stopClock() { if (S._clockIv) { clearInterval(S._clockIv); S._clockIv =
 /* Leave a workout without finishing. Logged sets are already in IndexedDB, so this just stops the
    clock and drops the started state — Today returns to the day picker, and the day's Start button
    becomes "Resume". Non-destructive: nothing logged is lost. */
-async function exitWorkout() {
+/* Exit offers two doors: LEAVE (keep what you logged, resume later) or DISCARD (delete this
+   workout entirely — for one you started by accident). Robert asked for the discard. */
+function exitWorkout() {
   const s = S.session;
   const hasProgress = s.sets.some(x => x.done);
-  if (!confirm(hasProgress
-    ? "Leave this workout?\n\nYour logged sets are saved — tap Resume to pick it back up. The timer resets."
-    : "Leave this workout?")) return;
+  sheet(`<h3>Leave this workout?</h3>
+    <div class="sm dim" style="margin:8px 0 16px">${hasProgress
+      ? "You've logged some sets today." : "Nothing logged yet."}</div>
+    <button class="btn wide" id="xLeave" style="margin-bottom:10px">Leave — keep what I logged</button>
+    <button class="btn ghost wide" id="xDiscard" style="margin-bottom:10px;border-color:var(--erc);color:var(--erc)">Discard — delete this workout</button>
+    <button class="wide dim" id="xCancel" style="min-height:44px">Cancel</button>`);
+  $("#xCancel").onclick = closeSheet;
+  $("#xLeave").onclick = () => { closeSheet(); leaveWorkout(); };
+  $("#xDiscard").onclick = () => {
+    if (!confirm("Delete this workout?\n\nEverything you logged today will be erased. This can't be undone.")) return;
+    closeSheet(); discardWorkout();
+  };
+}
+
+/* Leave but keep progress: stop the clock, drop the started state, back to the day picker. The
+   day's button becomes "Resume". Non-destructive. */
+async function leaveWorkout() {
+  const s = S.session;
   stopClock();
   delete s.beganAt; delete s.pausedAt; s.pausedMs = 0;
   await DB.put("session", s);
-  S.pickedDay = null;                 // let the picker choose the day again
-  S.openWorkout = false;              // back to the day chooser
+  S.pickedDay = null;
+  S.openWorkout = false;
   await viewToday();
+}
+
+/* Discard: delete the session record so nothing logged remains, then let the picker rebuild a
+   fresh one when you next open the day. For a workout started by accident. */
+async function discardWorkout() {
+  const s = S.session;
+  stopClock();
+  await DB.del("session", s.id);
+  S.session = null; S.pickedDay = null; S.openWorkout = false;
+  await loadUser();                   // refresh S.sessions without the deleted one
+  toast("Workout discarded");
+  await viewToday();                  // ensureSession rebuilds the day fresh
 }
 
 /* "I did this day but didn't log it." Marks the day finished so it counts for the week and the
@@ -1363,7 +1395,7 @@ function drawToday() {
     (s.off_plan ? `<div class="card"><div class="row"><div class="grow sm">Away from your home gym. These sets still count toward your weekly volume, but they're kept out of your strength trend — a hotel's 50lb dumbbell ceiling shouldn't read as detraining.</div></div></div>` : "") +
     (caps.length ? `<div class="card"><div class="row"><div class="grow sm dim">${esc(caps[0].why)}</div></div></div>` : "") +
     (s.tapered && Object.keys(s.tapered).length ? `<div class="card"><div class="row"><div class="grow sm">
-      Still sore in <b>${Object.keys(s.tapered).map(m => esc(E.MG_LOWER(m))).join(", ")}</b> — trimmed a set today so you recover. Your plan for next time is unchanged.</div></div></div>` : "") +
+      ${s.readiness === "beat" ? "Feeling beat up" : "Still sore"} — eased off <b>${Object.keys(s.tapered).map(m => esc(E.MG_LOWER(m))).join(", ")}</b> today (trimmed a set) so you recover. Your plan for next time is unchanged.</div></div></div>` : "") +
     `<div id="gs">${groups.map((x, i) => drawGroup(x.g, x.sets, i > 0 && E.groupOf(groups[i-1].g.m) === E.groupOf(x.g.m))).join("")}</div>
      ${started ? `<div class="wkctl">
         <button class="btn ghost" id="pause">${s.pausedAt ? "▶ Resume" : "❚❚ Pause"}</button>
@@ -1428,7 +1460,34 @@ function drawExercise(g, e, isFirst) {
       ${e.sets.map((st, i) => drawSet(st, i === nextIx)).join("")}
     </div>
     ${qf.length ? `<div class="qf">${qf.map(q => `<button class="qfb" data-qf="${e.exId}" data-qv="${q.value}">${q.label} · ${q.value} ${S.user.unit}</button>`).join("")}</div>` : ""}
+    <div class="setedit">
+      <button data-addset="${e.exId}">+ Add set</button>
+      ${e.sets.filter(x => !x.warmup).length > 1 ? `<button data-rmset="${e.exId}">− Remove set</button>` : ""}
+    </div>
   </div></div>`;
+}
+
+/* [Robert] "add sets where I want... fully customize." Append a set to an exercise (cloning its
+   target), or remove the last un-logged one. Session-local — the plan's slot count is untouched. */
+async function addSet(exId) {
+  const mine = S.session.sets.filter(x => x.exId === exId && !x.warmup);
+  const last = mine[mine.length - 1]; if (!last) return;
+  const ns = Object.assign({}, last, { id: uid(), done: false, reps: null,
+    load: last.targetLoad != null ? last.targetLoad : (last.load != null ? last.load : null) });
+  delete ns.at; delete ns.sub;
+  const idx = S.session.sets.lastIndexOf(last);
+  S.session.sets.splice(idx + 1, 0, ns);
+  await DB.put("session", S.session);
+  drawToday();
+}
+async function removeSet(exId) {
+  const mine = S.session.sets.filter(x => x.exId === exId && !x.warmup);
+  if (mine.length <= 1) return;
+  // Remove the last set of the exercise, preferring an un-logged one so you don't wipe real data.
+  const target = [...mine].reverse().find(x => !x.done) || mine[mine.length - 1];
+  S.session.sets = S.session.sets.filter(x => x.id !== target.id);
+  await DB.put("session", S.session);
+  drawToday();
 }
 
 function drawSet(st, isNext) {
@@ -1601,6 +1660,8 @@ Extra session at this week's level — it counts toward your volume and won't sk
   const pz = $("#pause"); if (pz) pz.onclick = () => S.session.pausedAt ? resumeClock() : pauseClock();
   const ex = $("#exit"); if (ex) ex.onclick = exitWorkout;
   const md = $("#markdone"); if (md) md.onclick = markDayDone;
+  v.querySelectorAll("[data-addset]").forEach(b => b.onclick = () => addSet(b.dataset.addset));
+  v.querySelectorAll("[data-rmset]").forEach(b => b.onclick = () => removeSet(b.dataset.rmset));
 }
 
 /* [PUB] RP's predictive matching: override the load → recompute target reps to hold equal
@@ -2041,9 +2102,12 @@ async function askSorenessUpfront() {
   const muscles = [...new Set(s.sets.map(x => x.muscle))];
   // Skip a muscle's first-ever appearance in the meso — nothing to be sore from.
   const prior = S.sessions.filter(x => x.mesoId === s.mesoId && x.finished);
-  const ask = muscles.filter(m => prior.some(p => (p.sets || []).some(y => y.muscle === m && y.done)));
-  if (!ask.length) { s.sorenessAsked = true; await DB.put("session", s); return true; }
-  await askFeedback(null, ask.map(m => ({ k:"soreness", m })), "Before you start");
+  const sore = muscles.filter(m => prior.some(p => (p.sets || []).some(y => y.muscle === m && y.done)));
+  // Robert: "when you start it needs to ask how you feel." So ALWAYS ask a readiness question —
+  // even week 1, when there's no soreness to report yet — and add per-muscle soreness on top only
+  // when there's a prior session to be sore from.
+  const qs = [{ k: "readiness" }].concat(sore.map(m => ({ k: "soreness", m })));
+  await askFeedback(null, qs, "Before you start");
   s.sorenessAsked = true;
   applySorenessTaper(s);
   await DB.put("session", s);
@@ -2062,17 +2126,33 @@ async function askSorenessUpfront() {
  * as a performance drop. */
 function applySorenessTaper(s) {
   s.tapered = s.tapered || {};
-  for (const m of [...new Set(s.sets.map(x => x.muscle))]) {
-    if ((s.feedback[m] || {}).soreness !== "still_sore") continue;
+  const dropOne = m => {
     const work = s.sets.filter(x => x.muscle === m && !x.warmup && !x.done && x.reps !== -1);
-    if (work.length <= 2) continue;                 // floor: never taper below 2 working sets
+    if (work.length <= 2) return false;             // floor: never taper below 2 working sets
     const drop = work[work.length - 1];             // the last set of the muscle's last exercise
     s.sets = s.sets.filter(x => x.id !== drop.id);
     s.tapered[m] = (s.tapered[m] || 0) + 1;
+    return true;
+  };
+  for (const m of [...new Set(s.sets.map(x => x.muscle))])
+    if ((s.feedback[m] || {}).soreness === "still_sore") dropOne(m);
+  // A whole-body "beat up" day → ease off the single biggest muscle too, on top of any sore ones.
+  if (s.readiness === "beat") {
+    const top = [...new Set(s.sets.map(x => x.muscle))]
+      .map(m => ({ m, n: s.sets.filter(x => x.muscle === m && !x.warmup && !x.done && x.reps !== -1).length }))
+      .filter(x => x.n > 2 && !s.tapered[x.m]).sort((a, b) => b.n - a.n)[0];
+    if (top) dropOne(top.m);
   }
 }
 
 const Q = {
+  readiness: () => ({
+    label: "How are you feeling?",
+    help: "Your overall readiness today — sleep, energy, stress, life. Sets the tone for the session.",
+    opts: [["fresh","Fresh"],["ok","Normal"],["beat","Beat up"]],
+    long: { fresh:"Slept well, high energy, motivated — ready to push.",
+            ok:"A normal day. Good to train as planned.",
+            beat:"Tired, run-down, stressed or under-slept — take a little off today." } }),
   soreness: m => ({
     label: `${E.MG_LABEL[m]} soreness`,
     // Wording is load-bearing: LAST time, not this time.
@@ -2135,6 +2215,8 @@ function askFeedback(muscle, qs, title) {
         if (q.k === "jointPain") {
           S.session.jointPain[q.ex] = v;
           if (v === "moderate" || v === "a_lot") S.user.painFlags[q.ex] = { at: today(), v };
+        } else if (q.k === "readiness") {
+          S.session.readiness = v;
         } else {
           S.session.feedback[q.m] = S.session.feedback[q.m] || {};
           S.session.feedback[q.m][q.k] = v;
