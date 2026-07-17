@@ -361,7 +361,9 @@ function seedMeso(user, gym, days, weeks, splitId) {
     createdAt: new Date().toISOString(),
     // Persist what the planner had to give up. If Nina's glutes cap at 24 because she trains twice
     // a week, week 4 must SAY so — otherwise the app looks broken exactly when it's being correct.
-    caps: plan.muscles.filter(r => r.status !== "ok")
+    // Compound-covered muscles aren't a shortfall — they're trained by the big lifts — so they stay
+    // OUT of the "what didn't fit" list even though their status isn't "ok".
+    caps: plan.muscles.filter(r => r.status !== "ok" && !r.coveredByCompound)
                       .map(r => ({ m: r.m, status: r.status, ceil: r.ceil, why: r.why })),
     budget: rec.budget, forced: rec.forced
   };

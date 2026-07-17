@@ -503,6 +503,13 @@ const DAY_LABEL = { full:"Full Body", upper:"Upper", lower:"Lower", push:"Push",
  * NOT spreadable — a quad on an upper day is a schedule bug, not a frequency win. */
 const SPREADABLE = new Set(["side_delt","rear_delt","biceps","calves","abs","forearms"]);
 
+/* [Robert] Muscles the big compounds reliably TRAIN as helpers, so a time-boxed plan can lean on
+ * the presses/rows/squats instead of spending a scarce slot on isolation for them: triceps &
+ * front delt from pressing, rear delt & traps from rowing/pulling, adductors from squatting, abs
+ * from bracing, forearms from every grip. Deliberately NOT here: side_delt (needs lateral raises),
+ * biceps (rows give under MEV), calves (nothing compound trains them) — those must be direct. */
+const COMPOUND_COVERED = new Set(["triceps", "front_delt", "rear_delt", "traps", "abs", "forearms", "adductors"]);
+
 /**
  * The volume this muscle carries by the LAST ACCUMULATION WEEK.
  * ⚠️ NOT band().start. band().start is MEV — where week 1 seeds. Sizing the split off MEV means
@@ -561,6 +568,30 @@ function splitStatus(muscle, emphasis, freq) {
     why:`${lo}: ${freq}× a week, ~${Math.round(vol/freq)} sets a session. Room to ramp.` };
 }
 
+/* [Robert] COMPOUND CREDIT — "a bench is at least half a set of triceps by effort; compounds count
+ * for the helping groups." The big compounds a full-body day is built on (bench, row, squat, OHP)
+ * already train the helper muscles, so you don't need a separate setup for each — that setup
+ * overhead is exactly what makes 15 groups impossible in an hour. synergyTable reads the library's
+ * OWN secondary contributions (row → biceps .4, rear_delt .4; bench/dip → triceps .5; squat →
+ * glutes/hams/adductors) and maps: if primary group P is trained, helper H gets `contribution`
+ * sets of credit per working set of P. Used to report a compound-covered helper as TRAINED rather
+ * than "missing a body part", and to keep the planner from bolting on isolation it has no time for. */
+function synergyTable(library) {
+  const t = {};
+  for (const ex of library || []) {
+    const prim = (ex.muscles || []).filter(m => m.role === "primary");
+    const sec  = (ex.muscles || []).filter(m => m.role === "secondary");
+    for (const p of prim) {
+      const row = t[p.m] || (t[p.m] = {});
+      for (const h of sec) {
+        const c = h.contribution != null ? h.contribution : 0.5;
+        if (row[h.m] == null || c > row[h.m]) row[h.m] = c;   // best-case compound for this group
+      }
+    }
+  }
+  return t;
+}
+
 /**
  * Assign muscles to days. PURE PLANNING — no gym, no exercises, no loads.
  * Greedy, priority-ordered, least-loaded-bin. The bin capacity is [PUB] 30 sets / 4-6 groups, and
@@ -588,7 +619,14 @@ function assignDays(user, split) {
    * rejected outright. A 4-day Upper/Lower that trains no quads, because the lateral raises got
    * there first. Freedom to go anywhere is a reason to go LAST.
    */
+  /* [Robert] Within an emphasis tier, muscles the compounds already cover (triceps from presses,
+     rear delt/traps from rows, adductors from squats) yield their direct slot to muscles that get
+     NOTHING from compounds and MUST be trained directly — calves, side delts, biceps. So a
+     time-boxed full-body spends its scarce slots on what compounds can't reach, and leans on the
+     big lifts for the rest. Never demote a FOCUS area — if you emphasize triceps, it's placed. */
+  const compoundCovered = m => COMPOUND_COVERED.has(m) && emph(m) !== "emphasize";
   const byNeed = (a, b) => EMPHASIS.indexOf(emph(b)) - EMPHASIS.indexOf(emph(a))
+                        || (compoundCovered(a) - compoundCovered(b))
                         || targetFreq(b, emph(b)) - targetFreq(a, emph(a));
   const all = Object.keys(LANDMARKS);
   const order = all.filter(m => !SPREADABLE.has(m)).sort(byNeed)
@@ -698,7 +736,31 @@ function assignDays(user, split) {
     rep.why = `${MG_LABEL[m]} didn't fit in ${maxMin}-minute sessions and it's on `
             + `Maintain, so it gave way to your focus areas. Add a day or drop a focus to get it back.`;
   }
-  return { days, muscles: report, trims, droppedForTime: [...new Set(dropped)] };
+  /* Credit each muscle the indirect volume it gets from the compounds placed for OTHER groups, and
+     promote a helper that clears a real dose (≥ its MEV, min 2 sets) from "dropped/uncovered" to
+     "trained by your compounds". This is what makes a 2-day full body cover the WHOLE body: chest &
+     shoulder presses carry triceps and front delt, rows & pulldowns carry biceps & rear delt,
+     squats & hinges carry glutes/hams/adductors — no extra setup, no three-hour session. */
+  const syn = synergyTable((typeof window !== "undefined" && window.MESO_EXERCISES) || []);
+  const indirect = {};
+  for (const d of days) for (const r of d.rows) {
+    const from = syn[r.m]; if (!from) continue;
+    for (const h in from) indirect[h] = (indirect[h] || 0) + r.per * from[h];
+  }
+  for (const rep of report) {
+    const ind = Math.round((indirect[rep.m] || 0) * 10) / 10;
+    rep.indirect = ind;
+    const need = Math.max(2, landmarks(rep.m).mev[0]);
+    if ((rep.dropped || !rep.freq) && ind >= need) {
+      delete rep.dropped;
+      rep.coveredByCompound = true;
+      rep.freq = Math.max(1, rep.freq || 0);
+      rep.status = "compound";
+      rep.why = `${MG_LABEL[rep.m]} gets ~${ind} sets a week from your compound lifts — trained by the big movements, no separate exercise needed.`;
+    }
+  }
+  const stillDropped = [...new Set(dropped)].filter(m => !report.find(r => r.m === m && r.coveredByCompound));
+  return { days, muscles: report, trims, droppedForTime: stillDropped, indirect };
 }
 
 /**
@@ -1983,8 +2045,10 @@ function verify() {
          plan.days.every(x => x.projMin <= CFG.sessionMinutesMax + 1));
       // Below MEV is not a small growth dose — it's not a growth dose. The clock must never
       // trim a focus area under it; it drops a Maintain muscle instead.
+      // Compound-covered muscles are trained INDIRECTLY (0 direct sets by design) — exclude them;
+      // the invariant is about DIRECT prescription of the muscles that get their own slot.
       ok(`${u.id} ${d}d: nothing above Maintain is trimmed below MEV`,
-         plan.muscles.filter(r => r.emphasis !== "maintain" && !r.dropped)
+         plan.muscles.filter(r => r.emphasis !== "maintain" && !r.dropped && !r.coveredByCompound)
            .every(r => (r.perSession || 0) * (r.freq || 0) >= landmarks(r.m).mev[0]));
       ok(`${u.id} ${d}d: when the clock forces a cut, it's a Maintain muscle — never a focus area`,
          (plan.droppedForTime || []).every(m => (u.emphasis[m] || "grow") === "maintain"));
