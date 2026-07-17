@@ -431,6 +431,27 @@ function seedMeso(user, gym, days, weeks, splitId) {
     day.estMinutes = E.sessionMinutes(day);
     meso.days.push(day);
   });
+
+  /* COVERAGE GUARANTEE — a plan must NEVER silently drop a major muscle group. The landmark/time
+     optimiser will shave a group to fit the clock; that's what produced "Nina shows no triceps and
+     is missing shoulders". So after building, force a dedicated exercise for any MAJOR group not yet
+     trained, on a region-compatible day with the most room. Minor groups (rear delt, traps,
+     adductors, forearms) stay compound/grip-covered. [Robert: clean sweep, every group makes sense] */
+  const MAJOR = ["chest","back","quads","hamstrings","glutes","calves","side_delt","front_delt","triceps","biceps","abs"];
+  const takes = (kind, m) => kind === "full" || (E.DAY_MUSCLES[kind] || []).includes(m);
+  for (const m of MAJOR) {
+    if (meso.days.some(d => d.muscles.some(g => g.m === m))) continue;
+    const day = meso.days.filter(d => takes(d.kind, m))
+      .sort((a, b) => a.muscles.reduce((x, g) => x + g.slots.length, 0) - b.muscles.reduce((x, g) => x + g.slots.length, 0))[0];
+    if (!day) continue;
+    const slot = { id: uid(), muscle: m, sets: 3, repRange: [8, 12], position: 99, wanted_profile: "stretch", wants_stretch: true };
+    const chosen = day.muscles.flatMap(g => g.slots.map(s => LIB().find(e => e.id === s.exId)).filter(Boolean));
+    const pick = E.selectForSlot(slot, gym, Object.assign({}, user, { loadState: {} }), { chosen, timeboxed: true, occupied: new Set() }, LIB());
+    if (!pick.primary) continue;
+    slot.exId = pick.primary.ex.id;
+    day.muscles.push({ m, emphasis: user.emphasis[m] || "grow", freq: 1, capPerSession: E.CFG.perSessionMax, slots: [slot] });
+  }
+  meso.days.forEach(d => d.estMinutes = E.sessionMinutes(d));
   return meso;
 }
 
@@ -474,25 +495,32 @@ async function boot() {
   S.gym = S.gyms.find(g => g.gym_id === gid) || S.gyms[0];
 
   await loadUser();
-  // PERSISTENCE: a fresh device / reinstalled PWA has an empty IndexedDB, so without this you'd be
-  // dropped into the intake even though your plan is safe in the Sheet. Pull it back automatically
-  // before deciding to show the intake — the plan is durable across phones, not just on one.
-  if (!S.meso) await tryRestoreFromSheet();
+  // PERSISTENCE: pull the latest plan from the Sheet on every launch. Restores on a fresh device,
+  // AND updates to a rebuilt/newer plan without a manual "Restore" — so a refresh is all it takes.
+  // NEVER disrupts an active workout (guarded below).
+  await tryRestoreFromSheet();
   renderTabs(); go(DB.pref.get("tab", "workout"));
   welcomeSheet(false);   // one-time intro on first launch
 }
 
-/* Fetch this user's latest backup from the Sheet and import it if it carries a plan. Silent on
-   failure (offline / never synced) — a real first-time user just falls through to the intake. */
+/* Pull this user's backup from the Sheet and adopt it when it's newer than what's on the phone.
+   - No local plan → restore it (fresh device / reinstall).
+   - Sheet has a strictly NEWER plan than local → adopt it (a rebuilt plan lands on a refresh).
+   - Local is current, OR a workout is in progress → leave it alone.
+   Silent on failure (offline / never synced). */
 async function tryRestoreFromSheet() {
   const url = DB.pref.get("syncUrl", ""); if (!url) return;
   try {
     const r = await fetch(url + "?user=" + encodeURIComponent(S.user.id));
     const blob = await r.json();
-    if (blob && (blob.mesos || []).length) {
+    if (!(blob && (blob.mesos || []).length)) return;
+    const sheetNewest = blob.mesos.reduce((a, m) => ((m.createdAt || "") > (a.createdAt || "") ? m : a));
+    const activeWorkout = (S.sessions || []).some(s => !s.finished && (s.beganAt || (s.sets || []).some(x => x.done)));
+    const localCurrent = S.meso && (S.meso.createdAt || "") >= (sheetNewest.createdAt || "");
+    if (!S.meso || (!localCurrent && !activeWorkout)) {
       await DB.importUser(blob);
       await loadUser();
-      if (S.meso) toast("Welcome back — restored your plan from backup");
+      if (S.meso) toast(S.meso.createdAt === sheetNewest.createdAt ? "Loaded your latest plan" : "Restored your plan from backup");
     }
   } catch (_) {}
 }
