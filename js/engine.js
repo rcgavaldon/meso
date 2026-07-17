@@ -640,7 +640,11 @@ function assignDays(user, split) {
   const byNeed = (a, b) => EMPHASIS.indexOf(emph(b)) - EMPHASIS.indexOf(emph(a))
                         || (compoundCovered(a) - compoundCovered(b))
                         || targetFreq(b, emph(b)) - targetFreq(a, emph(a));
-  const all = Object.keys(LANDMARKS);
+  // [Robert] Forearms are not a "main" group — grip on every row, curl, carry and deadlift trains
+  // them, and RP lists direct forearm work as optional. So unless you SPECIFICALLY emphasize them,
+  // they get no dedicated slot (no "Hammer Curl [forearms]" cluttering the plan) and are reported
+  // as grip-covered below.
+  const all = Object.keys(LANDMARKS).filter(m => m !== "forearms" || emph("forearms") === "emphasize");
   const order = all.filter(m => !SPREADABLE.has(m)).sort(byNeed)
         .concat(all.filter(m => SPREADABLE.has(m)).sort(byNeed));
 
@@ -791,6 +795,12 @@ function assignDays(user, split) {
       rep.status = "compound";
       rep.why = `${MG_LABEL[rep.m]} gets ~${ind} sets a week from your compound lifts — trained by the big movements, no separate exercise needed.`;
     }
+  }
+  // Forearms (excluded from placement unless emphasized): report them as grip-covered, not missing.
+  if (emph("forearms") !== "emphasize" && !report.find(r => r.m === "forearms")) {
+    report.push({ m: "forearms", emphasis: emph("forearms"), coveredByCompound: true, freq: 1,
+      perSession: 0, status: "compound", indirect: 0,
+      why: `Forearms are trained by your grip on every row, curl and carry — no separate exercise needed.` });
   }
   const stillDropped = [...new Set(dropped)].filter(m => !report.find(r => r.m === m && r.coveredByCompound));
   return { days, muscles: report, trims, droppedForTime: stillDropped, indirect };
