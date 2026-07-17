@@ -1375,8 +1375,29 @@ async function markDayDone() {
   syncNow(true).catch(() => {});
 }
 
+/* Redraw the workout in whichever mode is active. Set-logging, add/remove set, and quick-fill all
+   go through this so an action in focus mode stays in focus mode instead of dropping to the list. */
+function redraw() { (S.focus && S.focus.on) ? drawFocus() : drawToday(); }
+
+/* The day's exercises in order, one entry each, with the group + whether it's the first exercise
+   for that muscle (for the warm-up-ramp / time model). Shared by the list and focus views. */
+function sessionExercises() {
+  const s = S.session, day = S.meso.days[s.day - 1], out = [];
+  for (const g of day.muscles) {
+    const byEx = [];
+    for (const st of s.sets.filter(x => x.muscle === g.m)) {
+      let e = byEx.find(x => x.exId === st.exId);
+      if (!e) byEx.push(e = { exId: st.exId, sets: [] });
+      e.sets.push(st);
+    }
+    byEx.forEach((e, i) => out.push({ g, e, first: i === 0 }));
+  }
+  return out;
+}
+
 function drawToday() {
   stopClock();
+  if (S.focus) S.focus.on = false;   // this IS the list view — keep redraw() in sync with the mode
   const s = S.session;
   const day = S.meso.days[s.day - 1];
   const deload = E.isDeload(s.week, S.meso.weeks);
@@ -1396,7 +1417,8 @@ function drawToday() {
     (caps.length ? `<div class="card"><div class="row"><div class="grow sm dim">${esc(caps[0].why)}</div></div></div>` : "") +
     (s.tapered && Object.keys(s.tapered).length ? `<div class="card"><div class="row"><div class="grow sm">
       ${s.readiness === "beat" ? "Feeling beat up" : "Still sore"} — eased off <b>${Object.keys(s.tapered).map(m => esc(E.MG_LOWER(m))).join(", ")}</b> today (trimmed a set) so you recover. Your plan for next time is unchanged.</div></div></div>` : "") +
-    `<div id="gs">${groups.map((x, i) => drawGroup(x.g, x.sets, i > 0 && E.groupOf(groups[i-1].g.m) === E.groupOf(x.g.m))).join("")}</div>
+    `<button class="btn ghost wide" id="focusOn" style="margin:4px 0 12px">⛶ Focus mode — one exercise at a time</button>
+     <div id="gs">${groups.map((x, i) => drawGroup(x.g, x.sets, i > 0 && E.groupOf(groups[i-1].g.m) === E.groupOf(x.g.m))).join("")}</div>
      ${started ? `<div class="wkctl">
         <button class="btn ghost" id="pause">${s.pausedAt ? "▶ Resume" : "❚❚ Pause"}</button>
         <button class="btn ghost" id="exit">Exit</button>
@@ -1405,7 +1427,90 @@ function drawToday() {
      <div class="sync ${syncClass()}"><span class="dot"></span>${syncLabel()}</div>`;
 
   wireToday();
+  const fo = $("#focusOn"); if (fo) fo.onclick = async () => { S.focus = { on: true, idx: 0 }; beginClock(); await askSorenessUpfront(); drawFocus(); };
   if (started) startClock();
+}
+
+/* ============ FOCUS MODE ============
+ * Robert's gym view: one exercise on the screen at a time, its demo animation always playing right
+ * above the sets & reps, a rest timer ready by each set, and a big Next that carries you to the
+ * next lift (swipe works too). Everything you can do in the list — log, add/remove a set, swap —
+ * works here; set actions route through redraw() so they stay in focus mode. */
+function drawFocus() {
+  stopClock();
+  const s = S.session;
+  const exs = sessionExercises();
+  if (!exs.length) { S.focus = { on: false }; return drawToday(); }
+  const idx = Math.max(0, Math.min(S.focus.idx || 0, exs.length - 1));
+  S.focus.idx = idx;
+  const cur = exs[idx];
+  const doneN = cur.e.sets.filter(x => x.done || x.reps === -1).length;
+  const allDone = s.sets.every(x => x.done || x.reps === -1);
+  const last = idx >= exs.length - 1;
+
+  $("#v").innerHTML =
+    `<div class="hd"><div class="hd-row">
+       <button class="chip" id="focusExit">✕ Done focusing</button>
+       <div class="grow" style="text-align:center"><span id="wkclock" class="wkclock" style="font-size:1.1rem">${fmtClock(elapsedSec(s))}</span></div>
+       <div class="chip" style="max-width:none">${idx + 1} / ${exs.length}</div>
+     </div></div>
+     <div class="focus-demo" id="focusDemo"></div>
+     <div class="focus-prog"><i style="width:${Math.round(doneN / cur.e.sets.length * 100)}%"></i></div>
+     <div id="gs">${drawExercise(cur.g, cur.e, cur.first)}</div>
+     <div class="wkctl">
+       <button class="btn ghost" id="fPrev" ${idx === 0 ? "disabled" : ""}>←</button>
+       <button class="btn ghost" id="exit">Exit</button>
+       <button class="btn" id="fNext">${last ? (allDone ? "Finish ✓" : "Finish") : "Next →"}</button>
+     </div>
+     <div style="height:20px"></div>`;
+
+  wireToday();                                   // wires the set rows, add/remove, swap, exit
+  $("#focusExit").onclick = () => { S.focus = { on: false }; drawToday(); };
+  $("#fPrev").onclick = () => { if (idx > 0) { S.focus.idx = idx - 1; drawFocus(); } };
+  $("#fNext").onclick = () => { if (last) return finishWorkout(); S.focus.idx = idx + 1; drawFocus(); };
+  renderFocusDemo(cur.e.exId);
+  wireSwipe($("#v"), () => $("#fNext").click(), () => $("#fPrev").click());
+  startClock();
+}
+
+/* Always-on demo for the focused exercise: real footage first, then the illustration, then the
+   poster, then a quiet line. Muted+loop+playsinline so it renders like a GIF. One video on screen,
+   so autoplay is cheap here (unlike six in the list). */
+function renderFocusDemo(exId) {
+  const box = $("#focusDemo"); if (!box || !window.MEDIA) { if (box) box.style.display = "none"; return; }
+  const mid = MEDIA.demoId(exId);
+  const vid = document.createElement("video");
+  vid.muted = true; vid.loop = true; vid.autoplay = true; vid.playsInline = true;
+  vid.setAttribute("playsinline", ""); vid.preload = "metadata"; vid.poster = MEDIA.poster(mid);
+  vid.src = MEDIA.clipV(mid);
+  let fell = false;
+  vid.onerror = () => {
+    if (!fell) { fell = true; vid.src = MEDIA.clip(mid); return; }
+    const img = document.createElement("img"); img.src = MEDIA.poster(mid); img.className = "demo-img";
+    img.onerror = () => { box.style.display = "none"; };
+    box.innerHTML = ""; box.appendChild(img);
+  };
+  box.innerHTML = ""; box.appendChild(vid);
+  const kick = () => vid.play().catch(() => {});
+  kick(); vid.addEventListener("loadeddata", kick, { once: true });
+  vid.onclick = () => { vid.paused ? kick() : vid.pause(); };
+}
+
+/* Horizontal swipe → next/prev. Ignores vertical scrolls and swipes that start on an input or a
+   button, so scrolling the sets and typing weights never triggers a page change. */
+function wireSwipe(el, onLeft, onRight) {
+  let x0 = null, y0 = null, tgtOk = true;
+  el.addEventListener("touchstart", e => {
+    const t = e.target;
+    tgtOk = !t.closest("input, button, .stp, video");
+    x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+  }, { passive: true });
+  el.addEventListener("touchend", e => {
+    if (x0 == null || !tgtOk) { x0 = null; return; }
+    const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.8) (dx < 0 ? onLeft : onRight)();
+    x0 = null;
+  }, { passive: true });
 }
 
 function drawGroup(g, sets, sameAsPrev) {
@@ -1478,7 +1583,7 @@ async function addSet(exId) {
   const idx = S.session.sets.lastIndexOf(last);
   S.session.sets.splice(idx + 1, 0, ns);
   await DB.put("session", S.session);
-  drawToday();
+  redraw();
 }
 async function removeSet(exId) {
   const mine = S.session.sets.filter(x => x.exId === exId && !x.warmup);
@@ -1487,7 +1592,7 @@ async function removeSet(exId) {
   const target = [...mine].reverse().find(x => !x.done) || mine[mine.length - 1];
   S.session.sets = S.session.sets.filter(x => x.id !== target.id);
   await DB.put("session", S.session);
-  drawToday();
+  redraw();
 }
 
 function drawSet(st, isNext) {
@@ -1683,11 +1788,11 @@ async function logSet(id) {
   // have removed the very set just tapped (a sore muscle's last set) — redraw and bail if so.
   if (!S.session.sorenessAsked) await askSorenessUpfront();
   const st = S.session.sets.find(x => x.id === id);
-  if (!st) { drawToday(); return; }
+  if (!st) { redraw(); return; }
   const row = $(`.set[data-set="${id}"]`);
-  if (!row) { drawToday(); return; }
+  if (!row) { redraw(); return; }
   if (st.done) {   // tap a completed set to un-log it
-    st.done = false; st.reps = null; await DB.put("session", S.session); return drawToday();
+    st.done = false; st.reps = null; await DB.put("session", S.session); return redraw();
   }
   const loadV = parseFloat(row.querySelector('[data-f="load"]').value);
   const repsRaw = row.querySelector('[data-f="reps"]').value.trim();
@@ -1709,13 +1814,13 @@ async function logSet(id) {
   /* Warm-ups are scaffolding, not training. They must not touch load memory (they'd overwrite
      your working weight with 50% of it), must not fire the feedback modal, and must not start a
      3-minute rest timer between ramp sets. */
-  if (st.warmup) { await DB.put("session", S.session); drawToday(); return; }
+  if (st.warmup) { await DB.put("session", S.session); redraw(); return; }
 
   await recordLoadState(st);
   await DB.put("session", S.session);
   startRest(st.muscle);
   await maybeFeedback(st);
-  drawToday();
+  redraw();
 }
 
 /* Load state is keyed per (user, exercise[, instance]) and SURVIVES meso boundaries.
