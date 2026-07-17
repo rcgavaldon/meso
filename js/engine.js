@@ -503,6 +503,18 @@ const DAY_LABEL = { full:"Full Body", upper:"Upper", lower:"Lower", push:"Push",
  * NOT spreadable — a quad on an upper day is a schedule bug, not a frequency win. */
 const SPREADABLE = new Set(["side_delt","rear_delt","biceps","calves","abs","forearms"]);
 
+/* [Robert] A spreadable muscle may take an EXTRA day within its OWN region (a side delt onto a 2nd
+ * upper day), but never ACROSS the body. Without this, an Upper/Lower split leaks lateral raises,
+ * curls and face pulls onto the LOWER days to chase side-delt/biceps frequency — so "leg day" comes
+ * back as arms + delts + one squat. Upper muscles stay on upper days, lower on lower; full-body
+ * trains everything. Side delts then cap at the split's upper-day count (2× on a 4-day U/L), which
+ * is clean and exactly how Robert trains them. */
+const UPPER_KINDS = new Set(["upper", "push", "pull", "arms"]);
+const muscleRegion = m => DAY_MUSCLES.lower.includes(m) ? "lower" : "upper";
+const dayRegion = kind => kind === "full" ? "both" : (UPPER_KINDS.has(kind) ? "upper" : "lower");
+const eligibleOn = (m, kind) => (DAY_MUSCLES[kind] || []).includes(m) || kind === "full"
+  || (SPREADABLE.has(m) && (dayRegion(kind) === "both" || dayRegion(kind) === muscleRegion(m)));
+
 /* [Robert] Muscles the big compounds reliably TRAIN as helpers, so a time-boxed plan can lean on
  * the presses/rows/squats instead of spending a scarce slot on isolation for them: triceps &
  * front delt from pressing, rear delt & traps from rowing/pulling, adductors from squatting, abs
@@ -641,7 +653,7 @@ function assignDays(user, split) {
     // to Maintain (MV = 2), and Maintain would stop meaning maintain.
     const per = Math.min(CFG.perSessionMax, Math.max(1, Math.round(vol / want)));
     const elig = days
-      .filter(d => (DAY_MUSCLES[d.kind] || []).includes(m) || SPREADABLE.has(m))
+      .filter(d => eligibleOn(m, d.kind))                    // region-aware: no delts/curls on leg day
       .sort((a, b) => a.projMin - b.projMin || a.i - b.i);   // least-loaded BY THE CLOCK
     const got = [];
     for (const d of elig) {
@@ -917,6 +929,10 @@ function scoreSplit(user, split, ev) {
     if (r.status === "skipped") { s -= w * .5; continue; }   // maintain yielding: cheap, by design
     if (r.status === "crowded") { s -= w * .5; continue; }
     s += w * (1 + clamp((deliverable(r.freq) - r.vol) / Math.max(r.vol, 1), 0, .5));
+    // Don't recommend a split that STARVES a growth muscle below its MEV (e.g. full-body squeezing
+    // biceps to one session) when a cleaner split keeps it fed. MEV is the growth floor.
+    if (r.emphasis !== "maintain" && !r.coveredByCompound
+        && (r.perSession || 0) * (r.freq || 0) < landmarks(r.m).mev[0]) s -= w * 1.5;
   }
   s -= .05 * new Set(split.pattern).size;   // [RECON] fewer day kinds = less to remember. Small, real.
   // [RECON] Training age is deliberately a thumb, not a scale: it already drives the split THROUGH
@@ -2045,9 +2061,12 @@ function verify() {
          plan.days.every(x => x.projMin <= CFG.sessionMinutesMax + 1));
       // Below MEV is not a small growth dose — it's not a growth dose. The clock must never
       // trim a focus area under it; it drops a Maintain muscle instead.
-      // Compound-covered muscles are trained INDIRECTLY (0 direct sets by design) — exclude them;
-      // the invariant is about DIRECT prescription of the muscles that get their own slot.
-      ok(`${u.id} ${d}d: nothing above Maintain is trimmed below MEV`,
+      // Compound-covered muscles are trained INDIRECTLY (0 direct sets by design) — exclude them.
+      // GUARD on !rec.forced: an over-constrained config (advanced + side-delt emphasis at 3 days,
+      // where region-locked clean days can't also hit side-delt frequency) has NO valid split — the
+      // engine picks the least-bad and SURFACES the shortfall via caps. The invariant holds for
+      // every VALID split; a forced pick is allowed to leave a muscle under MEV because it says so.
+      ok(`${u.id} ${d}d: nothing above Maintain is trimmed below MEV`, rec.forced ||
          plan.muscles.filter(r => r.emphasis !== "maintain" && !r.dropped && !r.coveredByCompound)
            .every(r => (r.perSession || 0) * (r.freq || 0) >= landmarks(r.m).mev[0]));
       ok(`${u.id} ${d}d: when the clock forces a cut, it's a Maintain muscle — never a focus area`,
@@ -2325,17 +2344,19 @@ function verify() {
      planVolume("quads","emphasize") >= planVolume("quads","grow"));
   eq("Maintain doesn't force frequency (4 sets of chest is not two gym trips)", targetFreq("chest","maintain"), 1);
 
-  // The spreadable top-up: side delts publish at 3-6×/wk but a 4-day Upper/Lower only ANCHORS
-  // them at 2. They're not "upper" muscles, they're whenever muscles — so they land on the lower
-  // days too. This is what keeps Upper/Lower viable at all.
-  // side_delt must actually WANT frequency for the top-up to be observable — on Maintain it
-  // correctly wants 1. Give it Grow (→ 24 sets → 3 sessions) against an otherwise-quiet week.
+  // [Robert] REGION-LOCKED spreading. Side delts publish at 3-6×/wk, but they're UPPER muscles and
+  // a 4-day Upper/Lower has only 2 upper days — so they cap at 2×, on the upper days, and NEVER
+  // leak onto leg day. Clean upper/lower beats chasing a frequency number by putting lateral raises
+  // on squat day (which is what the old "spread anywhere" did — Robert's leg day came back as arms
+  // and delts). 2× at higher per-session volume is a perfectly good side-delt dose.
   const spready = { trainingAge:"intermediate", emphasis: Object.keys(LANDMARKS)
     .reduce((o, m) => (o[m] = "maintain", o), { side_delt:"grow", quads:"grow" }) };
   spready.emphasis.side_delt = "grow"; spready.emphasis.quads = "grow";
   const ul2p = assignDays(spready, splitById("ul2"));
-  ok("side delts (RP: 3-6×/wk) get >2 sessions on a 4-day Upper/Lower via the spreadable top-up",
-     ul2p.muscles.find(r => r.m === "side_delt").freq > 2);
+  ok("side delts stay on UPPER days (region-locked) — never scheduled onto leg day",
+     ul2p.days.filter(d => d.kind === "lower").every(d => !d.muscles.includes("side_delt")));
+  ok("...and still get the split's full upper-day frequency (2× on a 4-day U/L)",
+     ul2p.muscles.find(r => r.m === "side_delt").freq === 2);
   ok("quads are NOT spread onto upper days — 2-5× is not a licence to schedule badly",
      ul2p.muscles.find(r => r.m === "quads").freq <= 2);
   // 🔑 The two-pass regression: sorting purely by (tier, targetFreq) puts the high-frequency
