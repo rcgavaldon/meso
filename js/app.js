@@ -2840,6 +2840,31 @@ function verdictOf(fits) {
     line:`Holding steady across ${real.length} movement${real.length>1?"s":""}. That's the plan working, not a stall.` };
 }
 
+/* [Robert] Past workouts, easy to scan, with how long each took. Duration = wall time from Start
+   to Finish minus any paused span. Tap a row for the full breakdown (sets + the times you logged
+   them, which show your supersets). */
+const fmtDur = sec => { const m = Math.round(sec / 60); return m < 60 ? `${m} min` : `${Math.floor(m / 60)}h ${m % 60}m`; };
+function sessionDuration(s) {
+  if (!s.beganAt || !s.finishedAt) return null;
+  return Math.max(0, (new Date(s.finishedAt) - new Date(s.beganAt) - (s.pausedMs || 0)) / 1000);
+}
+function workoutHistoryList() {
+  const fin = S.sessions.filter(s => s.finished).sort((a, b) => (b.finishedAt || b.date || "").localeCompare(a.finishedAt || a.date || ""));
+  if (!fin.length) return "";
+  return `<div class="card">${fin.slice(0, 30).map(s => {
+    const dur = sessionDuration(s);
+    const sets = (s.sets || []).filter(x => x.done && !x.warmup).length;
+    const nEx = new Set((s.sets || []).filter(x => x.done).map(x => x.exId)).size;
+    const d = new Date(s.finishedAt || s.date);
+    const name = S.meso && S.meso.days[s.day - 1] ? S.meso.days[s.day - 1].name : ("Day " + s.day);
+    return `<div class="row tap" data-sess="${s.id}">
+      <div class="grow"><div class="lead">${esc(name)}<span class="dim sm" style="font-weight:400"> · ${MON3[d.getMonth()]} ${d.getDate()}</span></div>
+        <div class="sm dim" style="margin-top:3px">${sets} sets · ${nEx} exercise${nEx === 1 ? "" : "s"}${s.unlogged ? " · not logged" : s.bonus ? " · bonus" : ""}</div></div>
+      ${dur != null ? `<div class="mono" style="font-weight:700;flex:none">${fmtDur(dur)}</div>` : `<div class="xs dim2" style="flex:none">—</div>`}
+    </div>`;
+  }).join("")}</div>`;
+}
+
 function viewProgress() {
   const fin = S.sessions.filter(s => s.finished);
   if (!fin.length) {
@@ -2943,7 +2968,9 @@ function viewProgress() {
       }).join("") || '<div class="empty">No sets this week.</div>'}
     </div></div>`}
 
-    <h4 style="margin:18px 0 8px">History</h4>
+    <h4 style="margin:18px 0 8px">Past workouts</h4>
+    ${workoutHistoryList()}
+    <h4 style="margin:18px 0 8px">Calendar</h4>
     ${calendarMonth()}
     <div style="height:20px"></div>`;
 
@@ -2991,13 +3018,14 @@ function sessionSheet(id) {
   const byEx = [];
   for (const x of s.sets) { if (!x.done) continue;
     let e = byEx.find(v => v.exId === x.exId); if (!e) byEx.push(e = { exId: x.exId, sets: [] }); e.sets.push(x); }
+  const dur = sessionDuration(s);
   sheet(`<h3>${esc(S.meso ? (S.meso.days[s.day-1]||{}).name || "Workout" : "Workout")}</h3>
-    <div class="sm dim" style="margin:6px 0 10px">${esc(onDate(s))} · week ${s.week} day ${s.day}${s.off_plan ? " · travel" : ""}</div>
+    <div class="sm dim" style="margin:6px 0 10px">${esc(onDate(s))}${dur != null ? ` · <b>${fmtDur(dur)}</b>` : ""} · week ${s.week} day ${s.day}${s.off_plan ? " · travel" : ""}</div>
     ${byEx.map(e => {
       const ex = lib.find(x => x.id === e.exId) || { name: e.exId };
       return `<div class="row"><div class="grow">
         <div class="lead">${esc(ex.name)}</div>
-        <div class="sm dim mono" style="margin-top:3px">${e.sets.map(x => `${x.load}×${x.reps}`).join(" · ")}</div>
+        <div class="sm dim mono" style="margin-top:3px">${e.sets.map(x => `${x.load}×${x.reps}${x.at ? ` <span class="dim2">${x.at.slice(11,16)}</span>` : ""}`).join(" · ")}</div>
       </div></div>`;
     }).join("")}
     ${Object.keys(s.decision || {}).length ? `<h4 style="margin:16px 0 6px">What it changed</h4>
