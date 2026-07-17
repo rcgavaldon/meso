@@ -280,10 +280,31 @@ body.resting{padding-bottom:calc(64px + 58px + var(--safe-b))}
 .exhd-tap{padding:0;min-width:0}
 
 /* ============ Coach banner ============ */
-.coachbar{position:fixed;top:0;left:0;right:0;z-index:35;display:flex;align-items:center;gap:10px;
-  justify-content:center;background:var(--wa);color:var(--wac);font-size:.8125rem;font-weight:600;
-  padding:8px 12px;padding-top:calc(8px + env(safe-area-inset-top,0px))}
-.coachbar button{border:1px solid currentColor;border-radius:var(--r-btn);padding:4px 12px;font-weight:700}
+.coachbar{position:fixed;top:0;left:0;right:0;z-index:40;display:flex;align-items:center;gap:10px;
+  justify-content:center;flex-wrap:wrap;background:var(--wac);color:#20160a;font-size:.8125rem;font-weight:700;
+  padding:9px 12px;padding-top:calc(9px + env(safe-area-inset-top,0px))}
+.coachbar button{border:1px solid currentColor;border-radius:var(--r-btn);padding:5px 12px;font-weight:700}
+/* Push the whole app below the fixed coach banner so it never overlaps the sticky header. */
+body.coaching{padding-top:calc(42px + env(safe-area-inset-top,0px))}
+body.coaching .hd{top:calc(42px + env(safe-area-inset-top,0px))}
+body.coaching{box-shadow:inset 0 0 0 2px var(--wac)}
+
+/* Day-chooser landing cards */
+.daycard{cursor:pointer;transition:transform .15s}
+.daycard:active{transform:scale(.99)}
+.daycard[data-s=now]{border-color:var(--acc)}
+.daycard[data-s=done]{opacity:.55}
+.daycard[data-s=part]{border-color:var(--wac)}
+
+/* Welcome / help steps */
+.wsteps{display:flex;flex-direction:column;gap:12px}
+.wsteps>div{display:flex;gap:10px;align-items:flex-start;font-size:.875rem;line-height:1.2rem}
+.wnum{flex:none;width:22px;height:22px;border-radius:50%;background:var(--p);color:var(--pc);
+  font-size:.75rem;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.welcome-ov{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.6);display:flex;
+  align-items:center;justify-content:center;padding:20px;padding-top:calc(20px + env(safe-area-inset-top,0px))}
+.welcome-card{background:var(--b2);border:1px solid var(--line);border-radius:var(--r-box);
+  padding:20px;max-width:440px;width:100%;max-height:88vh;overflow-y:auto}
 
 /* ============ Bits ============ */
 .badge{font-size:.66rem;padding:3px 7px;border-radius:var(--r-btn);font-weight:700;letter-spacing:.04em}
@@ -316,13 +337,13 @@ body.resting{padding-bottom:calc(64px + 58px + var(--safe-b))}
 <section class="sheet" id="sheet" role="dialog" aria-modal="true"></section>
 <div class="toast" id="toast"></div>
 
-<script src="../data/exercises.js?v=33"></script>
-<script src="../js/db.js?v=33"></script>
-<script src="../js/engine.js?v=33"></script>
+<script src="../data/exercises.js?v=36"></script>
+<script src="../js/db.js?v=36"></script>
+<script src="../js/engine.js?v=36"></script>
 <script>window.MESO_USER="rob";</script>
-<script src="../data/demo-alias.js?v=33"></script>
-<script src="../js/media.js?v=33"></script>
-<script src="../js/app.js?v=33"></script>
+<script src="../data/demo-alias.js?v=36"></script>
+<script src="../js/media.js?v=36"></script>
+<script src="../js/app.js?v=36"></script>
 <script>
 if ("serviceWorker" in navigator) {
   addEventListener("load", () => navigator.serviceWorker.register("../sw.js").then(reg => {

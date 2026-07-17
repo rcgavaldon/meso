@@ -473,6 +473,7 @@ async function boot() {
 
   await loadUser();
   renderTabs(); go(DB.pref.get("tab", "workout"));
+  welcomeSheet(false);   // one-time intro on first launch
 }
 
 /**
@@ -499,6 +500,7 @@ function mesoEmphasis(m) {
 }
 
 async function loadUser() {
+  S.openWorkout = undefined;   // new user (boot / coach switch) → re-derive the Today landing vs workout
   const [mesos, sess, loads] = await Promise.all([
     DB.all("meso", "user", S.user.id), DB.all("session", "user", S.user.id), DB.all("loadState")
   ]);
@@ -549,15 +551,18 @@ function go(tab) {
   document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
   ({ today: viewToday, plan: viewPlan, progress: viewProgress, more: viewMore }[tab])();
   // While coaching, pin a banner so there is never a moment of "wait, whose plan is this?"
+  // body.coaching offsets the sticky header so the fixed banner never sits ON TOP of it — that
+  // overlap was the "it's weird / glitches" Robert hit switching into Nina.
   const old = $("#coachbar"); if (old) old.remove();
+  document.body.classList.toggle("coaching", !!S.coachingFor);
   if (S.coachingFor) {
     const her = S.users.find(u => u.id === S.coachingFor.her) || S.user;
     const bar = el("div", { id: "coachbar", class: "coachbar" },
-      `Editing <b>${esc(her.name)}</b>'s plan <button id="coachDone">Done</button>`);
+      `<span>Editing <b>${esc(her.name)}</b>'s plan — you're seeing HER data</span> <button id="coachDone">Done, back to me</button>`);
     document.body.appendChild(bar);
     $("#coachDone").onclick = async () => {
       const me = S.users.find(u => u.id === S.coachingFor.me);
-      S.coachingFor = null; S.user = me; await loadUser(); renderTabs(); go("more");
+      S.coachingFor = null; S.user = me; S.openWorkout = false; await loadUser(); renderTabs(); go("more");
       toast("Back to your own plan");
     };
   }
@@ -851,7 +856,13 @@ async function viewToday() {
   const cur = currentSlot();
   if (cur.complete) return viewMesoComplete();   // weekBoard's complete already counts maint weeks
   S.session = await ensureSession(cur.week, cur.day);
-  drawToday();
+  /* Robert wanted Today to LAND on a day choice, not drop you straight into a workout. So: show the
+     day picker unless you've opened a day (openWorkout) — with one exception, a workout already in
+     progress on app-open (beganAt/logged sets) resumes so you don't lose your place. openWorkout is
+     memory-only; taps set it true, Exit/Finish set it false. */
+  const inProgress = !!S.session.beganAt || S.session.sets.some(x => x.done);
+  if (S.openWorkout === undefined) S.openWorkout = inProgress;
+  if (S.openWorkout) drawToday(); else drawDayLanding();
   wake();
   /* Preload this week's demo clips + their alternates while we (probably) have signal.
      Robert always has internet at home; the gym is where he doesn't. So pay for the media HERE,
@@ -1165,6 +1176,72 @@ function todayCard(day, s) {
   </div>`;
 }
 
+/* The Today LANDING — a day chooser, shown before the workout. Tap a day to open it. The current
+   day is flagged NEXT, done days are greyed with a ✓ (tap to repeat as a bonus), a part-logged day
+   says Resume. This replaces "drop straight into today's workout" as the default entry. */
+function drawDayLanding() {
+  const b = weekBoard();
+  const cur = currentSlot();
+  $("#v").innerHTML = todayHeader({ name: "Today" }) + weekStrip() +
+    `<h4 style="margin:8px 2px 10px">Which day? <span class="dim sm" style="font-weight:400">— tap to open</span></h4>` +
+    b.days.map(d => {
+      const md = S.meso.days[d.day - 1];
+      const sets = md.muscles.reduce((a, g) => a + g.slots.reduce((x, s) => x + s.sets, 0), 0);
+      const nEx = md.muscles.reduce((a, g) => a + g.slots.length, 0);
+      const state = d.done ? "done" : d.day === cur.day ? "now" : d.started ? "part" : "todo";
+      const badge = d.done ? '<span class="badge b-up">DONE ✓</span>'
+                  : d.started ? '<span class="badge b-warn">IN PROGRESS</span>'
+                  : d.day === cur.day ? '<span class="badge b-info">NEXT</span>' : "";
+      const verb = d.done ? "Again" : d.started ? "Resume" : "Open";
+      return `<div class="card daycard" data-open="${d.day}" data-s="${state}">
+        <div class="row tap"><div class="grow">
+          <div class="lead">${esc(md.name)} ${badge}</div>
+          <div class="sm dim" style="margin-top:3px">${sets} sets · ${nEx} exercise${nEx===1?"":"s"}${md.estMinutes ? ` · ~${md.estMinutes} min` : ""}</div>
+        </div><span class="swapb" style="pointer-events:none">${verb}</span></div>
+        <div style="padding:0 14px 12px" class="pills">${mgPills(md.muscles)}</div>
+      </div>`;
+    }).join("") +
+    `<div class="sync ${syncClass()}"><span class="dot"></span>${syncLabel()}</div>`;
+
+  $("#v").querySelectorAll("[data-open]").forEach(c => c.onclick = async () => {
+    const dn = +c.dataset.open;
+    if (b.days[dn - 1].done) {
+      if (!confirm(`Do ${S.meso.days[dn-1].name} again?\n\nExtra session at this week's level — it counts toward your volume and won't skip you ahead.`)) return;
+      S.session = await bonusSession(b.week, dn);
+    } else {
+      S.pickedDay = dn; S.session = await ensureSession(b.week, dn);
+    }
+    S.openWorkout = true; drawToday(); wake();
+  });
+  const gc = $("#gymc"); if (gc) gc.onclick = gymSheet;
+}
+
+/* First-run welcome + the Help modal (re-openable from More via `force`). A DEDICATED body-level
+   overlay, not the shared #sheet — so an async view render or another sheet() call at boot can't
+   wipe it out from under the user. */
+function welcomeSheet(force) {
+  if (!force && DB.pref.get("welcomed", false)) return;
+  // NB: mark welcomed only on DISMISS, not on show. A PWA often reloads once right after its SW
+  // updates (controllerchange), which would re-run boot and skip the welcome if we'd set the flag
+  // on show — the user would never see it. Setting it on "Got it" survives that reload.
+  const old = document.getElementById("welcome"); if (old) old.remove();
+  const ov = el("div", { id: "welcome", class: "welcome-ov" }, `
+    <div class="welcome-card">
+      <h3>Welcome to Meso</h3>
+      <div class="sm" style="margin:8px 0 14px">Your training on autopilot — the whole app in four steps:</div>
+      <div class="wsteps">
+        <div><span class="wnum">1</span><div><b>Pick a day.</b> Today shows your week — tap the day you're training.</div></div>
+        <div><span class="wnum">2</span><div><b>Log your sets.</b> Type weight &amp; reps, tap ✓. Leave reps blank to log the target.</div></div>
+        <div><span class="wnum">3</span><div><b>Use the clock.</b> Start runs a timer against your hour budget. Pause, Exit, or Finish anytime.</div></div>
+        <div><span class="wnum">4</span><div><b>It adjusts you.</b> Meso asks how you feel and sets next session's weights and volume. You never program.</div></div>
+      </div>
+      <div class="sm dim" style="margin:14px 0 12px">Open <b>How Meso works</b> in More to see this again.</div>
+      <button class="btn wide" id="wgo">Got it</button>
+    </div>`);
+  document.body.appendChild(ov);
+  const b = $("#wgo"); if (b) b.onclick = () => { DB.pref.set("welcomed", true); ov.remove(); };
+}
+
 /* ============ Workout clock ============
  * Robert wanted a running timer for the whole session plus a per-exercise time budget, so the
  * hour cap the engine already plans against becomes something you can pace against in the moment.
@@ -1240,7 +1317,8 @@ async function exitWorkout() {
   delete s.beganAt; delete s.pausedAt; s.pausedMs = 0;
   await DB.put("session", s);
   S.pickedDay = null;                 // let the picker choose the day again
-  drawToday();
+  S.openWorkout = false;              // back to the day chooser
+  await viewToday();
 }
 
 /* "I did this day but didn't log it." Marks the day finished so it counts for the week and the
@@ -1258,6 +1336,7 @@ async function markDayDone() {
   if (wl) { try { wl.release(); } catch (_) {} wl = null; }
   // Advance the UI immediately; push to the Sheet in the background so the screen doesn't hang on
   // a network round-trip after a single tap.
+  S.openWorkout = false;              // land on the day chooser for the next day
   toast("Marked done — no volume logged"); go("today");
   syncNow(true).catch(() => {});
 }
@@ -2079,6 +2158,7 @@ async function finishWorkout() {
   if (left && !confirm(`${left} set${left>1?"s":""} still to go — finish anyway?
 
 Unfinished sets don't count against you; the plan just picks up where you left off.`)) return;
+  S.openWorkout = false;   // after finishing, Today lands on the day chooser again
   if (s.bonus) {
     // A bonus session just gets banked: it counts toward volume/history, but it doesn't
     // autoregulate the plan (it's not part of the progression) and doesn't advance the clock.
@@ -2633,6 +2713,7 @@ async function viewMore() {
           <button data-th="dark" aria-selected="${document.documentElement.dataset.theme!=="light"}">Dark</button>
           <button data-th="light" aria-selected="${document.documentElement.dataset.theme==="light"}">Light</button>
         </div></div>
+      <div class="row tap" id="help"><div class="grow">How Meso works</div><span class="sm dim">?</span></div>
       <div class="row tap" id="ver"><div class="grow">Run engine self-check</div><span class="sm dim">159 tests</span></div>
     </div>
     <div class="xs dim2" style="padding:14px 2px 24px">Meso · offline-first · your data stays yours.<br>
@@ -2646,6 +2727,7 @@ async function viewMore() {
      hid it would be theatre. The read-only framing is deliberate: he can see the answers and the
      decision, and he changes her plan through the picker, not by editing what she reported. */
   document.querySelectorAll("[data-person]").forEach(r => r.onclick = () => viewPerson(r.dataset.person));
+  { const h = $("#help"); if (h) h.onclick = () => welcomeSheet(true); }
   $("#save").onclick = () => { DB.pref.set("syncUrl", $("#url").value.trim()); toast("Saved"); viewMore(); };
   $("#sn").onclick = () => syncNow().then(() => viewMore());
   $("#exp").onclick = async () => {
