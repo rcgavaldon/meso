@@ -1505,10 +1505,12 @@ function renderFocusDemo(exId) {
   const vid = document.createElement("video");
   vid.muted = true; vid.loop = true; vid.autoplay = true; vid.playsInline = true;
   vid.setAttribute("playsinline", ""); vid.preload = "metadata"; vid.poster = MEDIA.poster(mid);
-  vid.src = MEDIA.clipV(mid);
+  // Illustration FIRST — it's uploaded for ~every exercise and it's the animated look Robert likes.
+  // Real footage (sparse) is the fallback, so we don't fire a doomed footage request + flash first.
+  vid.src = MEDIA.clip(mid);
   let fell = false;
   vid.onerror = () => {
-    if (!fell) { fell = true; vid.src = MEDIA.clip(mid); return; }
+    if (!fell) { fell = true; vid.src = MEDIA.clipV(mid); return; }
     const img = document.createElement("img"); img.src = MEDIA.poster(mid); img.className = "demo-img";
     img.onerror = () => { box.style.display = "none"; };
     box.innerHTML = ""; box.appendChild(img);
@@ -1701,12 +1703,13 @@ function toggleDemo(exId) {
   vid.setAttribute("playsinline", ""); vid.preload = "metadata";
   const mid = MEDIA.demoId(exId);   // this exercise, or its movement sibling if it has no clip
   vid.poster = MEDIA.poster(mid);
-  // Real footage first (meso/exv), then the Everkinetic illustration (meso/ex),
-  // then the still, then a quiet note. Never an error.
-  vid.src = MEDIA.clipV(mid);
+  // Animated illustration (meso/ex) FIRST — it's uploaded for ~every exercise and it's the look
+  // Robert likes; real footage (meso/exv, sparse) is the fallback, then the still, then a note.
+  // This avoids firing a doomed footage request + flash on every open. Never an error.
+  vid.src = MEDIA.clip(mid);
   let fellBack = false;
   vid.onerror = () => {
-    if (!fellBack) { fellBack = true; vid.src = MEDIA.clip(mid); return; }
+    if (!fellBack) { fellBack = true; vid.src = MEDIA.clipV(mid); return; }
     const img = document.createElement("img");
     img.src = MEDIA.poster(mid); img.loading = "lazy"; img.className = "demo-img";
     img.onerror = () => { panel.innerHTML = '<div class="xs dim2" style="padding:8px 0">No demo for this one yet.</div>'; };

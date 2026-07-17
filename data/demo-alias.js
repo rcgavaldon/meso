@@ -12,7 +12,7 @@ window.MESO_DEMO_ALIAS = {
   "machine_lateral_raise": "db_lateral_raise",
   "band_lateral_raise": "db_lateral_raise",
   "reverse_pec_deck": "db_rear_delt_fly",
-  "cable_face_pull": "db_rear_delt_fly",
+  "cable_face_pull": "band_pull_apart",   // a standing rear-delt pull, closer than a bent-over fly
   "band_pushdown": "cable_pushdown",
   "bb_wrist_curl": "bb_reverse_curl",
   "bb_reverse_wrist_curl": "bb_reverse_curl",
@@ -30,7 +30,7 @@ window.MESO_DEMO_ALIAS = {
   "hip_thrust_machine": "glute_bridge",
   "single_leg_hip_thrust": "glute_bridge",
   "band_hip_thrust": "glute_bridge",
-  "cable_pull_through": "glute_bridge",
+  "cable_pull_through": "bb_rdl",   // a pull-through is a STANDING hip hinge (RDL motion), not a floor bridge
   "cable_hip_abduction": "abductor_machine",
   "band_seated_abduction": "abductor_machine",
   "cable_hip_adduction": "adductor_machine",
@@ -38,5 +38,10 @@ window.MESO_DEMO_ALIAS = {
   "smith_calf_raise": "standing_calf_raise",
   "single_leg_calf_raise": "standing_calf_raise",
   "ab_crunch_machine": "cable_crunch",
-  "band_crunch": "cable_crunch"
+  "band_crunch": "cable_crunch",
+  // The last three without their own clip borrow their closest movement sibling that has one,
+  // so every exercise now shows an animation. (Probed Cloudinary: these 3 were the only gaps.)
+  "bw_squat": "bb_back_squat",
+  "hanging_leg_raise": "reverse_crunch",
+  "farmers_carry": "bb_shrug"
 };
