@@ -931,7 +931,7 @@ async function viewToday() {
  *  · Bodyweight — zero engine call sites. Asking implies it does something.
  *  · Session length — only offered at the moment it binds (when a pick freezes something).
  * ================================================================ */
-const INTAKE = { days: 4, weeks: 5, focus: [], startDay: 0, maint: 0, _daysTouched: false };
+const INTAKE = { days: 4, weeks: 7, focus: [], startDay: 0, maint: 0, _daysTouched: false };
 /* One source of truth for which day counts a user may pick. The segment and the "Train N days"
    advice button both read it — they disagreed, and the button could set a value the segment
    couldn't render, leaving nothing selected and no way back. */
@@ -993,7 +993,7 @@ function drawIntake() {
 
     <div class="card" style="margin-top:14px"><div class="row"><div class="grow">Weeks <span class="dim sm">(last is the deload)</span></div></div>
       <div style="padding:0 14px 14px"><div class="seg" id="wseg">
-        ${[4,5,6].map(w => `<button data-w="${w}" aria-selected="${w===INTAKE.weeks}">${w}</button>`).join("")}
+        ${[5,6,7,8].map(w => `<button data-w="${w}" aria-selected="${w===INTAKE.weeks}">${w}</button>`).join("")}
       </div></div>
       <div class="row"><div class="grow">Maintenance after
         <span class="dim sm">— easy holding weeks post-deload, for a break or a busy stretch</span></div></div>
@@ -2622,6 +2622,49 @@ function showSummary(s, notes) {
  * Was "Mesos", which was doing three unrelated jobs (active meso · stats · history) — the
  * definition of a junk drawer and the reason it was unfindable. Stats + history went to Progress.
  * ================================================================ */
+/* [Robert] Volume by muscle: total weekly sets + status (Maintain/Grow/Emphasize) for every trained
+   group, with +/− to bump a group's weekly volume up or down right here. Forearms are grip-covered,
+   so they're a note, not a row. */
+function volumeByMuscle() {
+  const vol = {};
+  for (const d of S.meso.days) for (const g of d.muscles)
+    (vol[g.m] = vol[g.m] || { sets: 0, emphasis: g.emphasis }).sets += g.slots.reduce((a, s) => a + s.sets, 0);
+  const EMPH = { emphasize:{t:"EMPHASIZE",c:"b-up"}, grow:{t:"GROW",c:"b-info"}, maintain:{t:"MAINTAIN",c:"b-mid"} };
+  const rows = Object.keys(vol).sort((a, b) => vol[b].sets - vol[a].sets);
+  return `<h4 style="margin:18px 0 8px">Volume by muscle <span class="dim sm" style="font-weight:400">— tap +/− to adjust</span></h4>
+    <div class="card">
+      ${rows.map(m => { const e = EMPH[vol[m].emphasis] || EMPH.grow;
+        return `<div class="row"><div class="grow">
+          <div class="lead">${esc(E.MG_LABEL[m] || m)} <span class="badge ${e.c}" style="margin-left:6px">${e.t}</span></div>
+          <div class="sm dim" style="margin-top:3px">${vol[m].sets} sets a week</div>
+        </div>
+        <div class="volctl"><button data-vol="${m}" data-dir="-1">−</button><span class="voln">${vol[m].sets}</span><button data-vol="${m}" data-dir="1">+</button></div>
+      </div>`; }).join("")}
+      <div class="row"><div class="grow xs dim2">Forearms are trained by your grip — no separate exercise. Only main groups get their own sets.</div></div>
+    </div>`;
+}
+
+/* +/− a muscle's weekly volume: add a set to its least-loaded day, or trim its heaviest slot (never
+   below 1 set/exercise). Persists to the meso and re-syncs to the Sheet. */
+async function adjustMuscleVolume(m, dir) {
+  const slots = [];
+  for (const d of S.meso.days) for (const g of d.muscles) if (g.m === m) for (const s of g.slots) slots.push({ s, d });
+  if (!slots.length) return;
+  const daySets = d => d.muscles.reduce((a, g) => a + g.slots.reduce((x, s) => x + s.sets, 0), 0);
+  if (dir > 0) {
+    slots.sort((a, b) => daySets(a.d) - daySets(b.d));
+    slots[0].s.sets++;
+  } else {
+    const cand = slots.filter(x => x.s.sets > 1).sort((a, b) => b.s.sets - a.s.sets);
+    if (!cand.length) return toast(`${E.MG_LOWER(m)} is already at its minimum`);
+    cand[0].s.sets--;
+  }
+  S.meso.days.forEach(d => d.estMinutes = E.sessionMinutes(d));
+  await DB.put("meso", S.meso);
+  syncNow(true).catch(() => {});
+  viewPlan();
+}
+
 async function viewPlan() {
   if (!S.meso) return viewNoMeso();
   const cur = currentSlot();
@@ -2638,6 +2681,8 @@ async function viewPlan() {
       <div class="row"><div class="grow"><div class="lead">What didn't fit</div></div></div>
       ${S.meso.caps.slice(0, 4).map(c => `<div class="row"><div class="grow sm dim">${esc(c.why)}</div></div>`).join("")}
     </div>` : ""}
+
+    ${volumeByMuscle()}
 
     <h4 style="margin:18px 0 8px">The week <span class="dim sm" style="font-weight:400">— tap a day to edit sets & exercises</span></h4>
     ${S.meso.days.map((d, i) => {
@@ -2665,6 +2710,7 @@ async function viewPlan() {
     <div style="height:20px"></div>`;
 
   document.querySelectorAll("[data-day]").forEach(r => r.onclick = () => planDaySheet(+r.dataset.day));
+  document.querySelectorAll("[data-vol]").forEach(b => b.onclick = () => adjustMuscleVolume(b.dataset.vol, +b.dataset.dir));
 }
 
 function planDaySheet(ix) {

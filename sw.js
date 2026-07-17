@@ -6,7 +6,7 @@
  * never-stale property a different way: a versioned cache + an explicit "update ready" prompt.
  * Bump CACHE on every deploy.
  */
-const CACHE = "meso-v48";
+const CACHE = "meso-v49";
 const SHELL = [
   "./",
   "index.html",
