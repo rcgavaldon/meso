@@ -1612,6 +1612,8 @@ function drawSet(st, isNext) {
     </div>
     <button class="log" data-log="${st.id}" data-s="${state}">${ICON.check}</button>
     <div class="tgt">${targetStrip(st, u)}</div>
+    ${st.warmup ? "" : (() => { const rw = E.REST[st.muscle] || [60, 120]; const def = `⏱ Rest ${fmt(rw[0])}`;
+      return `<button class="restb" data-rest="${st.id}" data-muscle="${st.muscle}" data-def="${def}">${def}</button>`; })()}
   </div>`;
 }
 function targetStrip(st, u) {
@@ -1767,6 +1769,9 @@ Extra session at this week's level — it counts toward your volume and won't sk
   const md = $("#markdone"); if (md) md.onclick = markDayDone;
   v.querySelectorAll("[data-addset]").forEach(b => b.onclick = () => addSet(b.dataset.addset));
   v.querySelectorAll("[data-rmset]").forEach(b => b.onclick = () => removeSet(b.dataset.rmset));
+  // Tappable per-set rest timer: tap to start its countdown; tap the running one to stop.
+  v.querySelectorAll(".restb").forEach(b => b.onclick = () =>
+    (S.rest && S.rest.setId === b.dataset.rest) ? stopRest() : startRest(b.dataset.muscle, b.dataset.rest));
 }
 
 /* [PUB] RP's predictive matching: override the load → recompute target reps to hold equal
@@ -1818,7 +1823,7 @@ async function logSet(id) {
 
   await recordLoadState(st);
   await DB.put("session", S.session);
-  startRest(st.muscle);
+  startRest(st.muscle, st.id);
   await maybeFeedback(st);
   redraw();
 }
@@ -2116,9 +2121,9 @@ function equipSheet(gymId) {
  * [PUB] "10 '90% recovered sets' in 45 minutes is a much more anabolic stimulus than 3 '99%
  * recovered' sets." The timer is a nudge, not a rule — hence "Done" always being one tap away.
  * ================================================================ */
-function startRest(muscle) {
+function startRest(muscle, setId) {
   const [lo, hi] = E.REST[muscle] || [60, 120];
-  S.rest = { at: Date.now(), lo, hi, muscle, beeped: false };
+  S.rest = { at: Date.now(), lo, hi, muscle, setId: setId || null, beeped: false };
   tickRest();
   if (S.restT) clearInterval(S.restT);
   S.restT = setInterval(tickRest, 500);
@@ -2128,6 +2133,10 @@ function stopRest() {
   S.restT = null; S.rest = null;
   const el = $("#rest"); if (el) el.classList.remove("on");
   document.body.classList.remove("resting");
+  // Reset every inline per-set chip back to its idle label.
+  document.querySelectorAll(".restb.active").forEach(c => {
+    c.classList.remove("active"); c.removeAttribute("data-s"); c.textContent = c.dataset.def || "⏱ Rest";
+  });
 }
 function tickRest() {
   const el = $("#rest");
@@ -2153,6 +2162,15 @@ function tickRest() {
     + `<span class="t">${fmt(shown)}</span><span class="lab">${lab}</span>`
     + `<button id="restSkip">Done</button>`;
   const sk = $("#restSkip"); if (sk) sk.onclick = stopRest;
+  // Drive the inline chip on the set that started this rest — a live countdown, right on the row.
+  document.querySelectorAll(".restb.active").forEach(c => { if (c.dataset.rest !== S.rest.setId) { c.classList.remove("active"); c.removeAttribute("data-s"); c.textContent = c.dataset.def || "⏱ Rest"; } });
+  if (S.rest.setId) {
+    const chip = document.querySelector(`.restb[data-rest="${S.rest.setId}"]`);
+    if (chip) { chip.classList.add("active"); chip.dataset.s = state;
+      chip.textContent = state === "resting" ? `⏱ ${fmt(shown)} — resting`
+                       : state === "ready"   ? `✓ ${fmt(shown)} — go`
+                                             : `${fmt(shown)} — cold`; }
+  }
 }
 const fmt = s => `${Math.floor(s/60)}:${String(Math.round(s)%60).padStart(2,"0")}`;
 function fmtRest() { return S.rest ? fmt(Math.round((Date.now() - S.rest.at) / 1000)) : ""; }
