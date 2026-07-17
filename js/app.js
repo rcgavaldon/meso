@@ -543,8 +543,17 @@ function renderTabs() {
     `<button data-tab="${t.k}" aria-selected="${S.tab===t.k}">${ICON[t.k]}<span>${t.t}</span></button>`).join("");
   $("#tabs").onclick = e => { const b = e.target.closest("[data-tab]"); if (b) go(b.dataset.tab); };
 }
+/* Per-person accent. Nina's is pink; anyone can carry a `.accent` on their user record. Applied on
+   the DISPLAYED user, so coaching Nina turns the app pink too — reinforcing whose plan you're in. */
+function applyAccent() {
+  const a = (S.user && (S.user.accent || (S.user.id === "nina" ? "pink" : ""))) || "";
+  if (a) document.documentElement.dataset.accent = a;
+  else document.documentElement.removeAttribute("data-accent");
+}
+
 function go(tab) {
   if (typeof stopClock === "function") stopClock();   // leaving the workout view kills its ticker
+  applyAccent();
   tab = TAB_ALIAS[tab] || tab;
   // Also heal a pref pointing at a tab this user doesn't have — otherwise Nina lands on a
   // persisted "plan" and nothing is highlighted.
