@@ -474,8 +474,27 @@ async function boot() {
   S.gym = S.gyms.find(g => g.gym_id === gid) || S.gyms[0];
 
   await loadUser();
+  // PERSISTENCE: a fresh device / reinstalled PWA has an empty IndexedDB, so without this you'd be
+  // dropped into the intake even though your plan is safe in the Sheet. Pull it back automatically
+  // before deciding to show the intake — the plan is durable across phones, not just on one.
+  if (!S.meso) await tryRestoreFromSheet();
   renderTabs(); go(DB.pref.get("tab", "workout"));
   welcomeSheet(false);   // one-time intro on first launch
+}
+
+/* Fetch this user's latest backup from the Sheet and import it if it carries a plan. Silent on
+   failure (offline / never synced) — a real first-time user just falls through to the intake. */
+async function tryRestoreFromSheet() {
+  const url = DB.pref.get("syncUrl", ""); if (!url) return;
+  try {
+    const r = await fetch(url + "?user=" + encodeURIComponent(S.user.id));
+    const blob = await r.json();
+    if (blob && (blob.mesos || []).length) {
+      await DB.importUser(blob);
+      await loadUser();
+      if (S.meso) toast("Welcome back — restored your plan from backup");
+    }
+  } catch (_) {}
 }
 
 /**
@@ -1012,12 +1031,17 @@ function drawIntake() {
     m.startDay = INTAKE.startDay || 0;
     m.maint = INTAKE.maint || 0;
     await DB.put("meso", m);
+    await loadUser();
+    // Back the new plan up to the Sheet THE MOMENT it's created — not only when a workout is
+    // finished. Without this the plan lived on one phone only, and a reinstall lost it. Fires as
+    // the built-for user (S.user is still her in coach mode) before we hand the app back.
+    syncNow(true).catch(() => {});
     if (S.coachingFor) {                            // built for her — give the app back to him
       const her = S.user.name, me = S.users.find(u => u.id === S.coachingFor.me);
       S.coachingFor = null; S.user = me; await loadUser(); renderTabs(); go("more");
       return toast(`${her}'s ${m.name} is ready`);
     }
-    await loadUser(); go("today");
+    go("today");
     toast(`${m.name} created`);
   };
 }
@@ -2017,6 +2041,7 @@ async function substitute(fromId, toId, scope, opts) {
     st.sub = { of: fromId, reason: scope };
   }
   if (S.session) await DB.put("session", S.session);
+  syncNow(true).catch(() => {});   // persist plan/exercise change to the Sheet
   closeSheet();
   S.tab === "today" ? redraw() : viewPlan();
   toast(scope === "replaced" ? `${to.name} for the rest of the meso` : `Swapped to ${to.name} for today`);
@@ -2111,6 +2136,7 @@ async function addExercise(exId, muscle, scope) {
   if (idxs.length) S.session.sets.splice(idxs[idxs.length - 1] + 1, 0, ...newSets);
   else S.session.sets.push(...newSets);
   await DB.put("session", S.session);
+  syncNow(true).catch(() => {});   // persist the added exercise to the Sheet
   toast(scope === "meso" ? `Added ${ex.name} to every ${day.name}` : `Added ${ex.name} for today`);
   redraw();
 }
