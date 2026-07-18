@@ -495,32 +495,41 @@ async function boot() {
   S.gym = S.gyms.find(g => g.gym_id === gid) || S.gyms[0];
 
   await loadUser();
-  // PERSISTENCE: pull the latest plan from the Sheet on every launch. Restores on a fresh device,
-  // AND updates to a rebuilt/newer plan without a manual "Restore" — so a refresh is all it takes.
-  // NEVER disrupts an active workout (guarded below).
-  await tryRestoreFromSheet();
+  // PERSISTENCE: only BLOCK the launch on the Sheet when there's no local plan to show (fresh
+  // device / reinstall). When a plan already exists, render instantly and pull any newer plan in
+  // the BACKGROUND — never hang the app on a slow network. NEVER disrupts an active workout.
+  if (!S.meso) await pullFromSheet(false);
   renderTabs(); go(DB.pref.get("tab", "workout"));
   welcomeSheet(false);   // one-time intro on first launch
+  if (S.meso) pullFromSheet(true);   // background refresh: adopt a rebuilt/newer plan without blocking
 }
 
 /* Pull this user's backup from the Sheet and adopt it when it's newer than what's on the phone.
    - No local plan → restore it (fresh device / reinstall).
    - Sheet has a strictly NEWER plan than local → adopt it (a rebuilt plan lands on a refresh).
    - Local is current, OR a workout is in progress → leave it alone.
-   Silent on failure (offline / never synced). */
-async function tryRestoreFromSheet() {
+   `bg` = background mode: re-render after adopting. Fetch is aborted after 8s so it can never hang
+   the app. Silent on failure (offline / never synced). */
+async function pullFromSheet(bg) {
   const url = DB.pref.get("syncUrl", ""); if (!url) return;
   try {
-    const r = await fetch(url + "?user=" + encodeURIComponent(S.user.id));
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    const r = await fetch(url + "?user=" + encodeURIComponent(S.user.id), { signal: ctrl.signal });
+    clearTimeout(timer);
     const blob = await r.json();
     if (!(blob && (blob.mesos || []).length)) return;
     const sheetNewest = blob.mesos.reduce((a, m) => ((m.createdAt || "") > (a.createdAt || "") ? m : a));
     const activeWorkout = (S.sessions || []).some(s => !s.finished && (s.beganAt || (s.sets || []).some(x => x.done)));
     const localCurrent = S.meso && (S.meso.createdAt || "") >= (sheetNewest.createdAt || "");
     if (!S.meso || (!localCurrent && !activeWorkout)) {
+      const wasEmpty = !S.meso;
       await DB.importUser(blob);
       await loadUser();
-      if (S.meso) toast(S.meso.createdAt === sheetNewest.createdAt ? "Loaded your latest plan" : "Restored your plan from backup");
+      if (S.meso) {
+        toast(wasEmpty ? "Restored your plan from backup" : "Loaded your latest plan");
+        if (bg && S.tab) { applyAccent(); go(S.tab); }   // re-render the current screen with the new plan
+      }
     }
   } catch (_) {}
 }
@@ -897,7 +906,7 @@ async function ensureSession(w, d) {
           rir: null, done: false, est: null });
       }
       for (let i = 0; i < sets; i++) {
-        s.sets.push({ id: uid(), slotId: slot.id, muscle: g.m, exId: ex.id, bucket,
+        s.sets.push({ id: uid(), slotId: slot.id, muscle: g.m, exId: ex.id, bucket, ss: slot.ss,
           repRange: slot.repRange, sub: ex.id !== slot.exId ? { of: slot.exId, reason: "gym" } : undefined,
           instanceId: bind.ok && bind.carrier ? bind.carrier.instance_id : null,
           load: load || null, reps: null, targetReps: reps, targetLoad: load || null,
@@ -1615,6 +1624,10 @@ function drawExercise(g, e, isFirst) {
   const eq = equipLabel(ex);
   const mins = exMinutes(e, g.m, isFirst);
   const qf = quickFills(ex);
+  // Superset partner (another exercise sharing this one's ss group).
+  const ss = e.sets[0] && e.sets[0].ss;
+  const partnerId = ss ? (S.session.sets.find(x => x.ss === ss && x.exId !== e.exId) || {}).exId : null;
+  const partnerNm = partnerId ? ((LIB().find(x => x.id === partnerId) || {}).name || partnerId) : null;
   const nextIx = e.sets.findIndex(x => !x.done && x.reps !== -1);
   const est = e.sets[0] && e.sets[0].est;
   /* [PUB] RP does NOT pick your first weight — you do, via their published feel-out ramp
@@ -1631,6 +1644,7 @@ function drawExercise(g, e, isFirst) {
       </button>
       <button class="swapb${(S.user.painFlags || {})[e.exId] ? " pain" : ""}" data-swap="${e.exId}">Swap</button>
     </div>
+    ${partnerNm ? `<div class="ssbadge">⇄ SUPERSET with ${esc(partnerNm)} — alternate sets</div>` : ""}
     <div class="demo" data-demo-panel="${e.exId}" hidden></div>
     ${feelOut ? `<div class="note"><span>⌁</span><span><b>Pick your starting weight.</b> RP's ramp:
       12 reps with something you could do ~30 times, 8 reps at a ~20-rep weight, 4 reps at a
@@ -1645,8 +1659,55 @@ function drawExercise(g, e, isFirst) {
     <div class="setedit">
       <button data-addset="${e.exId}">+ Add set</button>
       ${e.sets.filter(x => !x.warmup).length > 1 ? `<button data-rmset="${e.exId}">− Remove set</button>` : ""}
+      <button data-ss="${e.exId}">${ss ? "⇄ Unpair" : "⇄ Superset"}</button>
     </div>
   </div></div>`;
+}
+
+/* [Robert] Supersets: pair two lifts so you alternate sets — the app then credits ONE rest per
+   round (sessionMinutes), which is how his real session fits 50 min. Pairing is stored on the sets
+   AND mirrored to the plan slots (via slotId) so it sticks across the meso. */
+async function supersetExercise(exId) {
+  const s = S.session;
+  const mine = s.sets.filter(x => x.exId === exId);
+  const curSS = mine[0] && mine[0].ss;
+  if (curSS) {                                   // unpair
+    s.sets.filter(x => x.ss === curSS).forEach(x => delete x.ss);
+    return commitSuperset();
+  }
+  const lib = LIB();
+  const others = [...new Set(s.sets.map(x => x.exId))]
+    .filter(id => id !== exId && !(s.sets.find(x => x.exId === id) || {}).ss);
+  sheet(`<h3>Superset with…</h3>
+    <div class="sm dim" style="margin:6px 0 12px">Pick a lift to pair. You'll alternate sets and rest once per round — so the plan fits more in the hour.</div>
+    ${others.map(id => { const ex = lib.find(e => e.id === id) || { name: id };
+      return `<div class="row pick" data-sspick="${id}"><div class="grow"><div class="lead">${esc(ex.name)}</div>
+        <div class="sm dim">${esc(equipLabel(ex))}</div></div></div>`; }).join("")
+      || '<div class="empty">Nothing free to pair with — unpair one first.</div>'}
+    <div class="sheet-ft"><button id="ssc">Cancel</button></div>`);
+  $("#ssc").onclick = closeSheet;
+  document.querySelectorAll("[data-sspick]").forEach(r => r.onclick = () => {
+    const ssId = "ss" + uid();
+    s.sets.filter(x => x.exId === exId || x.exId === r.dataset.sspick).forEach(x => x.ss = ssId);
+    closeSheet(); commitSuperset();
+  });
+}
+async function commitSuperset() {
+  // Mirror ss onto the plan's slots (by slotId) so future sessions keep the pairing.
+  if (S.meso) {
+    const day = S.meso.days[S.session.day - 1];
+    if (day) {
+      const bySlot = {};
+      for (const st of S.session.sets) if (st.slotId) bySlot[st.slotId] = st.ss || null;
+      for (const g of day.muscles) for (const sl of g.slots)
+        if (sl.id in bySlot) { if (bySlot[sl.id]) sl.ss = bySlot[sl.id]; else delete sl.ss; }
+      day.estMinutes = E.sessionMinutes(day);
+      await DB.put("meso", S.meso);
+    }
+  }
+  await DB.put("session", S.session);
+  syncNow(true).catch(() => {});
+  redraw();
 }
 
 /* [Robert] "add sets where I want... fully customize." Append a set to an exercise (cloning its
@@ -1847,6 +1908,7 @@ Extra session at this week's level — it counts toward your volume and won't sk
   const md = $("#markdone"); if (md) md.onclick = markDayDone;
   v.querySelectorAll("[data-addset]").forEach(b => b.onclick = () => addSet(b.dataset.addset));
   v.querySelectorAll("[data-rmset]").forEach(b => b.onclick = () => removeSet(b.dataset.rmset));
+  v.querySelectorAll("[data-ss]").forEach(b => b.onclick = () => supersetExercise(b.dataset.ss));
   // Tappable per-set rest timer: tap to start its countdown; tap the running one to stop.
   v.querySelectorAll(".restb").forEach(b => b.onclick = () =>
     (S.rest && S.rest.setId === b.dataset.rest) ? stopRest() : startRest(b.dataset.muscle, b.dataset.rest));

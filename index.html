@@ -293,6 +293,12 @@ body.coaching{padding-top:calc(42px + env(safe-area-inset-top,0px))}
 body.coaching .hd{top:calc(42px + env(safe-area-inset-top,0px))}
 body.coaching{box-shadow:inset 0 0 0 2px var(--wac)}
 
+/* Superset badge on paired exercises */
+.ssbadge{display:inline-block;margin:2px 0 8px;padding:5px 10px;border-radius:var(--r-btn);
+  font-size:.68rem;font-weight:700;letter-spacing:.05em;
+  color:var(--acc);border:1px solid color-mix(in srgb,var(--acc) 45%,transparent);
+  background:color-mix(in srgb,var(--acc) 10%,transparent)}
+
 /* Add / remove set controls under each exercise */
 .setedit{display:flex;gap:8px;padding:10px 2px 2px}
 .setedit button{flex:1;border:1px dashed var(--line);border-radius:var(--r-btn);padding:9px 8px;
@@ -378,12 +384,12 @@ body.coaching{box-shadow:inset 0 0 0 2px var(--wac)}
 <section class="sheet" id="sheet" role="dialog" aria-modal="true"></section>
 <div class="toast" id="toast"></div>
 
-<script src="data/exercises.js?v=51"></script>
-<script src="js/db.js?v=51"></script>
-<script src="js/engine.js?v=51"></script>
-<script src="data/demo-alias.js?v=51"></script>
-<script src="js/media.js?v=51"></script>
-<script src="js/app.js?v=51"></script>
+<script src="data/exercises.js?v=52"></script>
+<script src="js/db.js?v=52"></script>
+<script src="js/engine.js?v=52"></script>
+<script src="data/demo-alias.js?v=52"></script>
+<script src="js/media.js?v=52"></script>
+<script src="js/app.js?v=52"></script>
 <script>
 if ("serviceWorker" in navigator) {
   addEventListener("load", () => navigator.serviceWorker.register("sw.js").then(reg => {

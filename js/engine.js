@@ -912,18 +912,29 @@ function warmupSets(workLoad, plan, ex, isFirstForMuscle) {
   return out;
 }
 
-/** Minutes for a fully-built day (exercises known). */
+/** Minutes for a fully-built day (exercises known).
+ *  [Robert] SUPERSET-AWARE: slots sharing a `.ss` (superset group) are trained by ALTERNATING, so
+ *  you rest ONCE per round — the wait between one lift's sets is spent doing the other. Each lift
+ *  still costs its own setup + warm-up + work time; only the REST is shared. A solo exercise (its
+ *  own group) rests every set, exactly as before. This is why his real session fits 50 min where a
+ *  strictly-sequential estimate says ~65. */
 function sessionMinutes(day) {
   let sec = 0;
   const seen = new Set();
-  for (const g of day.muscles || []) {
-    const r = REST[g.m] || [60, 120];
-    for (const sl of (g.slots || [])) {
-      const ex = (window.MESO_EXERCISES || []).find(e => e.id === sl.exId);
-      const first = !seen.has(g.m); seen.add(g.m);
-      sec += SETUP_SEC + warmupSeconds(ex, first);
-      sec += sl.sets * ((r[0] + r[1]) / 2 + WORK_SEC);
+  const slots = [];
+  for (const g of day.muscles || []) for (const sl of (g.slots || []))
+    slots.push({ sl, m: g.m, ex: (window.MESO_EXERCISES || []).find(e => e.id === sl.exId), rest: REST[g.m] || [60, 120] });
+  const groups = {};
+  slots.forEach((s, i) => { const key = s.sl.ss || ("solo" + i); (groups[key] = groups[key] || []).push(s); });
+  for (const key in groups) {
+    const grp = groups[key];
+    let rounds = 0;
+    for (const s of grp) {
+      const first = !seen.has(s.m); seen.add(s.m);
+      sec += SETUP_SEC + warmupSeconds(s.ex, first) + s.sl.sets * WORK_SEC;
+      rounds = Math.max(rounds, s.sl.sets);
     }
+    sec += rounds * grp.reduce((a, s) => a + (s.rest[0] + s.rest[1]) / 2, 0) / grp.length;  // one rest per round
   }
   return Math.round(sec / 60);
 }
