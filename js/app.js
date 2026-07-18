@@ -2688,21 +2688,61 @@ Unfinished sets don't count against you; the plan just picks up where you left o
 
 function showSummary(s, notes) {
   const dec = s.decision || {};
-  sheet(`<h3>Workout complete</h3>
-    <div class="sm dim" style="margin:6px 0 12px">Here's what changes next time, and why.</div>
-    ${Object.keys(dec).map(m => {
-      const d = dec[m];
-      // Show what was APPLIED, not what was wanted. The clock cap can shave the delta, and the
-      // badge used to say "+2 SETS" while only +1 landed.
-      const n = d.applied != null ? d.applied : d.delta;
-      const cls = n > 0 ? "b-up" : n < 0 ? "b-dn" : "b-mid";
-      const lbl = d.action === "recovery" ? "RECOVERY" : n > 0 ? `+${n} SET${n>1?"S":""}` : n < 0 ? `${n} SET` : "HOLD";
-      return `<div class="row" style="padding:12px 0">
-        <div class="grow"><div class="lead">${esc(E.MG_LABEL[m])}</div>
-        <div class="sm dim" style="margin-top:3px">${esc((d.reasons||[]).join(" · ") || "Steady")}</div></div>
-        <span class="badge ${cls}">${lbl}</span></div>`;
-    }).join("")}
+  const u = S.user.unit;
+  const work = s.sets.filter(x => x.done && !x.warmup && x.reps > 0);
+  const totalSets = work.length;
+  const tonnage = Math.round(work.reduce((a, x) => a + (x.load || 0) * (x.reps || 0), 0));
+
+  // What you hit — every working set per exercise, in the order you did them. (No timestamps.)
+  const byEx = [];
+  for (const x of work) { let e = byEx.find(y => y.exId === x.exId); if (!e) byEx.push(e = { exId: x.exId, sets: [] }); e.sets.push(x); }
+  const hits = byEx.map(e => ({
+    name: (LIB().find(l => l.id === e.exId) || {}).name || e.exId,
+    line: e.sets.map(x => `${x.load}×${x.reps}`).join(" · ")
+  }));
+
+  // Up next — where the program advances to (finishWorkout already advanced the clock).
+  const nb = weekBoard();
+  let nextHtml;
+  if (nb.complete) {
+    nextHtml = `<div class="row"><div class="grow"><div class="lead">Mesocycle complete 🏆</div>
+      <div class="sm dim" style="margin-top:3px">Your loads carry into the next block.</div></div></div>`;
+  } else {
+    const cs = currentSlot(), nd = S.meso.days[cs.day - 1];
+    const rir = E.isDeload(cs.week, S.meso.weeks) ? "deload" : `${E.rirForWeek(cs.week, S.meso.weeks)} RIR`;
+    nextHtml = `<div class="row"><div class="grow"><div class="lead">${esc(nd.name)}</div>
+      <div class="sm dim" style="margin-top:3px">week ${cs.week} · ${rir} · ${nd.muscles.map(g => esc(E.MG_LOWER(g.m))).join(", ")}</div></div>
+      <span class="badge b-info">Plan to tweak</span></div>`;
+  }
+
+  const decRows = Object.keys(dec).map(m => {
+    const d = dec[m], n = d.applied != null ? d.applied : d.delta;
+    const cls = n > 0 ? "b-up" : n < 0 ? "b-dn" : "b-mid";
+    const lbl = d.action === "recovery" ? "RECOVERY" : n > 0 ? `+${n} SET${n>1?"S":""}` : n < 0 ? `${n} SET` : "HOLD";
+    return `<div class="row"><div class="grow"><div class="lead">${esc(E.MG_LABEL[m])}</div>
+      <div class="sm dim" style="margin-top:3px">${esc((d.reasons||[]).join(" · ") || "Steady")}</div></div>
+      <span class="badge ${cls}">${lbl}</span></div>`;
+  }).join("");
+
+  sheet(`
+    <div class="doneHero">
+      <div class="doneCheck">✓</div>
+      <h3 style="margin-top:6px">${esc(S.meso.days[s.day - 1].name)} — done</h3>
+      <div class="doneStats"><span><b>${totalSets}</b> sets</span><span><b>${tonnage.toLocaleString()}</b> ${u} lifted</span></div>
+    </div>
+
+    <h4 style="margin:18px 0 8px">What you hit</h4>
+    <div class="card">${hits.map(h => `<div class="row" style="display:block">
+        <div class="lead">${esc(h.name)}</div>
+        <div class="mono sm" style="font-weight:700;margin-top:5px;opacity:.85;line-height:1.7;overflow-wrap:anywhere">${esc(h.line)}</div>
+      </div>`).join("") || '<div class="row"><div class="grow sm dim">No working sets logged.</div></div>'}</div>
+
+    ${decRows ? `<h4 style="margin:18px 0 8px">Next time, per muscle</h4><div class="card">${decRows}</div>` : ""}
     ${notes.length ? `<div class="note" style="margin-top:12px">${esc(notes.join(" · "))}</div>` : ""}
+
+    <h4 style="margin:18px 0 8px">Up next</h4>
+    <div class="card">${nextHtml}</div>
+
     <div class="sheet-ft"><button class="btn" id="okd">Done</button></div>`);
   $("#okd").onclick = () => { closeSheet(); go("today"); };
 }
