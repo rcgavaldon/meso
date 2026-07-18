@@ -3125,10 +3125,10 @@ function sessionSheet(id) {
     <div class="sm dim" style="margin:6px 0 10px">${esc(onDate(s))}${dur != null ? ` · <b>${fmtDur(dur)}</b>` : ""} · week ${s.week} day ${s.day}${s.off_plan ? " · travel" : ""}</div>
     ${byEx.map(e => {
       const ex = lib.find(x => x.id === e.exId) || { name: e.exId };
-      return `<div class="row"><div class="grow">
+      return `<div class="row" style="display:block">
         <div class="lead">${esc(ex.name)}</div>
-        <div class="sm dim mono" style="margin-top:3px">${e.sets.map(x => `${x.load}×${x.reps}${x.at ? ` <span class="dim2">${x.at.slice(11,16)}</span>` : ""}`).join(" · ")}</div>
-      </div></div>`;
+        <div class="sm dim mono" style="margin-top:4px;line-height:1.6;overflow-wrap:anywhere">${e.sets.map(x => `${x.load}×${x.reps}`).join(" · ")}</div>
+      </div>`;
     }).join("")}
     ${Object.keys(s.decision || {}).length ? `<h4 style="margin:16px 0 6px">What it changed</h4>
       ${Object.keys(s.decision).map(m => { const d = s.decision[m];
