@@ -44,6 +44,8 @@ window.MESO_DEMO_ALIAS = {
   "bw_squat": "bb_back_squat",
   "jumping_lunge": "walking_lunge",   // same lunge motion; the name says it's a jump
   "jump_squat": "bb_back_squat",
+  "situp": "reverse_crunch",          // trunk flexion; the clip shows the motion
+  "bb_thruster": "bb_front_squat",    // front-rack squat drive — the press is the finish
   "hanging_leg_raise": "reverse_crunch",
   "farmers_carry": "bb_shrug"
 };

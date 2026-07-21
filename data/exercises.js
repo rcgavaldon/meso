@@ -1968,6 +1968,51 @@ window.MESO_EXERCISES = [
     ratio_anchors: { bb_back_squat: {r:0.2, c:0.15} }
   },
 
+  /* [Robert] CrossFit staples the library lacked — without these the benchmark WODs (Barbara,
+     Angie, Fran) can't be logged with the right movements. */
+  {
+    id: "situp",
+    name: "Sit-Up",
+    aliases: ["abmat sit-up", "crossfit sit-up"],
+    family: "crunch",
+    hub: false,
+    pattern: "core",
+    muscles: [ { m: "abs", role: "primary", contribution: 1.0 } ],
+    requires: { any: [ { all: [ {cap:"bodyweight_only"} ] } ] },
+    load_unit: "bodyweight_plus",
+    load_portability: "absolute",
+    profile: { resistance_peak: "shortened", stretch_emphasis: 2, rom_score: 3, shortened_overload: 4 },
+    ratings: { rp_tier: {abs:"C"}, sfr: 4, target_specificity: 3, stability_demand: 2, technique_demand: 1, injury_risk: 1, setup_cost: 1 },
+    fatigue: { systemic: 1, local: 3 },
+    unilateral: false, unilateral_capable: false, failure_safe: true,
+    rep_suitability: { "5_8": 0.1, "8_12": 0.4, "12_20": 0.9, "20_30": 1.0 },
+    ratio_anchors: { cable_crunch: {r:0.3, c:0.15} }
+  },
+
+  {
+    id: "bb_thruster",
+    name: "Barbell Thruster",
+    aliases: ["thruster", "squat to press"],
+    family: "thruster",
+    hub: false,
+    pattern: "squat",
+    muscles: [
+      { m: "quads", role: "primary", contribution: 1.0 },
+      { m: "front_delt", role: "primary", contribution: 0.8 },
+      { m: "glutes", role: "secondary", contribution: 0.5 },
+      { m: "triceps", role: "secondary", contribution: 0.4 }
+    ],
+    requires: { any: [ { all: [ {cap:"barbell"} ] } ] },
+    load_unit: "total_bar_load",
+    load_portability: "absolute",
+    profile: { resistance_peak: "stretch", stretch_emphasis: 3, rom_score: 5, shortened_overload: 3 },
+    ratings: { rp_tier: {quads:"C", front_delt:"B", glutes:"D", triceps:"D"}, sfr: 2, target_specificity: 2, stability_demand: 4, technique_demand: 4, injury_risk: 2, setup_cost: 2 },
+    fatigue: { systemic: 5, local: 4 },
+    unilateral: false, unilateral_capable: false, failure_safe: false,
+    rep_suitability: { "5_8": 0.6, "8_12": 1.0, "12_20": 0.9, "20_30": 0.5 },
+    ratio_anchors: { bb_front_squat: {r:0.5, c:0.2} }
+  },
+
   /* [Robert] Plyometrics — his leg circuits run on these and the library had none, so a round-based
      leg day couldn't be logged at all. Bodyweight, high-rep, higher systemic cost than their
      grounded cousins. */

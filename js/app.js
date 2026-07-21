@@ -1467,28 +1467,63 @@ const CIRCUITS = [
     finisher: [ {exId:"db_lateral_raise", sets:3, reps:15} ] },
   { id: "core3", name: "Core & calves — 3 rounds", note: "A short finisher for abs and calves.",
     rounds: 3,
-    items: [ {exId:"reverse_crunch", reps:20}, {exId:"standing_calf_raise", reps:20} ], finisher: [] }
+    items: [ {exId:"reverse_crunch", reps:20}, {exId:"standing_calf_raise", reps:20} ], finisher: [] },
+
+  /* ---- Real CrossFit benchmark WODs ("The Girls"), picked for Robert's garage (pull-up bar,
+     barbell, floor — no kettlebell/rower/rope, so Helen/Annie/Karen are out) and for the caliber he
+     liked: high-rep, full-body, leaves you sore. AMRAP/EMOM round counts are ESTIMATES so they can
+     be logged as sets — use + / − Add set to match what you actually got. ---- */
+  { id: "cindy", wod: true, name: "Cindy — 20 min AMRAP",
+    note: "5 pull-ups · 10 push-ups · 15 air squats, as many rounds as you can in 20 min. Best all-rounder: back, chest, legs in the shortest honest session. Logged at 15 rounds — adjust to your real count.",
+    rounds: 15,
+    items: [ {exId:"pullup", reps:5}, {exId:"pushup", reps:10}, {exId:"bw_squat", reps:15} ], finisher: [] },
+
+  { id: "barbara", wod: true, name: "Barbara — 5 rounds",
+    note: "20 pull-ups · 30 push-ups · 40 sit-ups · 50 air squats × 5, resting 3 min between rounds. ~700 reps — the most sore-making of the lot, same caliber as your leg circuit.",
+    rounds: 5,
+    items: [ {exId:"pullup", reps:20}, {exId:"pushup", reps:30}, {exId:"situp", reps:40}, {exId:"bw_squat", reps:50} ], finisher: [] },
+
+  { id: "angie", wod: true, name: "Angie — 100s",
+    note: "100 pull-ups, 100 push-ups, 100 sit-ups, 100 air squats for time — done as blocks, one movement at a time. 400 reps.",
+    rounds: 5,
+    items: [ {exId:"pullup", reps:20}, {exId:"pushup", reps:20}, {exId:"situp", reps:20}, {exId:"bw_squat", reps:20} ], finisher: [] },
+
+  { id: "chelsea", wod: true, name: "Chelsea — EMOM 30",
+    note: "5 pull-ups · 10 push-ups · 15 air squats at the top of every minute for 30 min. Paced, but enormous volume if you hold it (150/300/450).",
+    rounds: 30,
+    items: [ {exId:"pullup", reps:5}, {exId:"pushup", reps:10}, {exId:"bw_squat", reps:15} ], finisher: [] },
+
+  { id: "fran", wod: true, name: "Fran — 21-15-9",
+    note: "Thrusters (95 lb) + pull-ups, 21-15-9 for time. Usually under 10 minutes — the shortest, nastiest option when you're tight on time.",
+    rounds: 3,
+    items: [ {exId:"bb_thruster", scheme:[21,15,9], load:95}, {exId:"pullup", scheme:[21,15,9]} ], finisher: [] }
 ];
 
 const primaryMuscleOf = exId => {
   const ex = LIB().find(e => e.id === exId) || {};
   return ((ex.muscles || []).find(m => m.role === "primary") || {}).m || "quads";
 };
-/** Flatten a circuit into session sets: one set per exercise per round, then the finisher. */
+/** Flatten a circuit into session sets: one set per exercise per round, then the finisher.
+ *  `scheme` gives descending reps per round (Fran's 21-15-9); `load` pre-fills the bar. */
 function circuitSets(c) {
   const out = [];
-  const mk = (exId, reps, round) => ({ id: uid(), exId, muscle: primaryMuscleOf(exId), repRange: [12, 30],
-    targetReps: reps, reps: null, load: null, targetLoad: null, rir: 2, done: false, circuit: c.id, round });
-  for (let r = 1; r <= c.rounds; r++) for (const it of c.items) out.push(mk(it.exId, it.reps, r));
-  for (const f of (c.finisher || [])) for (let i = 0; i < f.sets; i++) out.push(mk(f.exId, f.reps, null));
+  const mk = (exId, reps, round, load) => ({ id: uid(), exId, muscle: primaryMuscleOf(exId), repRange: [12, 30],
+    targetReps: reps, reps: null, load: load || null, targetLoad: load || null, rir: 2, done: false, circuit: c.id, round });
+  for (let r = 1; r <= c.rounds; r++) for (const it of c.items)
+    out.push(mk(it.exId, it.scheme ? it.scheme[r - 1] : it.reps, r, it.load));
+  for (const f of (c.finisher || [])) for (let i = 0; i < f.sets; i++) out.push(mk(f.exId, f.reps, null, f.load));
   return out;
 }
 function circuitSheet() {
-  sheet(`<h3>Quick workout</h3>
-    <div class="sm dim" style="margin:6px 0 12px">Round-based circuits that cover the main muscles. Loads into today's workout — your plan stays as it is.</div>
-    ${CIRCUITS.map(c => `<div class="row pick" data-circ="${c.id}"><div class="grow">
+  const row = c => `<div class="row pick" data-circ="${c.id}"><div class="grow">
       <div class="lead">${esc(c.name)}</div>
-      <div class="sm dim" style="margin-top:3px">${esc(c.note)}</div></div></div>`).join("")}
+      <div class="sm dim" style="margin-top:3px">${esc(c.note)}</div></div></div>`;
+  sheet(`<h3>Quick workout</h3>
+    <div class="sm dim" style="margin:6px 0 12px">Ready-to-go sessions for a short day. Loads into today's workout — your plan stays as it is.</div>
+    <h4 style="margin:14px 0 6px">Circuits</h4>
+    ${CIRCUITS.filter(c => !c.wod).map(row).join("")}
+    <h4 style="margin:18px 0 6px">CrossFit benchmarks <span class="dim sm" style="font-weight:400">— "The Girls"</span></h4>
+    ${CIRCUITS.filter(c => c.wod).map(row).join("")}
     <div class="sheet-ft"><button id="cc">Cancel</button></div>`);
   $("#cc").onclick = closeSheet;
   document.querySelectorAll("[data-circ]").forEach(r => r.onclick = () => startCircuit(r.dataset.circ));
