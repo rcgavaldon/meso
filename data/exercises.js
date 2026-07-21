@@ -3174,6 +3174,170 @@ window.MESO_EXERCISES = [
     unilateral: false, unilateral_capable: true, failure_safe: true,
     rep_suitability: { "5_8": 0.1, "8_12": 0.5, "12_20": 1.0, "20_30": 0.9 },
     ratio_anchors: { cable_crunch: {r:0.3, c:0.1} }
+  },
+
+  /* ── Conditioning / CrossFit movements ─────────────────────────────────────
+   * These exist so benchmark WODs can be logged with the RIGHT movement instead of a
+   * lookalike. They are deliberately rated LOW for hypertrophy (rp_tier D/F, sfr 1-2):
+   * they're ballistic or endurance-biased, so the planner should never pick them for a
+   * growth slot — they're only reachable through the Quick-workout picker.        */
+  {
+    id: "kb_swing",
+    name: "Kettlebell Swing",
+    aliases: ["russian swing", "american swing", "kb swing"],
+    family: "swing",
+    hub: false,
+    pattern: "hinge",
+    muscles: [
+      { m: "glutes", role: "primary", contribution: 0.9 },
+      { m: "hamstrings", role: "primary", contribution: 0.7 },
+      { m: "back", role: "secondary", contribution: 0.3 },
+      { m: "traps", role: "secondary", contribution: 0.3 }
+    ],
+    requires: { any: [ { all: [ {cap:"kettlebell"} ] } ] },
+    load_unit: "total_bar_load",
+    load_portability: "absolute",
+    profile: { resistance_peak: "mid", stretch_emphasis: 2, rom_score: 3, shortened_overload: 4 },
+    ratings: { rp_tier: {glutes:"D", hamstrings:"D", back:"F", traps:"F"}, sfr: 2, target_specificity: 2, stability_demand: 3, technique_demand: 3, injury_risk: 2, setup_cost: 1 },
+    fatigue: { systemic: 4, local: 3 },
+    unilateral: false, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.2, "8_12": 0.7, "12_20": 1.0, "20_30": 1.0 },
+    ratio_anchors: { bb_rdl: {r:0.25, c:0.2} }
+  },
+  {
+    id: "wall_ball",
+    name: "Wall Ball Shot",
+    aliases: ["wall balls", "medicine ball thruster"],
+    family: "thruster",
+    hub: false,
+    pattern: "squat",
+    muscles: [
+      { m: "quads", role: "primary", contribution: 0.8 },
+      { m: "front_delt", role: "primary", contribution: 0.6 },
+      { m: "glutes", role: "secondary", contribution: 0.4 }
+    ],
+    requires: { any: [ { all: [ {cap:"wall_ball"} ] } ] },
+    load_unit: "total_bar_load",
+    load_portability: "absolute",
+    profile: { resistance_peak: "mid", stretch_emphasis: 2, rom_score: 4, shortened_overload: 3 },
+    ratings: { rp_tier: {quads:"D", front_delt:"D", glutes:"F"}, sfr: 2, target_specificity: 2, stability_demand: 3, technique_demand: 2, injury_risk: 1, setup_cost: 1 },
+    fatigue: { systemic: 4, local: 3 },
+    unilateral: false, unilateral_capable: false, failure_safe: true,
+    rep_suitability: { "5_8": 0.2, "8_12": 0.6, "12_20": 1.0, "20_30": 1.0 },
+    ratio_anchors: { bb_front_squat: {r:0.15, c:0.15} }
+  },
+  {
+    id: "clean_and_jerk",
+    name: "Clean & Jerk",
+    aliases: ["c&j", "clean and jerk", "grace"],
+    family: "olympic",
+    hub: false,
+    pattern: "hinge",
+    muscles: [
+      { m: "quads", role: "primary", contribution: 0.7 },
+      { m: "front_delt", role: "primary", contribution: 0.7 },
+      { m: "traps", role: "secondary", contribution: 0.6 },
+      { m: "glutes", role: "secondary", contribution: 0.5 },
+      { m: "triceps", role: "secondary", contribution: 0.3 }
+    ],
+    requires: { any: [ { all: [ {cap:"barbell"} ] } ] },
+    load_unit: "total_bar_load",
+    load_portability: "absolute",
+    profile: { resistance_peak: "mid", stretch_emphasis: 2, rom_score: 4, shortened_overload: 2 },
+    ratings: { rp_tier: {quads:"F", front_delt:"D", traps:"D", glutes:"F", triceps:"F"}, sfr: 1, target_specificity: 1, stability_demand: 5, technique_demand: 5, injury_risk: 3, setup_cost: 2 },
+    fatigue: { systemic: 5, local: 3 },
+    unilateral: false, unilateral_capable: false, failure_safe: false,
+    rep_suitability: { "5_8": 1.0, "8_12": 0.6, "12_20": 0.2, "20_30": 0.1 },
+    ratio_anchors: { bb_front_squat: {r:0.6, c:0.2} }
+  },
+  {
+    id: "handstand_pushup",
+    name: "Handstand Push-Up",
+    aliases: ["hspu", "kipping hspu"],
+    family: "vertical_press",
+    hub: false,
+    pattern: "vertical_press",
+    muscles: [
+      { m: "front_delt", role: "primary", contribution: 1.0 },
+      { m: "triceps", role: "primary", contribution: 0.7 },
+      { m: "side_delt", role: "secondary", contribution: 0.4 }
+    ],
+    requires: { any: [ { all: [ {cap:"bodyweight_only"} ] } ] },
+    load_unit: "bodyweight_plus",
+    load_portability: "bodyweight",
+    profile: { resistance_peak: "stretch", stretch_emphasis: 3, rom_score: 4, shortened_overload: 3 },
+    ratings: { rp_tier: {front_delt:"B", triceps:"C", side_delt:"D"}, sfr: 3, target_specificity: 3, stability_demand: 5, technique_demand: 5, injury_risk: 3, setup_cost: 1 },
+    fatigue: { systemic: 3, local: 4 },
+    unilateral: false, unilateral_capable: false, failure_safe: false,
+    rep_suitability: { "5_8": 1.0, "8_12": 0.9, "12_20": 0.4, "20_30": 0.1 },
+    ratio_anchors: { bb_ohp: {r:0.9, c:0.2} }
+  },
+  {
+    id: "double_under",
+    name: "Double-Under",
+    aliases: ["dubs", "jump rope", "skipping"],
+    family: "conditioning",
+    hub: false,
+    pattern: "calf",
+    muscles: [
+      { m: "calves", role: "primary", contribution: 0.5 },
+      { m: "forearms", role: "secondary", contribution: 0.2 }
+    ],
+    requires: { any: [ { all: [ {cap:"jump_rope"} ] } ] },
+    load_unit: "bodyweight_plus",
+    load_portability: "bodyweight",
+    profile: { resistance_peak: "shortened", stretch_emphasis: 1, rom_score: 2, shortened_overload: 3 },
+    ratings: { rp_tier: {calves:"F", forearms:"F"}, sfr: 1, target_specificity: 1, stability_demand: 3, technique_demand: 4, injury_risk: 1, setup_cost: 1 },
+    fatigue: { systemic: 3, local: 3 },
+    unilateral: false, unilateral_capable: false, failure_safe: true,
+    rep_suitability: { "5_8": 0.1, "8_12": 0.2, "12_20": 0.6, "20_30": 1.0 },
+    ratio_anchors: {}
+  },
+  {
+    id: "run",
+    name: "Run",
+    aliases: ["running", "400m run", "sprint"],
+    family: "conditioning",
+    hub: false,
+    pattern: "lunge",
+    distance: true,
+    muscles: [
+      { m: "quads", role: "primary", contribution: 0.4 },
+      { m: "calves", role: "secondary", contribution: 0.4 },
+      { m: "hamstrings", role: "secondary", contribution: 0.3 }
+    ],
+    requires: { any: [ { all: [ {cap:"run_space"} ] } ] },
+    load_unit: "bodyweight_plus",
+    load_portability: "bodyweight",
+    profile: { resistance_peak: "mid", stretch_emphasis: 1, rom_score: 2, shortened_overload: 1 },
+    ratings: { rp_tier: {quads:"F", calves:"F", hamstrings:"F"}, sfr: 1, target_specificity: 1, stability_demand: 2, technique_demand: 1, injury_risk: 1, setup_cost: 1 },
+    fatigue: { systemic: 4, local: 2 },
+    unilateral: false, unilateral_capable: false, failure_safe: true,
+    rep_suitability: { "5_8": 0.1, "8_12": 0.1, "12_20": 0.3, "20_30": 1.0 },
+    ratio_anchors: {}
+  },
+  {
+    id: "row_erg",
+    name: "Row (Erg)",
+    aliases: ["rower", "concept2", "erg"],
+    family: "conditioning",
+    hub: false,
+    pattern: "horizontal_pull",
+    distance: true,
+    muscles: [
+      { m: "back", role: "primary", contribution: 0.5 },
+      { m: "quads", role: "secondary", contribution: 0.4 },
+      { m: "biceps", role: "secondary", contribution: 0.2 }
+    ],
+    requires: { any: [ { all: [ {cap:"rower"} ] } ] },
+    load_unit: "bodyweight_plus",
+    load_portability: "bodyweight",
+    profile: { resistance_peak: "mid", stretch_emphasis: 2, rom_score: 3, shortened_overload: 2 },
+    ratings: { rp_tier: {back:"F", quads:"F", biceps:"F"}, sfr: 1, target_specificity: 1, stability_demand: 2, technique_demand: 2, injury_risk: 1, setup_cost: 1 },
+    fatigue: { systemic: 4, local: 2 },
+    unilateral: false, unilateral_capable: false, failure_safe: true,
+    rep_suitability: { "5_8": 0.1, "8_12": 0.1, "12_20": 0.3, "20_30": 1.0 },
+    ratio_anchors: {}
   }
 
 ];

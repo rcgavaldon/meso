@@ -47,5 +47,13 @@ window.MESO_DEMO_ALIAS = {
   "situp": "reverse_crunch",          // trunk flexion; the clip shows the motion
   "bb_thruster": "bb_front_squat",    // front-rack squat drive — the press is the finish
   "hanging_leg_raise": "reverse_crunch",
-  "farmers_carry": "bb_shrug"
+  "farmers_carry": "bb_shrug",
+  // CrossFit movements. Only aliased where a sibling honestly shows the motion —
+  // running, rowing and rope work have NO analog in the library, so they're left
+  // unaliased on purpose and fall through to the quiet "no demo" note. A misleading
+  // clip is worse than none.
+  "kb_swing": "bb_rdl",                  // ballistic hip hinge — the RDL clip is the pattern
+  "wall_ball": "bb_front_squat",         // front-loaded squat drive; the throw is the finish
+  "handstand_pushup": "bb_ohp",          // vertical press, inverted
+  "clean_and_jerk": "bb_ohp"             // shows the overhead lockout ONLY — no clip has the pull or catch
 };

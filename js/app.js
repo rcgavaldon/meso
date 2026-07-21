@@ -1469,10 +1469,16 @@ const CIRCUITS = [
     rounds: 3,
     items: [ {exId:"reverse_crunch", reps:20}, {exId:"standing_calf_raise", reps:20} ], finisher: [] },
 
-  /* ---- Real CrossFit benchmark WODs ("The Girls"), picked for Robert's garage (pull-up bar,
-     barbell, floor — no kettlebell/rower/rope, so Helen/Annie/Karen are out) and for the caliber he
-     liked: high-rep, full-body, leaves you sore. AMRAP/EMOM round counts are ESTIMATES so they can
-     be logged as sets — use + / − Add set to match what you actually got. ---- */
+  /* ---- Real CrossFit benchmark WODs ("The Girls"). Definitions are the published standards, not
+     from memory — sources in the commit message.
+
+     The first block needs nothing but a pull-up bar, a barbell and floor, so they work in the
+     garage. The second block (`gym: true`) needs kettlebell / rope / wall ball / rower / room to
+     run — Robert has those at the gyms he goes to, so they're in, but they're grouped separately
+     because they're NOT doable at home.
+
+     AMRAP/EMOM round counts are ESTIMATES so the work can be logged as sets — use + / − Add set to
+     match what you actually got. ---- */
   { id: "cindy", wod: true, name: "Cindy — 20 min AMRAP",
     note: "5 pull-ups · 10 push-ups · 15 air squats, as many rounds as you can in 20 min. Best all-rounder: back, chest, legs in the shortest honest session. Logged at 15 rounds — adjust to your real count.",
     rounds: 15,
@@ -1496,7 +1502,38 @@ const CIRCUITS = [
   { id: "fran", wod: true, name: "Fran — 21-15-9",
     note: "Thrusters (95 lb) + pull-ups, 21-15-9 for time. Usually under 10 minutes — the shortest, nastiest option when you're tight on time.",
     rounds: 3,
-    items: [ {exId:"bb_thruster", scheme:[21,15,9], load:95}, {exId:"pullup", scheme:[21,15,9]} ], finisher: [] }
+    items: [ {exId:"bb_thruster", scheme:[21,15,9], load:95}, {exId:"pullup", scheme:[21,15,9]} ], finisher: [] },
+
+  /* ---- Gym-only: these need kit that isn't in the garage. ---- */
+  { id: "helen", wod: true, gym: true, name: "Helen — 3 rounds",
+    note: "400 m run · 21 kettlebell swings (50 lb) · 12 pull-ups × 3. Needs a kettlebell and room to run. Around 8–12 min — a short one with a real engine cost.",
+    rounds: 3,
+    items: [ {exId:"run", reps:400}, {exId:"kb_swing", reps:21, load:50}, {exId:"pullup", reps:12} ], finisher: [] },
+
+  { id: "annie", wod: true, gym: true, name: "Annie — 50-40-30-20-10",
+    note: "Double-unders + sit-ups, descending. Needs a rope. Mostly abs and calves — a good short day that won't touch your lifting.",
+    rounds: 5,
+    items: [ {exId:"double_under", scheme:[50,40,30,20,10]}, {exId:"situp", scheme:[50,40,30,20,10]} ], finisher: [] },
+
+  { id: "karen", wod: true, gym: true, name: "Karen — 150 wall balls",
+    note: "150 wall ball shots (20 lb) for time. Needs a wall ball. Brutal on quads and front delts and nothing else — logged as 10 sets of 15.",
+    rounds: 10,
+    items: [ {exId:"wall_ball", reps:15, load:20} ], finisher: [] },
+
+  { id: "jackie", wod: true, gym: true, name: "Jackie — row, thrusters, pull-ups",
+    note: "1000 m row · 50 thrusters (45 lb — empty bar) · 30 pull-ups, for time. Needs a rower. Light bar, high reps; usually 7–12 min.",
+    rounds: 1,
+    items: [ {exId:"row_erg", reps:1000}, {exId:"bb_thruster", reps:50, load:45}, {exId:"pullup", reps:30} ], finisher: [] },
+
+  { id: "grace", wod: true, gym: true, name: "Grace — 30 clean & jerks",
+    note: "30 clean & jerks at 135 lb for time. Technical Olympic lifting — only worth doing if you're confident in the movement. Logged as 3 sets of 10; most people do singles.",
+    rounds: 3,
+    items: [ {exId:"clean_and_jerk", reps:10, load:135} ], finisher: [] },
+
+  { id: "diane", wod: true, gym: true, name: "Diane — 21-15-9",
+    note: "Deadlifts (225 lb) + handstand push-ups, 21-15-9. The heaviest thing here and the one most likely to fry you for your next lower day — 45 deadlifts at 225 is real spinal load.",
+    rounds: 3,
+    items: [ {exId:"conventional_deadlift", scheme:[21,15,9], load:225}, {exId:"handstand_pushup", scheme:[21,15,9]} ], finisher: [] }
 ];
 
 const primaryMuscleOf = exId => {
@@ -1508,7 +1545,8 @@ const primaryMuscleOf = exId => {
 function circuitSets(c) {
   const out = [];
   const mk = (exId, reps, round, load) => ({ id: uid(), exId, muscle: primaryMuscleOf(exId), repRange: [12, 30],
-    targetReps: reps, reps: null, load: load || null, targetLoad: load || null, rir: 2, done: false, circuit: c.id, round });
+    targetReps: reps, reps: null, load: load || null, targetLoad: load || null, rir: 2, done: false, circuit: c.id, round,
+    dist: !!(LIB().find(e => e.id === exId) || {}).distance });
   for (let r = 1; r <= c.rounds; r++) for (const it of c.items)
     out.push(mk(it.exId, it.scheme ? it.scheme[r - 1] : it.reps, r, it.load));
   for (const f of (c.finisher || [])) for (let i = 0; i < f.sets; i++) out.push(mk(f.exId, f.reps, null, f.load));
@@ -1522,8 +1560,10 @@ function circuitSheet() {
     <div class="sm dim" style="margin:6px 0 12px">Ready-to-go sessions for a short day. Loads into today's workout — your plan stays as it is.</div>
     <h4 style="margin:14px 0 6px">Circuits</h4>
     ${CIRCUITS.filter(c => !c.wod).map(row).join("")}
-    <h4 style="margin:18px 0 6px">CrossFit benchmarks <span class="dim sm" style="font-weight:400">— "The Girls"</span></h4>
-    ${CIRCUITS.filter(c => c.wod).map(row).join("")}
+    <h4 style="margin:18px 0 6px">CrossFit benchmarks <span class="dim sm" style="font-weight:400">— anywhere</span></h4>
+    ${CIRCUITS.filter(c => c.wod && !c.gym).map(row).join("")}
+    <h4 style="margin:18px 0 6px">CrossFit benchmarks <span class="dim sm" style="font-weight:400">— needs a gym</span></h4>
+    ${CIRCUITS.filter(c => c.wod && c.gym).map(row).join("")}
     <div class="sheet-ft"><button id="cc">Cancel</button></div>`);
   $("#cc").onclick = closeSheet;
   document.querySelectorAll("[data-circ]").forEach(r => r.onclick = () => startCircuit(r.dataset.circ));
@@ -1852,6 +1892,9 @@ function drawSet(st, isNext) {
   </div>`;
 }
 function targetStrip(st, u) {
+  // Runs and rows are measured in METRES, not reps — the rep box is the distance, and asking
+  // a runner to "choose a weight for 400 at 2 RIR" is nonsense.
+  if (st.dist) return `<span class="dim"><b>${st.targetReps} m</b> — distance, not reps. Log the metres you covered.</span>`;
   if (st.warmup) return `<span class="dim">Warm-up — <b>${st.targetLoad} ${u}</b> × <b>${st.targetReps}</b>. Not to failure; you're greasing the groove, not spending stimulus.</span>`;
   if (st.targetLoad == null) return `<span class="dim">Choose your starting weight — warm up, then pick something you can hit for ${st.targetReps || 10} at ${st.rir} RIR.</span>`;
   return `We recommend <b>${st.targetLoad} ${u}</b> × <b>${st.targetReps}</b> at <b>${st.rir} RIR</b>`;
@@ -1859,7 +1902,8 @@ function targetStrip(st, u) {
 const PRETTY = { barbell:"Barbell", dumbbell:"Dumbbell", cable:"Cable", machine:"Machine", smith:"Smith Machine",
   bodyweight_only:"Bodyweight", bodyweight_loadable:"Bodyweight (loadable)", machine_assistance:"Machine Assistance",
   band:"Band", adjustable_bench:"Bench", bench:"Bench", freemotion:"Freemotion", squat_rack:"Rack",
-  pullup_bar:"Pull-up Bar", dip_station:"Dip Station", preacher_bench:"Preacher", ghd:"GHD", landmine:"Landmine" };
+  pullup_bar:"Pull-up Bar", dip_station:"Dip Station", preacher_bench:"Preacher", ghd:"GHD", landmine:"Landmine",
+  kettlebell:"Kettlebell", wall_ball:"Wall Ball", jump_rope:"Jump Rope", rower:"Rower", run_space:"Running Space" };
 
 /**
  * Label the equipment that ACTUALLY resolved at this gym — not the first cap in the schema.
@@ -2796,7 +2840,8 @@ function showSummary(s, notes) {
   for (const x of work) { let e = byEx.find(y => y.exId === x.exId); if (!e) byEx.push(e = { exId: x.exId, sets: [] }); e.sets.push(x); }
   const hits = byEx.map(e => ({
     name: (LIB().find(l => l.id === e.exId) || {}).name || e.exId,
-    line: e.sets.map(x => `${x.load}×${x.reps}`).join(" · ")
+    // Distance work has no load ("null×400" is nonsense) and bodyweight work legitimately has none.
+    line: e.sets.map(x => x.dist ? `${x.reps} m` : (x.load == null ? `${x.reps}` : `${x.load}×${x.reps}`)).join(" · ")
   }));
 
   // Up next — where the program advances to (finishWorkout already advanced the clock).
