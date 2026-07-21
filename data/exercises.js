@@ -1968,6 +1968,56 @@ window.MESO_EXERCISES = [
     ratio_anchors: { bb_back_squat: {r:0.2, c:0.15} }
   },
 
+  /* [Robert] Plyometrics — his leg circuits run on these and the library had none, so a round-based
+     leg day couldn't be logged at all. Bodyweight, high-rep, higher systemic cost than their
+     grounded cousins. */
+  {
+    id: "jumping_lunge",
+    name: "Jumping Lunge",
+    aliases: ["split jump", "plyo lunge", "jump lunge", "alternating jump lunge"],
+    family: "lunge",
+    hub: false,
+    pattern: "lunge",
+    muscles: [
+      { m: "quads", role: "primary", contribution: 1.0 },
+      { m: "glutes", role: "primary", contribution: 0.7 },
+      { m: "hamstrings", role: "secondary", contribution: 0.3 },
+      { m: "calves", role: "secondary", contribution: 0.35 }
+    ],
+    requires: { any: [ { all: [ {cap:"bodyweight_only"} ] } ] },
+    load_unit: "bodyweight_plus",
+    load_portability: "absolute",
+    profile: { resistance_peak: "stretch", stretch_emphasis: 3, rom_score: 4, shortened_overload: 2 },
+    ratings: { rp_tier: {quads:"C", glutes:"C", hamstrings:"D", calves:"D"}, sfr: 3, target_specificity: 2, stability_demand: 4, technique_demand: 2, injury_risk: 2, setup_cost: 1 },
+    fatigue: { systemic: 3, local: 3 },
+    unilateral: false, unilateral_capable: true, failure_safe: true,
+    rep_suitability: { "5_8": 0.1, "8_12": 0.4, "12_20": 0.9, "20_30": 1.0 },
+    ratio_anchors: { walking_lunge: {r:0.3, c:0.15} }
+  },
+
+  {
+    id: "jump_squat",
+    name: "Jump Squat",
+    aliases: ["squat jump", "plyo squat"],
+    family: "squat",
+    hub: false,
+    pattern: "squat",
+    muscles: [
+      { m: "quads", role: "primary", contribution: 1.0 },
+      { m: "glutes", role: "primary", contribution: 0.6 },
+      { m: "calves", role: "secondary", contribution: 0.4 }
+    ],
+    requires: { any: [ { all: [ {cap:"bodyweight_only"} ] } ] },
+    load_unit: "bodyweight_plus",
+    load_portability: "absolute",
+    profile: { resistance_peak: "stretch", stretch_emphasis: 3, rom_score: 3, shortened_overload: 2 },
+    ratings: { rp_tier: {quads:"C", glutes:"D", calves:"D"}, sfr: 3, target_specificity: 2, stability_demand: 3, technique_demand: 2, injury_risk: 2, setup_cost: 1 },
+    fatigue: { systemic: 3, local: 3 },
+    unilateral: false, unilateral_capable: false, failure_safe: true,
+    rep_suitability: { "5_8": 0.2, "8_12": 0.6, "12_20": 1.0, "20_30": 0.8 },
+    ratio_anchors: { bb_back_squat: {r:0.2, c:0.15} }
+  },
+
   {
     id: "belt_squat",
     name: "Belt Squat",

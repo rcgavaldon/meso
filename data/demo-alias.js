@@ -42,6 +42,8 @@ window.MESO_DEMO_ALIAS = {
   // The last three without their own clip borrow their closest movement sibling that has one,
   // so every exercise now shows an animation. (Probed Cloudinary: these 3 were the only gaps.)
   "bw_squat": "bb_back_squat",
+  "jumping_lunge": "walking_lunge",   // same lunge motion; the name says it's a jump
+  "jump_squat": "bb_back_squat",
   "hanging_leg_raise": "reverse_crunch",
   "farmers_carry": "bb_shrug"
 };

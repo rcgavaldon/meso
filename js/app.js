@@ -1246,6 +1246,7 @@ function todayCard(day, s) {
          </div>`
       : `<div style="padding:0 14px 14px">
            <button class="btn wide" id="start">${hasProgress ? "Resume" : "Start"} ${esc(day.name)}</button>
+           <button class="btn ghost wide" id="quickw" style="margin-top:8px">⚡ Quick workout — circuits</button>
            <button class="btn ghost wide" id="markdone" style="margin-top:8px">Did it but didn't log? Mark done</button>
          </div>`}
   </div>`;
@@ -1443,6 +1444,67 @@ async function markDayDone() {
   S.openWorkout = false;              // land on the day chooser for the next day
   toast("Marked done — no volume logged"); go("today");
   syncNow(true).catch(() => {});
+}
+
+/* [Robert] QUICK WORKOUTS — round-based circuits, the way he actually trained his leg day ("5 rounds
+   of 20 squats, 20 split lunges, 20 jumping lunges, 10 jump squats, then calves and leg raises").
+   That isn't straight sets, so the planner can't express it: a circuit is N ROUNDS through a list,
+   which we flatten to one set per exercise per round (5 rounds → 5 sets each). Each preset covers
+   the main muscles for its region. Loading one replaces TODAY'S session only — the plan is untouched,
+   so next week rebuilds normally. */
+const CIRCUITS = [
+  { id: "legs5", name: "Leg circuit — 5 rounds", note: "Squats, split lunges, jumping lunges, jump squats. Quads, glutes, hams, calves.",
+    rounds: 5,
+    items: [ {exId:"bw_squat", reps:20}, {exId:"reverse_lunge", reps:20}, {exId:"jumping_lunge", reps:20}, {exId:"jump_squat", reps:10} ],
+    finisher: [ {exId:"standing_calf_raise", sets:3, reps:20}, {exId:"reverse_crunch", sets:3, reps:15} ] },
+  { id: "full4", name: "Full body circuit — 4 rounds", note: "Push, pull, squat, lunge. Hits nearly every main group.",
+    rounds: 4,
+    items: [ {exId:"pushup", reps:15}, {exId:"bw_squat", reps:20}, {exId:"pullup", reps:8}, {exId:"walking_lunge", reps:20} ],
+    finisher: [ {exId:"reverse_crunch", sets:3, reps:15} ] },
+  { id: "upper4", name: "Upper circuit — 4 rounds", note: "Chest, back, shoulders, arms.",
+    rounds: 4,
+    items: [ {exId:"pushup", reps:15}, {exId:"pullup", reps:8}, {exId:"dip", reps:10}, {exId:"incline_db_curl", reps:12} ],
+    finisher: [ {exId:"db_lateral_raise", sets:3, reps:15} ] },
+  { id: "core3", name: "Core & calves — 3 rounds", note: "A short finisher for abs and calves.",
+    rounds: 3,
+    items: [ {exId:"reverse_crunch", reps:20}, {exId:"standing_calf_raise", reps:20} ], finisher: [] }
+];
+
+const primaryMuscleOf = exId => {
+  const ex = LIB().find(e => e.id === exId) || {};
+  return ((ex.muscles || []).find(m => m.role === "primary") || {}).m || "quads";
+};
+/** Flatten a circuit into session sets: one set per exercise per round, then the finisher. */
+function circuitSets(c) {
+  const out = [];
+  const mk = (exId, reps, round) => ({ id: uid(), exId, muscle: primaryMuscleOf(exId), repRange: [12, 30],
+    targetReps: reps, reps: null, load: null, targetLoad: null, rir: 2, done: false, circuit: c.id, round });
+  for (let r = 1; r <= c.rounds; r++) for (const it of c.items) out.push(mk(it.exId, it.reps, r));
+  for (const f of (c.finisher || [])) for (let i = 0; i < f.sets; i++) out.push(mk(f.exId, f.reps, null));
+  return out;
+}
+function circuitSheet() {
+  sheet(`<h3>Quick workout</h3>
+    <div class="sm dim" style="margin:6px 0 12px">Round-based circuits that cover the main muscles. Loads into today's workout — your plan stays as it is.</div>
+    ${CIRCUITS.map(c => `<div class="row pick" data-circ="${c.id}"><div class="grow">
+      <div class="lead">${esc(c.name)}</div>
+      <div class="sm dim" style="margin-top:3px">${esc(c.note)}</div></div></div>`).join("")}
+    <div class="sheet-ft"><button id="cc">Cancel</button></div>`);
+  $("#cc").onclick = closeSheet;
+  document.querySelectorAll("[data-circ]").forEach(r => r.onclick = () => startCircuit(r.dataset.circ));
+}
+async function startCircuit(id) {
+  const c = CIRCUITS.find(x => x.id === id); if (!c || !S.session) return;
+  if (S.session.sets.some(x => x.done) &&
+      !confirm("Replace today's workout with this circuit?\n\nSets you've already logged today will be cleared.")) return;
+  S.session.sets = circuitSets(c);
+  S.session.circuit = c.id;
+  delete S.session.beganAt; delete S.session.pausedAt;
+  await DB.put("session", S.session);
+  syncNow(true).catch(() => {});
+  closeSheet();
+  toast(`${c.name} loaded`);
+  redraw();
 }
 
 /* Redraw the workout in whichever mode is active. Set-logging, add/remove set, and quick-fill all
@@ -1906,6 +1968,7 @@ Extra session at this week's level — it counts toward your volume and won't sk
   const pz = $("#pause"); if (pz) pz.onclick = () => S.session.pausedAt ? resumeClock() : pauseClock();
   const ex = $("#exit"); if (ex) ex.onclick = exitWorkout;
   const md = $("#markdone"); if (md) md.onclick = markDayDone;
+  const qw = $("#quickw"); if (qw) qw.onclick = circuitSheet;
   v.querySelectorAll("[data-addset]").forEach(b => b.onclick = () => addSet(b.dataset.addset));
   v.querySelectorAll("[data-rmset]").forEach(b => b.onclick = () => removeSet(b.dataset.rmset));
   v.querySelectorAll("[data-ss]").forEach(b => b.onclick = () => supersetExercise(b.dataset.ss));
