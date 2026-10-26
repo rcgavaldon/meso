@@ -330,6 +330,8 @@ function resumeVolume(muscle, emphasis) {
  * recovery sessions (above). Don't build a "hit MRV → deload" branch.
  * ================================================================ */
 function rirForWeek(week, totalWeeks, opts) {
+  // Week 0 is the lean-bulk BASELINE/calibration week: a fixed 2 RIR, feel-out, not on the ramp.
+  if (week <= 0) return (opts && opts.rirStart) || CFG.rirStart;
   const A = totalWeeks - 1;                    // accumulation weeks; last is deload
   if (week > A) return 5;                      // [PUB] deload RIR is 5+
   const start = (opts && opts.rirStart) || CFG.rirStart;
@@ -1993,6 +1995,101 @@ function e1rmTrend(sessions, exId, slotRir) {
 }
 
 /* ================================================================
+ * BODYWEIGHT / LEAN-BULK TRACKING
+ *
+ * [Robert, Oct 2026] A lean bulk is run off the SCALE, not the barbell: the bodyweight trend is
+ * the controller and calories are the actuator. The scale swings ±4 lb day to day on water and
+ * food, so NOTHING here trusts a single reading — every number is built on a trailing average.
+ *
+ *   target band   0.25-0.75 lb/wk   (aim +0.5)
+ *   every 2 wks    < 0.25 → +150 kcal ·  in band → hold  ·  > 0.75 → −150 kcal
+ * ================================================================ */
+const BULK = {
+  rateBand: [0.25, 0.75],   // lb/week — the band a lean bulk should sit in
+  rateAim: 0.5,
+  kcalStep: 150,            // the ±150 kcal nudge
+  checkEveryDays: 14,       // reassess calories every 2 weeks
+  staleDays: 7,             // no weigh-in in a week → nudge; silent gaps are useless data
+  waistGainStop: [1.5, 2]   // waist +1.5-2 in = enough fat gained, end the bulk
+};
+
+/* Trailing average of the LAST `days` days up to (and including) the newest reading. Not a simple
+   mean of the last N rows — if he weighs in daily most days and skips a couple, a row count would
+   silently widen the window. Keyed on the date so a gap is a gap. */
+function trailingAvg(entries, days) {
+  if (!entries || !entries.length) return null;
+  const sorted = entries.slice().sort((a, b) => (a.date < b.date ? -1 : 1));
+  const end = new Date(sorted[sorted.length - 1].date + "T00:00:00");
+  const start = end - (days - 1) * 864e5;
+  const win = sorted.filter(e => new Date(e.date + "T00:00:00") >= start);
+  if (!win.length) return null;
+  return win.reduce((s, e) => s + e.lb, 0) / win.length;
+}
+
+/* The rate of gain in lb/week, as the SLOPE of a least-squares line through the daily readings in
+   the trailing window — not (last − first)/weeks, which two noisy endpoints can send anywhere.
+   Needs a real span (≥7 days, ≥4 readings) or it refuses rather than report a rate off three days
+   of water weight. */
+function gainRate(entries, windowDays) {
+  if (!entries || entries.length < 4) return null;
+  const sorted = entries.slice().sort((a, b) => (a.date < b.date ? -1 : 1));
+  const end = new Date(sorted[sorted.length - 1].date + "T00:00:00");
+  const start = end - ((windowDays || 14) - 1) * 864e5;
+  const win = sorted.filter(e => new Date(e.date + "T00:00:00") >= start);
+  if (win.length < 4) return null;
+  const t0 = new Date(win[0].date + "T00:00:00");
+  const spanDays = (new Date(win[win.length - 1].date + "T00:00:00") - t0) / 864e5;
+  if (spanDays < 7) return null;
+  // least-squares slope of lb vs day
+  const xs = win.map(e => (new Date(e.date + "T00:00:00") - t0) / 864e5);
+  const ys = win.map(e => e.lb);
+  const n = xs.length, mx = xs.reduce((a, b) => a + b, 0) / n, my = ys.reduce((a, b) => a + b, 0) / n;
+  let num = 0, den = 0;
+  for (let i = 0; i < n; i++) { num += (xs[i] - mx) * (ys[i] - my); den += (xs[i] - mx) ** 2; }
+  if (den === 0) return null;
+  return (num / den) * 7;   // per-day slope → per-week
+}
+
+/* The calorie decision from a measured weekly rate, using the band above. `null` rate (not enough
+   data yet) → hold and say so. Returns the direction, the kcal delta, and a plain-language line. */
+function calorieRec(ratePerWk, curKcal) {
+  const [lo, hi] = BULK.rateBand;
+  if (ratePerWk == null)
+    return { dir: 0, delta: 0, next: curKcal || null, status: "wait",
+             line: "Not enough weigh-ins yet to read a rate. Keep logging." };
+  if (ratePerWk < lo)
+    return { dir: 1, delta: BULK.kcalStep, next: (curKcal || 0) + BULK.kcalStep, status: "low",
+             line: `Gaining ${ratePerWk.toFixed(2)} lb/wk — under the ${lo} floor. Add ${BULK.kcalStep} kcal.` };
+  if (ratePerWk > hi)
+    return { dir: -1, delta: -BULK.kcalStep, next: (curKcal || 0) - BULK.kcalStep, status: "high",
+             line: `Gaining ${ratePerWk.toFixed(2)} lb/wk — over the ${hi} ceiling. Cut ${BULK.kcalStep} kcal.` };
+  return { dir: 0, delta: 0, next: curKcal || null, status: "ok",
+           line: `Gaining ${ratePerWk.toFixed(2)} lb/wk — right in the ${lo}-${hi} band. Hold.` };
+}
+
+/* Everything the bodyweight card/screen needs, from the raw weigh-in rows. Pure — no DB, no DOM —
+   so it unit-tests and never touches live data. */
+function weighInStats(entries, opts) {
+  opts = opts || {};
+  const rows = (entries || []).filter(e => e && e.date && e.lb > 0);
+  if (!rows.length) return { count: 0 };
+  const sorted = rows.slice().sort((a, b) => (a.date < b.date ? -1 : 1));
+  const latest = sorted[sorted.length - 1];
+  const avg7 = trailingAvg(sorted, 7);
+  const rate = gainRate(sorted, 14);
+  const daysSince = Math.floor((Date.now() - new Date(latest.date + "T00:00:00")) / 864e5);
+  const waistRows = sorted.filter(e => e.waist > 0);
+  return {
+    count: sorted.length, latest, avg7, rate,
+    stale: daysSince >= BULK.staleDays, daysSince,
+    inBand: rate != null && rate >= BULK.rateBand[0] && rate <= BULK.rateBand[1],
+    rec: calorieRec(rate, opts.kcal),
+    waistFirst: waistRows[0] || null, waistLast: waistRows[waistRows.length - 1] || null,
+    baselineAvg: opts.baselineLb || avg7
+  };
+}
+
+/* ================================================================
  * SELF-CHECK — RP's published rules must come out right. Run ENGINE.verify().
  * ================================================================ */
 function verify() {
@@ -2467,6 +2564,29 @@ function verify() {
   eq("countableSet rejects RIR 5 (the deload gate)", countableSet({done:true,load:100,reps:5,rir:5}), false);
   eq("countableSet rejects a 3-rep set [PUB: 5-30]", countableSet({done:true,load:100,reps:3,rir:1}), false);
 
+  /* ================= BODYWEIGHT / BULK ================= */
+  // A clean +0.5 lb/wk ramp: 15 daily readings, 155.0 → 156.0 over 14 days.
+  const wk = [];
+  for (let i = 0; i < 15; i++) {
+    const d = new Date("2026-11-02T00:00:00"); d.setDate(d.getDate() + i);
+    wk.push({ date: d.toISOString().slice(0, 10), lb: +(155 + i * (1 / 14)).toFixed(1) });
+  }
+  ok("gainRate reads ~0.5 lb/wk on a clean +0.5 ramp",
+     Math.abs(gainRate(wk, 14) - 0.5) < 0.08, gainRate(wk, 14));
+  eq("in-band rate → hold", calorieRec(0.5, 2400).status, "ok");
+  eq("...and does not change the target", calorieRec(0.5, 2400).next, 2400);
+  eq("slow gain → add 150", calorieRec(0.1, 2400).next, 2550);
+  eq("fast gain → cut 150", calorieRec(0.9, 2400).next, 2250);
+  eq("no data → wait, never a blind change", calorieRec(null, 2400).status, "wait");
+  ok("a single reading refuses to report a rate (±4 lb daily noise)",
+     gainRate([{ date: "2026-11-02", lb: 155 }], 14) === null);
+  ok("3 days is too short a span to claim a weekly rate",
+     gainRate([{date:"2026-11-02",lb:155},{date:"2026-11-03",lb:157},{date:"2026-11-04",lb:154},{date:"2026-11-05",lb:156}], 14) === null);
+  ok("7-day trailing avg smooths a one-day spike",
+     Math.abs(trailingAvg([{date:"2026-11-01",lb:155},{date:"2026-11-02",lb:155},{date:"2026-11-03",lb:163}], 7) - 157.67) < 0.1);
+  eq("stats flags a stale log after a week with no weigh-in",
+     weighInStats([{ date: "2020-01-01", lb: 155 }]).stale, true);
+
   const fails = t.filter(x => !x.ok);
   console.table(t.map(x => ({ test: x.n, ok: x.ok ? "✅" : "❌", got: JSON.stringify(x.got) })));
   console.log(fails.length ? `❌ ${fails.length}/${t.length} FAILED` : `✅ all ${t.length} passed`);
@@ -2492,6 +2612,8 @@ return {
   // progress
   countableSet, trendKey, e1rmSeries, keysForMuscle, smooth3, trendFit,
   volumeByWeek, bandState, replayPRs, e1rmTrend,
+  // bodyweight / lean bulk
+  BULK, trailingAvg, gainRate, calorieRec, weighInStats,
   verify
 };
 })();

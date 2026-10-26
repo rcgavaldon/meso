@@ -9,7 +9,7 @@
  * The phone is a cache. The Sheet is the system of record. See sync() in app.js.
  */
 window.DB = (() => {
-  const NAME = "meso", VER = 1;
+  const NAME = "meso", VER = 2;
   let _db = null;
 
   function open() {
@@ -47,6 +47,13 @@ window.DB = (() => {
         // away every mesocycle. Keyed separately so it SURVIVES meso boundaries.
         if (!db.objectStoreNames.contains("loadState")) {
           db.createObjectStore("loadState", { keyPath: "k" });
+        }
+        // weighin: morning bodyweight log (date + lb + optional waist). One row per (user, date);
+        // the id IS user|date so a second weigh-in on the same day overwrites rather than doubles.
+        // Added in VER 2 — the guard means an existing phone upgrades without touching its data.
+        if (!db.objectStoreNames.contains("weighin")) {
+          const s = db.createObjectStore("weighin", { keyPath: "id" });
+          s.createIndex("user", "userId");
         }
       };
       r.onsuccess = done(() => {
@@ -104,13 +111,13 @@ window.DB = (() => {
 
   /* Full per-user export — what gets snapshotted to the Sheet and what "Export JSON" writes. */
   async function exportUser(userId) {
-    const [mesos, sessions, loads, kv] = await Promise.all([
+    const [mesos, sessions, loads, weighins, kv] = await Promise.all([
       all("meso", "user", userId), all("session", "user", userId),
-      all("loadState"), all("kv")
+      all("loadState"), all("weighin", "user", userId), all("kv")
     ]);
     return {
       v: 1, userId, at: new Date().toISOString(),
-      mesos, sessions,
+      mesos, sessions, weighins,
       loadState: loads.filter(l => l.k.startsWith(userId + "|")),
       gyms: (kv.find(x => x.k === "gyms") || {}).v || [],
       // ⚠️ A per-user export must be per-user ALL THE WAY DOWN. This used to ship the whole
@@ -128,6 +135,9 @@ window.DB = (() => {
     for (const m of blob.mesos || []) await put("meso", m);
     for (const s of blob.sessions || []) await put("session", s);
     for (const l of blob.loadState || []) await put("loadState", l);
+    // Weigh-ins are id-keyed by (user, date), so a put is a safe upsert — a newer reading for a
+    // day replaces the old one, and days only present locally are left alone (never deleted here).
+    for (const w of blob.weighins || []) await put("weighin", w);
     // MERGE BY ID — never replace the array. Restoring one person must not reach across and
     // rewrite the other. Same reasoning for gyms: they're scope:"household" and shared, so a
     // stale gym blob would quietly undo a freshly-corrected dumbbell range.

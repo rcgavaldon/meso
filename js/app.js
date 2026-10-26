@@ -9,7 +9,7 @@ const uid = () => Math.random().toString(36).slice(2, 9);
 
 const S = {                       // in-memory app state
   tab: "workout", users: [], gyms: [], user: null, gym: null,
-  meso: null, session: null, sessions: [], loadState: {},
+  meso: null, session: null, sessions: [], weighins: [], loadState: {},
   occupied: new Set(), rest: null
 };
 
@@ -318,12 +318,13 @@ const SEED_GYMS = [
 const ADMIN_ID = "rob";
 
 const SEED_USERS = [
-  { id:"rob", name:"Robert", unit:"lb", bodyweight:185,
+  { id:"rob", name:"Robert", unit:"lb", bodyweight:155, kcalTarget:2400,
     // His words: "all upper all lower, 2 of each". scoreSplit prefers fb4; this is his call to make.
-    splitPref:"ul2", goal:"focus", sessionMinutes:60, trainingAge:"advanced",
+    // Oct 2026 lean bulk: trainingAge intermediate for this block; hamstrings promoted to grow.
+    splitPref:"ul2", goal:"focus", sessionMinutes:60, trainingAge:"intermediate",
     emphasis:{ chest:"emphasize", back:"emphasize", side_delt:"emphasize",
-               triceps:"grow", biceps:"grow", quads:"grow",
-               hamstrings:"maintain", glutes:"maintain", rear_delt:"maintain", front_delt:"maintain",
+               triceps:"grow", biceps:"grow", quads:"grow", hamstrings:"grow",
+               glutes:"maintain", rear_delt:"maintain", front_delt:"maintain",
                calves:"maintain", traps:"maintain", forearms:"maintain", abs:"maintain", adductors:"maintain" },
     overrides:{}, injuries:[], learned_ratios:{}, painFlags:{} },
   { id:"nina", name:"Nina", unit:"lb", bodyweight:132,
@@ -451,8 +452,74 @@ function seedMeso(user, gym, days, weeks, splitId) {
     slot.exId = pick.primary.ex.id;
     day.muscles.push({ m, emphasis: user.emphasis[m] || "grow", freq: 1, capPerSession: E.CFG.perSessionMax, slots: [slot] });
   }
+  /* PATTERN GUARANTEE — [Robert, Oct 2026] "the generated plan MUST include a hip hinge
+     (RDL/deadlift/trap-bar) and a horizontal row (chest-supported/cable/DB row)." The muscle
+     coverage above guarantees hamstrings and back are TRAINED, but not with these patterns — a
+     hamstring day could be all leg curls and a back day all pulldowns. So force one of each,
+     picking the best variant this gym can actually do, on a region-appropriate day. */
+  const UPPER_KINDS = new Set(["upper","push","pull","arms"]);
+  const firstDoable = ids => {
+    for (const id of ids) {
+      const ex = LIB().find(e => e.id === id);
+      if (ex && E.resolveEquipment(ex, gym, new Set()).ok) return ex;
+    }
+    return null;
+  };
+  const PATTERN_REQS = [
+    { pattern: "hinge", muscle: "hamstrings", region: "lower",
+      prefer: ["bb_rdl","trap_bar_deadlift","conventional_deadlift","single_leg_rdl","stiff_leg_deadlift","db_rdl"] },
+    { pattern: "horizontal_pull", muscle: "back", region: "upper",
+      prefer: ["chest_supported_row","cable_row","db_row","machine_row","t_bar_row","bb_row","inverted_row"] }
+  ];
+  for (const req of PATTERN_REQS) {
+    const has = meso.days.some(d => d.muscles.some(g => g.slots.some(s => {
+      const ex = LIB().find(e => e.id === s.exId); return ex && ex.pattern === req.pattern;
+    })));
+    if (has) continue;
+    const ex = firstDoable(req.prefer);
+    if (!ex) continue;   // this gym genuinely can't do any variant — don't fake it
+    const regionOk = d => d.kind === "full" ||
+      (req.region === "upper" ? UPPER_KINDS.has(d.kind) : (d.kind === "lower" || d.kind === "legs"));
+    // Prefer a day already training the target muscle; else the least-loaded compatible day.
+    const day = meso.days.filter(regionOk).sort((a, b) => {
+      const at = a.muscles.some(g => g.m === req.muscle), bt = b.muscles.some(g => g.m === req.muscle);
+      if (at !== bt) return at ? -1 : 1;
+      return a.muscles.reduce((x,g)=>x+g.slots.length,0) - b.muscles.reduce((x,g)=>x+g.slots.length,0);
+    })[0];
+    if (!day) continue;
+    const slot = { id: uid(), muscle: req.muscle, exId: ex.id, sets: 3, repRange: [8,12],
+                   position: 1, wanted_profile: "stretch", wants_stretch: true };
+    let grp = day.muscles.find(g => g.m === req.muscle);
+    if (grp) grp.slots.unshift(slot);   // a hinge/row leads the muscle — it's the money movement
+    else day.muscles.push({ m: req.muscle, emphasis: user.emphasis[req.muscle] || "grow",
+                            freq: 1, capPerSession: E.CFG.perSessionMax, slots: [slot] });
+  }
+
   meso.days.forEach(d => d.estMinutes = E.sessionMinutes(d));
   return meso;
+}
+
+/* One-time, idempotent profile migrations. The SEED only applies on a fresh install — an existing
+   phone already has `users` in IndexedDB, so a seed edit never reaches it (Robert called this out
+   explicitly). Each migration is gated by a pref flag so it runs exactly once and never clobbers a
+   value the user has since changed. Never touches sessions, mesos or the Sheet. */
+async function migrate(usersKv) {
+  let changed = false;
+  // bulk-v1 (Oct 2026): Robert's lean-bulk block. Bodyweight 185→155 (his real current weight,
+  // and what the pull-up/dip BW button reads), trainingAge intermediate for this block, hamstrings
+  // promoted to grow, seed a 2,400 kcal target. Applied to the STORED profile, once.
+  if (!DB.pref.get("mig_bulk_v1", false)) {
+    const rob = usersKv.v.find(u => u.id === "rob");
+    if (rob) {
+      if (rob.bodyweight === 185 || rob.bodyweight == null) rob.bodyweight = 155;
+      rob.trainingAge = "intermediate";
+      rob.emphasis = Object.assign({}, rob.emphasis, { hamstrings: "grow" });
+      if (rob.kcalTarget == null) rob.kcalTarget = 2400;
+      changed = true;
+    }
+    DB.pref.set("mig_bulk_v1", true);
+  }
+  if (changed) { await DB.put("kv", usersKv); S.users = usersKv.v; }
 }
 
 /* ============ boot ============ */
@@ -465,6 +532,7 @@ async function boot() {
   let gyms = await DB.get("kv", "gyms");
   if (!gyms) { gyms = { k:"gyms", v: SEED_GYMS }; await DB.put("kv", gyms); }
   S.users = users.v; S.gyms = gyms.v;
+  await migrate(users);
 
   // Personal link: ?u=nina claims this phone for Nina, permanently.
   // We persist it rather than relying on the URL sticking around, because iOS resolves an
@@ -559,10 +627,12 @@ function mesoEmphasis(m) {
 
 async function loadUser() {
   S.openWorkout = undefined;   // new user (boot / coach switch) → re-derive the Today landing vs workout
-  const [mesos, sess, loads] = await Promise.all([
-    DB.all("meso", "user", S.user.id), DB.all("session", "user", S.user.id), DB.all("loadState")
+  const [mesos, sess, loads, weighins] = await Promise.all([
+    DB.all("meso", "user", S.user.id), DB.all("session", "user", S.user.id), DB.all("loadState"),
+    DB.all("weighin", "user", S.user.id)
   ]);
   S.sessions = sess.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+  S.weighins = (weighins || []).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
   S.loadState = {};
   for (const l of loads) if (l.k.startsWith(S.user.id + "|")) S.loadState[l.k] = l;
   S.meso = mesos.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))[0] || null;
@@ -728,7 +798,9 @@ const kindColor = s => (S.meso && KIND_C[(S.meso.days[s.day - 1] || {}).kind]) |
 function weekBoard() {
   const per = S.meso.days.length;
   const doneOn = (w, dn) => S.sessions.some(s => s.mesoId === S.meso.id && s.week === w && s.day === dn && s.finished);
-  let week = 1;
+  // A lean-bulk meso opens on Week 0 (baseline/calibration); it advances to Week 1 once every
+  // baseline day is logged. Non-baseline mesos start at Week 1 exactly as before.
+  let week = S.meso.baseline ? 0 : 1;
   for (; week <= totalWeeks(); week++) {
     if (S.meso.days.filter((_, i) => doneOn(week, i + 1)).length < per) break;
   }
@@ -769,6 +841,8 @@ async function bonusSession(w, d) {
 }
 // Total program length incl. optional maintenance weeks after the deload.
 const totalWeeks = () => S.meso.weeks + (S.meso.maint || 0);
+// Human label for a program week — Week 0 of a lean-bulk meso is the baseline/calibration week.
+const weekLabel = w => w <= 0 ? "Baseline week" : `Week ${w} of ${S.meso.weeks}`;
 // What KIND of week: the accumulation block, its deload, or a post-deload maintenance week.
 const weekKind = w => w < S.meso.weeks ? "accum" : w === S.meso.weeks ? "deload" : "maint";
 
@@ -1194,7 +1268,7 @@ function weekBoardStrip() {
       <span class="wbmark">${d.done ? "✓" : d.day === curDay ? "●" : d.started ? "◐" : ""}</span>
     </button>`;
   }).join("")}</div>
-  <div class="xs dim2" style="padding:0 14px 12px">Week ${b.week} of ${S.meso.weeks} · ${b.days.filter(d=>d.done).length}/${b.per} done · ${anyLeft ? "which day today? tap to pick (✓ = done)" : "tap a ✓ workout to do it again"}</div>
+  <div class="xs dim2" style="padding:0 14px 12px">${weekLabel(b.week)} · ${b.days.filter(d=>d.done).length}/${b.per} done · ${anyLeft ? "which day today? tap to pick (✓ = done)" : "tap a ✓ workout to do it again"}</div>
   </div>`;
 }
 
@@ -1212,7 +1286,7 @@ function weekStrip() {
     <div class="row">
       <div class="grow">
         <div class="lead">${w.week.length} workout${w.week.length === 1 ? "" : "s"} this week</div>
-        <div class="sm dim" style="margin-top:3px">Week ${p.week} of ${S.meso.weeks} · ${esc(p.line)}</div>
+        <div class="sm dim" style="margin-top:3px">${weekLabel(p.week)} · ${esc(p.line)}</div>
       </div>
       <span class="badge ${p.cls}">${p.badge}</span>
     </div>
@@ -1233,7 +1307,7 @@ function todayCard(day, s) {
     </div></div>
     <div class="row"><div class="grow sm dim">
       ${s.sets.length} sets · ${nEx} exercise${nEx === 1 ? "" : "s"}${day.estMinutes ? ` · ~${day.estMinutes} min` : ""}
-      ${deload ? ' · <span class="badge b-warn">DELOAD</span>' : ` · <span class="dim2">${E.rirForWeek(s.week, S.meso.weeks)} RIR</span>`}
+      ${s.week <= 0 ? ' · <span class="badge b-info">BASELINE · 2 RIR</span>' : deload ? ' · <span class="badge b-warn">DELOAD</span>' : ` · <span class="dim2">${E.rirForWeek(s.week, S.meso.weeks)} RIR</span>`}
       ${s.off_plan ? ' · <span class="badge b-info">Travel</span>' : ""}
     </div></div>
     ${started
@@ -1258,7 +1332,7 @@ function todayCard(day, s) {
 function drawDayLanding() {
   const b = weekBoard();
   const cur = currentSlot();
-  $("#v").innerHTML = todayHeader({ name: "Today" }) + weekStrip() +
+  $("#v").innerHTML = todayHeader({ name: "Today" }) + weekStrip() + bulkSetupCard() + bodyweightCard() +
     `<h4 style="margin:8px 2px 10px">Which day? <span class="dim sm" style="font-weight:400">— tap to open</span></h4>` +
     b.days.map(d => {
       const md = S.meso.days[d.day - 1];
@@ -1289,6 +1363,11 @@ function drawDayLanding() {
     }
     S.openWorkout = true; drawToday(); wake();
   });
+  const wi = $("#v").querySelector("[data-weighin]"); if (wi) wi.onclick = weighInSheet;
+  const bs = $("#v").querySelector("[data-bulkstart]");
+  if (bs) bs.onclick = () => { if (confirm("Start the lean-bulk block?\n\nUpper/Lower ×2 with a baseline week first. Your current plan and all logged workouts stay saved — this just starts a new block.")) startBulkBlock(); };
+  $("#v").querySelectorAll("[data-cal]").forEach(b => b.onclick = () =>
+    resolveCalCheck(b.dataset.cal === "hold" ? 0 : +b.dataset.cal));
   const gc = $("#gymc"); if (gc) gc.onclick = gymSheet;
 }
 
@@ -1788,6 +1867,8 @@ function drawExercise(g, e, isFirst) {
       ~10-rep weight — then choose a load you can hit for ${e.sets[0] ? e.sets[0].targetReps : 10}
       at ${e.sets[0] ? e.sets[0].rir : 2} RIR. From next session Meso ramps you automatically.</span></div>` : ""}
     ${est != null ? `<div class="note"><span>⌁</span><span>Estimated from a similar lift${est ? ` (${Math.round(est*100)}% confident)` : ""} — first set calibrates it.</span></div>` : ""}
+    ${(() => { const h = lastSetHint(e.exId, e.sets[0]); const stall = exerciseStall(e.exId);
+      return h ? `<div class="lasthint"><span class="dim2">↳ Last time</span> <b>${h.load}×${h.reps}</b> <span class="dim2">@${h.rir} RIR — target to beat</span>${stall ? ` <span class="badge b-warn" title="No e1RM gain in ${stall}+ sessions">STALL ${stall}×</span>` : ""}</div>` : ""; })()}
     <div class="sets">
       <div class="sets-hd"><div>Weight</div><div>Reps</div><div>Log</div></div>
       ${e.sets.map((st, i) => drawSet(st, i === nextIx)).join("")}
@@ -1891,6 +1972,43 @@ function drawSet(st, isNext) {
       return `<button class="restb" data-rest="${st.id}" data-muscle="${st.muscle}" data-def="${def}">${def}</button>`; })()}
   </div>`;
 }
+/* [Robert] Progressive overload: while logging, show last session's working set for this lift —
+   the number to beat. Pulls the most recent finished, on-plan, same-rep-bucket top set. */
+function lastSetHint(exId, proto) {
+  const curId = S.session && S.session.id;
+  let best = null;
+  for (const s of S.sessions) {
+    if (!s.finished || s.id === curId || s.off_plan) continue;
+    for (const x of s.sets) {
+      if (x.exId !== exId || !x.done || x.warmup || !(x.reps > 0) || x.rir == null || x.rir > 4) continue;
+      if (proto && proto.bucket && x.bucket && x.bucket !== proto.bucket) continue;
+      if (!best || s.date > best.date || (s.date === best.date && x.load > best.load))
+        best = { date: s.date, load: x.load, reps: x.reps, rir: x.rir };
+    }
+  }
+  return best;
+}
+
+/* Stall detector: the number of trailing finished sessions with NO new e1RM peak for this lift.
+   Returns 0 until there are 2+ in a row (the swap/deload signal); 2+ otherwise. [Robert] "flag any
+   exercise with no e1RM increase across 2+ consecutive sessions." */
+function exerciseStall(exId) {
+  const fin = S.sessions.filter(s => s.finished && !s.off_plan);
+  const pts = [];
+  for (const s of fin) {
+    let top = 0;
+    for (const x of s.sets) {
+      if (x.exId !== exId || !x.done || x.warmup || x.rir == null || x.rir > 4 || !(x.reps > 0)) continue;
+      top = Math.max(top, E.epley(x.load, x.reps, x.rir));
+    }
+    if (top > 0) pts.push(top);
+  }
+  if (pts.length < 3) return 0;
+  let peak = pts[0], since = 0;
+  for (let i = 1; i < pts.length; i++) { if (pts[i] > peak * 1.001) { peak = pts[i]; since = 0; } else since++; }
+  return since >= 2 ? since : 0;
+}
+
 function targetStrip(st, u) {
   // Runs and rows are measured in METRES, not reps — the rep box is the distance, and asking
   // a runner to "choose a weight for 400 at 2 RIR" is nonsense.
@@ -3113,8 +3231,9 @@ function workoutHistoryList() {
 function viewProgress() {
   const fin = S.sessions.filter(s => s.finished);
   if (!fin.length) {
-    $("#v").innerHTML = `<div class="hd"><div class="hd-row"><h2>Progress</h2></div></div>
-      <div class="empty">Nothing logged yet.<br>Finish a workout and this fills in.</div>`;
+    $("#v").innerHTML = `<div class="hd"><div class="hd-row"><h2>Progress</h2></div></div>`
+      + bodyweightSection()
+      + `<div class="empty">No workouts logged yet.<br>Finish one and strength trends fill in.</div>`;
     return;
   }
   const lib = LIB();
@@ -3142,7 +3261,7 @@ function viewProgress() {
 
   $("#v").innerHTML = `
     <div class="hd"><div class="hd-row"><div class="grow"><h2>Progress</h2></div>
-      ${S.meso ? `<span class="badge b-mid">Week ${Math.min(currentSlot().week, S.meso.weeks)}/${S.meso.weeks}</span>` : ""}
+      ${S.meso ? `<span class="badge b-mid">${currentSlot().week <= 0 ? "Baseline" : `Week ${Math.min(currentSlot().week, S.meso.weeks)}/${S.meso.weeks}`}</span>` : ""}
     </div>
     <div class="sm dim" style="margin-top:3px">${fin.length} session${fin.length>1?"s":""} logged</div></div>
 
@@ -3166,6 +3285,8 @@ function viewProgress() {
         const e = lib.find(x => x.id === p.exId) || {}; return `${e.name || p.exId} ${p.load}×${p.reps}`;
       }).join(" · "))}</div></div>
     </div></div>` : deload ? `<div class="card"><div class="row"><div class="grow sm dim">PRs paused — deload week.</div></div></div>` : ""}
+
+    ${bodyweightSection()}
 
     <h4 style="margin:18px 0 8px">Strength</h4>
     <div class="card"><div style="padding:4px 14px 10px">
@@ -3330,6 +3451,202 @@ function sparkline(pts, o) {
     g += `<line x1="${bx}" y1="0" x2="${bx}" y2="${h}" stroke="var(--bc)" stroke-opacity=".3" stroke-width="1" stroke-dasharray="1 2"/>`; });
   g += `<circle cx="${P(x(n-1))}" cy="${P(y(es[n-1]))}" r="2.5" fill="${c}"/>`;
   return open + g + "</svg>";
+}
+
+/* ================================================================
+ * BODYWEIGHT / LEAN-BULK TRACKER
+ *
+ * [Robert, Oct 2026] A lean bulk is steered by the scale. Weigh in every morning (same
+ * conditions); the trend — not any single reading — drives a ±150 kcal nudge every two weeks.
+ * The math lives in ENGINE (weighInStats / gainRate / calorieRec); this is storage + UI.
+ * Backs up to the Sheet exactly like sessions do (exportUser carries `weighins`).
+ * ================================================================ */
+async function persistUser() {
+  const i = S.users.findIndex(u => u.id === S.user.id);
+  if (i >= 0) S.users[i] = S.user;
+  await DB.put("kv", { k: "users", v: S.users });
+}
+
+async function recordWeighIn(lb, waist, date) {
+  date = date || today();
+  const rec = { id: `${S.user.id}|${date}`, userId: S.user.id, date, lb: +lb,
+                at: new Date().toISOString() };
+  if (waist && +waist > 0) rec.waist = +waist;
+  await DB.put("weighin", rec);
+  const i = S.weighins.findIndex(w => w.date === date);
+  if (i >= 0) S.weighins[i] = rec; else S.weighins.push(rec);
+  S.weighins.sort((a, b) => (a.date < b.date ? -1 : 1));
+  // Auto-update the profile bodyweight from the latest 7-day average. [Robert] "so pull-up/dip
+  // loads stay accurate as I gain" — the BW quick-fill button reads S.user.bodyweight directly.
+  const avg7 = E.trailingAvg(S.weighins, 7);
+  if (avg7) { S.user.bodyweight = Math.round(avg7 * 10) / 10; await persistUser(); }
+  syncNow(true);   // back up quietly, like a finished workout does
+}
+
+const INP = `width:100%;background:var(--b1);border:1px solid var(--line);border-radius:var(--r-btn);padding:13px 12px;outline:none;font-size:1rem;color:var(--tx);margin-top:4px`;
+function weighInSheet() {
+  const last = S.weighins[S.weighins.length - 1];
+  sheet(`<h3>Weigh-in</h3>
+    <div class="sm dim" style="margin:6px 0 14px">Morning, after the bathroom, before food — same conditions every time. Daily is best; the app only trusts the 7-day average.</div>
+    <label class="xs dim2">Date</label>
+    <input id="wdate" type="date" value="${today()}" max="${today()}" style="${INP}">
+    <label class="xs dim2" style="display:block;margin-top:12px">Weight (lb)</label>
+    <input id="wlb" type="number" inputmode="decimal" step="0.1" placeholder="${last ? last.lb : S.user.bodyweight || 155}" style="${INP}">
+    <label class="xs dim2" style="display:block;margin-top:12px">Waist (in) — optional, measure Mondays</label>
+    <input id="wwaist" type="number" inputmode="decimal" step="0.1" placeholder="${last && last.waist ? last.waist : "—"}" style="${INP}">
+    <div class="sheet-ft"><button id="wc">Cancel</button><button id="wsave" class="primary">Save</button></div>`);
+  $("#wc").onclick = closeSheet;
+  $("#wsave").onclick = async () => {
+    const lb = parseFloat($("#wlb").value), waist = parseFloat($("#wwaist").value), date = $("#wdate").value || today();
+    if (isNaN(lb) || lb <= 0) return toast("Enter your weight");
+    await recordWeighIn(lb, isNaN(waist) ? null : waist, date);
+    closeSheet(); toast("Logged"); if (S.tab === "today") go("today"); else if (S.tab === "progress") go("progress");
+  };
+}
+
+/* Mark the 2-week calorie check as done (apply a change, or hold), so the recommendation stops
+   nagging until the next window. Stored on the profile; synced with everything else. */
+async function resolveCalCheck(applyDelta) {
+  if (applyDelta) S.user.kcalTarget = (S.user.kcalTarget || 2400) + applyDelta;
+  S.user.kcalCheckedAt = today();
+  await persistUser(); syncNow(true);
+  toast(applyDelta ? `Target now ${S.user.kcalTarget} kcal` : "Holding — checked");
+  if (S.tab === "today") go("today"); else if (S.tab === "progress") go("progress");
+}
+
+/* The compact home-screen card: entry button + the numbers that matter today. Returns "" for
+   anyone but the bulk user, so Nina's home stays clean. */
+function bodyweightCard() {
+  if (S.user.id !== ADMIN_ID) return "";
+  const st = E.weighInStats(S.weighins, { kcal: S.user.kcalTarget });
+  const u = S.user.unit;
+  if (!st.count) {
+    return `<div class="card bwcard"><div class="row tap" data-weighin><div class="grow">
+      <div class="lead">Start your weigh-in log</div>
+      <div class="sm dim" style="margin-top:3px">Lean bulk runs off the scale. Log your morning weight to track the trend.</div>
+    </div><span class="swapb" style="pointer-events:none">Log</span></div></div>`;
+  }
+  const rate = st.rate;
+  const rateTxt = rate == null ? "building…" : `${rate > 0 ? "+" : ""}${rate.toFixed(2)} ${u}/wk`;
+  const rateBadge = rate == null ? "b-mid" : st.inBand ? "b-up" : "b-warn";
+  // calorie check due every 14 days (first one always offered once there's a rate)
+  const checkedAt = S.user.kcalCheckedAt;
+  const dueDays = checkedAt ? Math.floor((Date.now() - new Date(checkedAt + "T00:00:00")) / 864e5) : 99;
+  const calDue = rate != null && dueDays >= E.BULK.checkEveryDays;
+  // Monday waist nudge
+  const isMon = new Date().getDay() === 1;
+  const waistRecent = st.waistLast && (Date.now() - new Date(st.waistLast.date + "T00:00:00")) < 7 * 864e5;
+  return `<div class="card bwcard">
+    <div class="row tap" data-weighin><div class="grow">
+      <div class="lead">${st.avg7 ? st.avg7.toFixed(1) : st.latest.lb} ${u} <span class="dim sm" style="font-weight:400">7-day avg</span></div>
+      <div class="sm dim" style="margin-top:3px">Last: ${st.latest.lb} ${u} · <span class="badge ${rateBadge}">${rateTxt}</span>
+        ${rate != null ? `<span class="dim2 xs"> · band ${E.BULK.rateBand[0]}–${E.BULK.rateBand[1]}</span>` : ""}</div>
+    </div><span class="swapb" style="pointer-events:none">Log</span></div>
+    ${st.stale ? `<div style="padding:0 14px 12px"><div class="sm" style="color:var(--wc,#d08a1e)">⏱ No weigh-in in ${st.daysSince} days — the trend needs daily data.</div></div>` : ""}
+    ${isMon && !waistRecent ? `<div style="padding:0 14px 12px"><div class="sm dim">📏 It's Monday — measure your waist. Bulk stop signal is +${E.BULK.waistGainStop[0]}–${E.BULK.waistGainStop[1]} in.</div></div>` : ""}
+    ${calDue ? `<div style="padding:0 14px 14px">
+      <div class="card" style="margin:0;border-color:var(--bc)"><div style="padding:12px 14px">
+        <div class="lead sm">2-week calorie check</div>
+        <div class="sm dim" style="margin:4px 0 10px">${esc(st.rec.line)} Current target ${S.user.kcalTarget || 2400} kcal.</div>
+        <div class="seg">${st.rec.dir !== 0
+          ? `<button data-cal="${st.rec.delta}">${st.rec.delta > 0 ? "+" : ""}${st.rec.delta} → ${st.rec.next}</button><button data-cal="hold">Hold ${S.user.kcalTarget || 2400}</button>`
+          : `<button data-cal="hold">Hold ${S.user.kcalTarget || 2400} ✓</button>`}</div>
+      </div></div></div>` : ""}
+  </div>`;
+}
+
+/* The full picture for the Progress tab: 7-day-average chart, the 4-week bodyweight-vs-lifts
+   verdict, and a waist readout. */
+function bodyweightSection() {
+  if (S.user.id !== ADMIN_ID || !S.weighins.length) return "";
+  const u = S.user.unit;
+  const st = E.weighInStats(S.weighins, { kcal: S.user.kcalTarget });
+  // Daily 7-day-average series for a smooth line.
+  const days = [...new Set(S.weighins.map(w => w.date))].sort();
+  const series = days.map(d => {
+    const upto = S.weighins.filter(w => w.date <= d);
+    return { e: E.trailingAvg(upto, 7) || upto[upto.length - 1].lb };
+  });
+  const chart = series.length >= 2
+    ? sparkline(series, { color: "var(--ac)", label: "bodyweight 7-day average" })
+    : `<div class="sm dim">Keep logging — the chart needs a few days.</div>`;
+  // 4-week summary: bodyweight change vs lift trend.
+  const sum = fourWeekSummary();
+  return `<h4 style="margin:18px 0 8px">Bodyweight</h4>
+    <div class="card"><div style="padding:14px">
+      <div class="row" style="padding:0;border:0;min-height:0">
+        <div class="grow"><div class="lead">${st.avg7 ? st.avg7.toFixed(1) : st.latest.lb} ${u}</div>
+          <div class="sm dim" style="margin-top:2px">${st.rate == null ? "trend building" : `${st.rate > 0 ? "+" : ""}${st.rate.toFixed(2)} ${u}/wk`}</div></div>
+        <span class="badge ${st.inBand ? "b-up" : st.rate == null ? "b-mid" : "b-warn"}">${st.inBand ? "ON TRACK" : st.rate == null ? "…" : st.rate < E.BULK.rateBand[0] ? "SLOW" : "FAST"}</span>
+      </div>
+      <div style="margin-top:10px">${chart}</div>
+      ${st.waistFirst ? `<div class="xs dim2" style="margin-top:8px">Waist ${st.waistLast.waist} in${st.waistFirst !== st.waistLast ? ` (from ${st.waistFirst.waist} — +${(st.waistLast.waist - st.waistFirst.waist).toFixed(1)})` : ""}</div>` : ""}
+    </div></div>
+    ${sum}`;
+}
+
+/* [Robert] "4-week summary: bodyweight change vs lift progress side by side — both up = bulk
+   working; weight up + lifts flat = too much fat / training issue; weight flat = eat more." */
+function fourWeekSummary() {
+  if (S.weighins.length < 2) return "";
+  const u = S.user.unit;
+  const cutoff = new Date(Date.now() - 28 * 864e5).toISOString().slice(0, 10);
+  const recent = S.weighins.filter(w => w.date >= cutoff);
+  if (recent.length < 2) return "";
+  const bwChange = (E.trailingAvg(S.weighins, 7) || 0) - (recent[0].lb);
+  const bwUp = bwChange > 0.5, bwFlat = Math.abs(bwChange) <= 0.5;
+  // Lift side: overall strength verdict from the finished (on-plan) sessions.
+  const fin = S.sessions.filter(s => s.finished);
+  const lib = LIB();
+  const fits = [];
+  for (const m of Object.keys(E.LANDMARKS)) {
+    const keys = E.keysForMuscle(fin, lib, m);
+    if (keys.length) { const f = E.trendFit(E.smooth3(E.e1rmSeries(fin, lib, keys[0].key))); if (f.n >= 4) fits.push(f.total); }
+  }
+  const liftsUp = fits.length && (fits.reduce((a, b) => a + b, 0) / fits.length) > 0.01;
+  const liftsFlat = !fits.length || Math.abs(fits.reduce((a, b) => a + b, 0) / Math.max(1, fits.length)) <= 0.01;
+  let verdict, cls;
+  if (bwFlat) { verdict = "Weight is flat over 4 weeks — eat more. The scale is the actuator; add calories."; cls = "b-warn"; }
+  else if (bwUp && liftsUp) { verdict = "Weight up, lifts up — the bulk is working. Hold the course."; cls = "b-up"; }
+  else if (bwUp && liftsFlat) { verdict = "Weight up but lifts flat — either gaining too fast (fat) or a training issue. Check the rate and your sleep/effort."; cls = "b-warn"; }
+  else { verdict = "Mixed signal — keep logging to sharpen the read."; cls = "b-mid"; }
+  const liftTxt = fits.length ? `${(fits.reduce((a, b) => a + b, 0) / fits.length * 100).toFixed(1)}% avg strength` : "building";
+  return `<div class="card" style="margin-top:8px"><div style="padding:14px">
+    <div class="xxs dim2" style="letter-spacing:.08em;font-weight:700;margin-bottom:8px">LAST 4 WEEKS</div>
+    <div class="row" style="padding:0;border:0;min-height:0;gap:16px">
+      <div class="grow"><div class="lead">${bwChange > 0 ? "+" : ""}${bwChange.toFixed(1)} ${u}</div><div class="xs dim2">bodyweight</div></div>
+      <div class="grow"><div class="lead">${liftTxt}</div><div class="xs dim2">lifts</div></div>
+    </div>
+    <div class="sm dim" style="margin-top:10px"><span class="badge ${cls}">READ</span> ${esc(verdict)}</div>
+  </div></div>`;
+}
+
+/* Start the lean-bulk training block. Built DIRECTLY from the profile emphasis (hamstrings/quads/
+   biceps/triceps = grow, chest/back/delts = emphasize) — NOT through the intake chip flow, which
+   flattens everything to emphasize/maintain via buildEmphasis and would drop the grow tiers. ul2,
+   4 days, baseline week first. Additive: the old meso + all its logged sessions stay in storage
+   and in Progress; only the active board moves to the new block. */
+async function startBulkBlock() {
+  if (!LIB().length) return toast("Exercise library hasn't loaded");
+  const m = seedMeso(S.user, S.gym, 4, 7, "ul2");
+  m.baseline = true; m.startDay = 0;
+  await DB.put("meso", m);
+  await loadUser();
+  S.pickedDay = null; S.openWorkout = false;
+  syncNow(true).catch(() => {});
+  go("today");
+  toast("Lean-bulk block ready — baseline week first");
+}
+
+/* The one-time offer to start the bulk block, shown on Robert's home until he's on it. */
+function onBulkBlock() { return S.meso && S.meso.baseline && S.meso.splitId === "ul2"; }
+function bulkSetupCard() {
+  if (S.user.id !== ADMIN_ID || onBulkBlock()) return "";
+  return `<div class="card" style="border-color:var(--acc)"><div style="padding:14px">
+    <div class="lead">Start your lean-bulk block</div>
+    <div class="sm dim" style="margin:6px 0 12px">Upper/Lower ×2, 4 days, hamstrings promoted to grow, a hip hinge and a row guaranteed. Begins with a <b>baseline week</b> — lift every exercise at ~2 RIR to calibrate, then the ramp starts from your numbers. Your current plan and history stay saved.</div>
+    <button class="btn wide" data-bulkstart>Build the bulk block</button>
+  </div></div>`;
 }
 
 /* ================================================================
