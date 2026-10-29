@@ -1861,6 +1861,7 @@ function drawExercise(g, e, isFirst) {
       <button class="swapb${(S.user.painFlags || {})[e.exId] ? " pain" : ""}" data-swap="${e.exId}">Swap</button>
     </div>
     ${partnerNm ? `<div class="ssbadge">⇄ SUPERSET with ${esc(partnerNm)} — alternate sets</div>` : ""}
+    ${exSkipped(e.exId) ? `<div class="ssbadge" style="color:var(--dim2);border-color:var(--line);background:var(--b1)">✕ SKIPPED today — won't count against you. Next week it's back.</div>` : ""}
     <div class="demo" data-demo-panel="${e.exId}" hidden></div>
     ${feelOut ? `<div class="note"><span>⌁</span><span><b>Pick your starting weight.</b> RP's ramp:
       12 reps with something you could do ~30 times, 8 reps at a ~20-rep weight, 4 reps at a
@@ -1878,6 +1879,7 @@ function drawExercise(g, e, isFirst) {
       <button data-addset="${e.exId}">+ Add set</button>
       ${e.sets.filter(x => !x.warmup).length > 1 ? `<button data-rmset="${e.exId}">− Remove set</button>` : ""}
       <button data-ss="${e.exId}">${ss ? "⇄ Unpair" : "⇄ Superset"}</button>
+      <button data-skip="${e.exId}" class="${exSkipped(e.exId) ? "unskip" : ""}">${exSkipped(e.exId) ? "↩ Bring back" : "✕ Skip"}</button>
     </div>
   </div></div>`;
 }
@@ -1939,6 +1941,26 @@ async function addSet(exId) {
   const idx = S.session.sets.lastIndexOf(last);
   S.session.sets.splice(idx + 1, 0, ns);
   await DB.put("session", S.session);
+  redraw();
+}
+/* [Robert] "I'd like the option to say I don't want to do an exercise." A whole-exercise skip for
+   when time's short. Uses the existing reps===-1 skip marker: the sets drop out of logging, e1RM
+   and PRs, but count as handled so the session still reads complete. Session-local and reversible
+   — the plan is untouched, so next week the exercise is back. Never touches a set you already
+   logged. */
+const exSkipped = exId => {
+  const w = S.session.sets.filter(x => x.exId === exId && !x.warmup);
+  return w.length > 0 && w.some(x => x.reps === -1) && w.every(x => x.reps === -1 || x.done);
+};
+async function skipExercise(exId) {
+  const mine = S.session.sets.filter(x => x.exId === exId);
+  const bringingBack = exSkipped(exId);
+  for (const x of mine) {
+    if (x.done) continue;                       // logged sets are history — never touch them
+    x.reps = bringingBack ? null : -1;
+  }
+  await DB.put("session", S.session);
+  toast(bringingBack ? "Back in" : "Skipped — won't count against you");
   redraw();
 }
 async function removeSet(exId) {
@@ -2169,6 +2191,7 @@ Extra session at this week's level — it counts toward your volume and won't sk
   v.querySelectorAll("[data-addset]").forEach(b => b.onclick = () => addSet(b.dataset.addset));
   v.querySelectorAll("[data-rmset]").forEach(b => b.onclick = () => removeSet(b.dataset.rmset));
   v.querySelectorAll("[data-ss]").forEach(b => b.onclick = () => supersetExercise(b.dataset.ss));
+  v.querySelectorAll("[data-skip]").forEach(b => b.onclick = () => skipExercise(b.dataset.skip));
   // Tappable per-set rest timer: tap to start its countdown; tap the running one to stop.
   v.querySelectorAll(".restb").forEach(b => b.onclick = () =>
     (S.rest && S.rest.setId === b.dataset.rest) ? stopRest() : startRest(b.dataset.muscle, b.dataset.rest));
