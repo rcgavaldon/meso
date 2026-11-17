@@ -1366,6 +1366,7 @@ function drawDayLanding() {
   const wi = $("#v").querySelector("[data-weighin]"); if (wi) wi.onclick = weighInSheet;
   const bs = $("#v").querySelector("[data-bulkstart]");
   if (bs) bs.onclick = () => { if (confirm("Start the lean-bulk block?\n\nUpper/Lower ×2 with a baseline week first. Your current plan and all logged workouts stay saved — this just starts a new block.")) startBulkBlock(); };
+  $("#v").querySelectorAll("[data-kcal]").forEach(b => b.onclick = () => adjustKcal(+b.dataset.kcal));
   $("#v").querySelectorAll("[data-cal]").forEach(b => b.onclick = () =>
     resolveCalCheck(b.dataset.cal === "hold" ? 0 : +b.dataset.cal));
   const gc = $("#gymc"); if (gc) gc.onclick = gymSheet;
@@ -3575,7 +3576,23 @@ function bodyweightCard() {
           ? `<button data-cal="${st.rec.delta}">${st.rec.delta > 0 ? "+" : ""}${st.rec.delta} → ${st.rec.next}</button><button data-cal="hold">Hold ${S.user.kcalTarget || 2400}</button>`
           : `<button data-cal="hold">Hold ${S.user.kcalTarget || 2400} ✓</button>`}</div>
       </div></div></div>` : ""}
+    <div style="padding:0 14px 14px"><div class="row" style="padding:0;border:0;min-height:0;align-items:center;gap:10px">
+      <div class="grow sm dim">Calorie target</div>
+      <div class="kcalstep"><button data-kcal="-150">−150</button>
+        <span class="kcalval">${S.user.kcalTarget || 2400}</span>
+        <button data-kcal="150">+150</button></div>
+    </div></div>
   </div>`;
+}
+
+/* Manual calorie-target nudge, always available (the 2-week card only shows when a check is due).
+   Steers by the scale, not the food log — Robert's logging is loose, so this is the real dial.
+   Changes only the target; leaves the 2-week check clock alone. On-device so it syncs cleanly. */
+async function adjustKcal(delta) {
+  S.user.kcalTarget = Math.max(1200, (S.user.kcalTarget || 2400) + delta);
+  await persistUser(); syncNow(true);
+  toast(`Target ${S.user.kcalTarget} kcal`);
+  if (S.tab === "today") go("today"); else if (S.tab === "progress") go("progress");
 }
 
 /* The full picture for the Progress tab: 7-day-average chart, the 4-week bodyweight-vs-lifts
